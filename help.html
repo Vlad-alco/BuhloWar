@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инструкция | BuhloWar System</title>
+    <script src="./js/lucide.js"></script>
+    <script src="./js/tailwindcss.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700&display=swap');
+        :root {
+            --amber: #f59e0b; --amber-dim: #92400e; --cyan: #22d3ee;
+            --red: #f87171; --green: #4ade80;
+            --bg: #0a0c0f; --surface: #111318; --surface2: #1a1d24;
+            --border: #2a2d36; --text: #c9cdd6; --text-dim: #6b7280;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; scroll-behavior: smooth; }
+        body::before { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); pointer-events: none; z-index: 100; }
+        header { background: var(--surface); border-bottom: 1px solid var(--amber-dim); padding: 12px 16px; position: sticky; top: 0; z-index: 40; display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-family: 'Unbounded', sans-serif; font-size: 14px; color: var(--amber); letter-spacing: 0.1em; text-transform: uppercase; }
+        .header-back { color: var(--text-dim); text-decoration: none; font-size: 11px; display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
+        .header-back:hover { color: var(--amber); }
+        .layout { display: flex; min-height: 100vh; }
+        aside { width: 240px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); position: sticky; top: 49px; height: calc(100vh - 49px); overflow-y: auto; padding: 16px 0; }
+        .nav-section { padding: 4px 16px 8px; font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 8px; }
+        aside a { display: flex; align-items: center; gap: 8px; padding: 7px 16px; color: var(--text-dim); text-decoration: none; font-size: 11px; transition: all 0.15s; border-left: 2px solid transparent; }
+        aside a:hover { color: var(--text); background: var(--surface2); border-left-color: var(--border); }
+        aside a.active { color: var(--amber); border-left-color: var(--amber); background: rgba(245,158,11,0.05); }
+        aside a.danger { color: #ef4444; }
+        aside a.danger:hover { color: #f87171; border-left-color: #ef4444; }
+        main { flex: 1; padding: 32px 48px; max-width: 900px; }
+        section { margin-bottom: 56px; }
+        .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        .section-num { font-family: 'Unbounded', sans-serif; font-size: 10px; color: var(--amber); background: rgba(245,158,11,0.1); border: 1px solid var(--amber-dim); padding: 3px 8px; border-radius: 3px; }
+        h2 { font-family: 'Unbounded', sans-serif; font-size: 16px; color: #fff; font-weight: 700; }
+        h3 { font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: 0.1em; margin: 20px 0 10px; font-weight: 700; }
+        p { color: var(--text); margin-bottom: 10px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin-bottom: 12px; }
+        .card-warn { background: rgba(245,158,11,0.05); border-color: var(--amber-dim); }
+        .card-danger { background: rgba(239,68,68,0.05); border-color: #7f1d1d; }
+        .card-ok { background: rgba(74,222,128,0.05); border-color: #14532d; }
+        .card-info { background: rgba(34,211,238,0.05); border-color: #164e63; }
+        .steps { counter-reset: step; }
+        .step { display: flex; gap: 16px; margin-bottom: 16px; }
+        .step::before { counter-increment: step; content: counter(step); font-family: 'Unbounded', sans-serif; font-size: 11px; color: var(--bg); background: var(--amber); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+        .step-content { flex: 1; }
+        .step-title { color: #fff; font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+        .step-body { color: var(--text); }
+        .param-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .param-table th { background: var(--surface2); padding: 8px 12px; text-align: left; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
+        .param-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .param-table tr:last-child td { border-bottom: none; }
+        .param-table tr:hover td { background: var(--surface2); }
+        .param-name { color: var(--cyan); font-weight: 700; font-size: 12px; display: block; }
+        .param-lcd { color: var(--text-dim); font-size: 10px; display: block; margin-top: 2px; }
+        .param-value { color: var(--amber); white-space: nowrap; }
+        .param-desc { color: var(--text); }
+        .flow { display: flex; flex-wrap: wrap; gap: 0; margin: 16px 0; }
+        .flow-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .flow-stage { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--text); white-space: nowrap; }
+        .flow-stage.active { border-color: var(--amber); color: var(--amber); }
+        .flow-stage.finish { border-color: var(--green); color: var(--green); }
+        .flow-stage.danger { border-color: var(--red); color: var(--red); }
+        .flow-arrow { color: var(--border); padding: 0 4px; font-size: 14px; }
+        .alarm-item { display: grid; grid-template-columns: 150px 1fr 1fr; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); align-items: start; }
+        .alarm-item:last-child { border-bottom: none; }
+        .lcd { background: #0d1a0d; border: 2px solid #1a3a1a; border-radius: 4px; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #4ade80; letter-spacing: 0.05em; margin: 12px 0; line-height: 1.8; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        .badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11px; font-weight: 700; vertical-align: middle; }
+        .badge-amber { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid var(--amber-dim); }
+        .badge-red { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid #7f1d1d; }
+        .badge-green { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid #14532d; }
+        .badge-cyan { background: rgba(34,211,238,0.15); color: var(--cyan); border: 1px solid #164e63; }
+        .badge-gray { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid #374151; }
+        .callout { display: flex; gap: 12px; padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 12px; }
+        .callout-icon { flex-shrink: 0; margin-top: 1px; }
+        .callout-warn { background: rgba(245,158,11,0.08); border: 1px solid var(--amber-dim); }
+        .callout-danger { background: rgba(239,68,68,0.08); border: 1px solid #7f1d1d; color: #fca5a5; }
+        .callout-tip { background: rgba(34,211,238,0.08); border: 1px solid #164e63; color: #67e8f9; }
+        ul.dot { list-style: none; padding: 0; }
+        ul.dot li { padding: 4px 0 4px 16px; position: relative; color: var(--text); }
+        ul.dot li::before { content: '▸'; position: absolute; left: 0; color: var(--amber); }
+        code { background: var(--surface2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--cyan); }
+        @media (max-width: 768px) { aside { display: none; } main { padding: 20px 16px; } .alarm-item { grid-template-columns: 1fr; } }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+<header>
+    <span class="header-title">BuhloWar // Руководство пользователя</span>
+    <a href="/www/index.html" class="header-back"><i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Вернуться к системе</a>
+</header>
+<div class="layout">
+<aside>
+    <div class="nav-section">Основное</div>
+    <a href="#section-start"><i data-lucide="power" style="width:13px;height:13px;flex-shrink:0"></i> Первый запуск</a>
+    <a href="#section-hardware"><i data-lucide="cpu" style="width:13px;height:13px;flex-shrink:0"></i> Подключение</a>
+    <a href="#section-calibration"><i data-lucide="sliders" style="width:13px;height:13px;flex-shrink:0"></i> Калибровка</a>
+    <a href="#section-params"><i data-lucide="settings" style="width:13px;height:13px;flex-shrink:0"></i> Параметры</a>
+    <div class="nav-section">Процессы</div>
+    <a href="#section-dist"><i data-lucide="droplets" style="width:13px;height:13px;flex-shrink:0"></i> Дистилляция</a>
+    <a href="#section-rect"><i data-lucide="activity" style="width:13px;height:13px;flex-shrink:0"></i> Ректификация</a>
+    <div class="nav-section">Помощь</div>
+    <a href="#section-alarms"><i data-lucide="bell" style="width:13px;height:13px;flex-shrink:0"></i> Аварии и тревоги</a>
+    <a href="#section-safety" class="danger"><i data-lucide="shield-alert" style="width:13px;height:13px;flex-shrink:0"></i> Безопасность</a>
+</aside>
+<main>
+
+<!-- 1. ПЕРВЫЙ ЗАПУСК -->
+<section id="section-start">
+    <div class="section-header"><span class="section-num">01</span><h2>Первый запуск</h2></div>
+    <p>Система BuhloWar автоматизирует управление самогонным аппаратом: контролирует нагрев, клапаны отбора, датчики температуры и учитывает атмосферное давление. Вы задаёте параметры — система ведёт процесс и остановится при превышении лимитов безопасности или по окончании отбора.</p>
+    <div class="callout callout-warn">
+        <i data-lucide="alert-triangle" class="callout-icon" style="width:15px;height:15px;color:#f59e0b"></i>
+        <span>Перед первым включением убедитесь что все силовые цепи (ТЭН, реле) обесточены. Подавайте питание на силовую часть только после завершения настройки.</span>
+    </div>
+    <h3>Что сделать до первого перегона и в процессе</h3>
+    <div class="steps">
+        <div class="step"><div class="step-content">
+            <div class="step-title">Вставьте SD-карту</div>
+            <div class="step-body">На карте должны находиться файлы веб-интерфейса (папка <code>www/</code>) и файл настроек WiFi (<code>wifi_config.txt</code>). Без карты система работает только с LCD и кнопками.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Настройте WiFi</div>
+            <div class="step-body">В файле <code>wifi_config.txt</code> укажите имя и пароль сети. 
+После подключения IP-адрес отобразится на LCD — откройте его в браузере.Можно задать две сети — система попробует обе. <a href="#" onclick="document.getElementById('wifi-example-modal').style.display='flex';return false;" style="color:#60a5fa;text-decoration:underline;">пример</a></div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Назначьте датчики температуры</div>
+            <div class="step-body">Перейдите в раздел <span class="badge badge-cyan">Датчики</span> и назначьте каждый датчик DS18B20 на свою роль: ТСА, ЦАРГ, БАК, ВОДА. Без этого запуск процесса заблокирован.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Задайте рабочие параметры</div>
+            <div class="step-body">В разделах <span class="badge badge-amber">Дистилляция</span> и <span class="badge badge-amber">Ректификация</span> настройте параметры под вашу установку. Нажмите <span class="badge badge-green">СОХРАНИТЬ</span> — значения записываются в память и сохраняются после перезагрузки.</div>
+        </div></div>
+        
+    </div>
+</section>
+
+<!-- 2. ПОДКЛЮЧЕНИЕ -->
+<section id="section-hardware">
+    <div class="section-header"><span class="section-num">02</span><h2>Подключение оборудования</h2></div>
+    <table class="param-table">
+        <thead><tr><th>Выход</th><th>Назначение</th><th>Примечание</th></tr></thead>
+        <tbody>
+            <tr><td><span class="param-name">CONTACTOR</span></td><td class="param-desc">Силовой контактор (РМ)</td><td class="param-desc">Включает регулятор мощности (РМ-2М)</td></tr>
+            <tr><td><span class="param-name">HEATER PIN1</span></td><td class="param-desc">НАГРЕВ</td><td class="param-desc">Включается при разгоне и отборе (рабочая мощность на РМ)</td></tr>
+            <tr><td><span class="param-name">HEATER PIN2</span></td><td class="param-desc">РАЗГОН</td><td class="param-desc">Включается только при <span class="badge badge-gray">РАЗГОН НА ВСЮ = YES</span> полная мощность сети</td></tr>
+            
+            <tr><td><span class="param-name">VALVE WATER</span></td><td class="param-desc">Клапан подачи воды</td><td class="param-desc">Открывается в начале процесса, закрывается через 5 мин после завершения</td></tr>
+            <tr><td><span class="param-name">VALVE HEAD</span></td><td class="param-desc">Клапан отбора голов</td><td class="param-desc">Всегда НЗ (нормально закрытый)</td></tr>
+            <tr><td><span class="param-name">VALVE BODY</span></td><td class="param-desc">Клапан отбора тела</td><td class="param-desc">НЗ или НО — задаётся параметром <span class="badge badge-gray">ТИП.КЛ.ТЕЛО</span></td></tr>
+            <tr><td><span class="param-name">MIXER</span></td><td class="param-desc">Мешалка</td><td class="param-desc">Только для дистилляции, работает циклически</td></tr>
+            <tr><td><span class="param-name">BUZZER</span></td><td class="param-desc">Звуковой сигнал</td><td class="param-desc">Оповещение об авариях</td></tr>
+        </tbody>
+    </table>
+    <h3>Датчики температуры</h3>
+    <table class="param-table">
+        <thead><tr><th>Обозначение</th><th>Точка измерения</th></tr></thead>
+        <tbody>
+            <tr><td><span class="param-name">ТСА</span></td><td class="param-desc">Трубка связи с атмосферой</td></tr>
+            <tr><td><span class="param-name">ЦАРГ</span></td><td class="param-desc">Температура в царге</td></tr>
+            <tr><td><span class="param-name">БАК</span></td><td class="param-desc">Температура в баке (кубе)</td></tr>
+            <tr><td><span class="param-name">ВОДА</span></td><td class="param-desc">Температура охлаждающей воды на выходе из дифлегматора</td></tr>
+        </tbody>
+    </table>
+    <div class="callout callout-tip">
+        <i data-lucide="info" class="callout-icon" style="width:15px;height:15px;color:#22d3ee"></i>
+        <span>Если датчик не отвечает — система выведет статус NOT FOUND и заблокирует запуск. Проверьте подключение и выполните повторное назначение в разделе Датчики.</span>
+    </div>
+</section>
+
+<!-- 3. КАЛИБРОВКА -->
+<section id="section-calibration">
+    <div class="section-header"><span class="section-num">03</span><h2>Калибровка</h2></div>
+    <h3>Датчики температуры</h3>
+    <p>Каждый датчик DS18B20 имеет уникальный адрес. Назначение выполняется один раз и сохраняется в памяти.</p>
+    <div class="steps">
+        <div class="step"><div class="step-content">
+            <div class="step-title">Откройте раздел Датчики</div>
+            <div class="step-body">В веб-интерфейсе нажмите <span class="badge badge-cyan">Датчики</span> в главном меню. </div>
+            <div class="step-body">Или на LCD выберите <span class="badge badge-cyan">SENSORS</span> в главном меню.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Выберите датчик для назначения</div>
+            <div class="step-body">Нажмите на нужный датчик, например <strong>ТСА</strong>. Нагрейте его на 2°C выше окружающей температуры — подержите в руке или опустите в тёплую воду. Система обнаружит изменение и предложит сохранить адрес.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Подтвердите назначение</div>
+            <div class="step-body">Нажмите <span class="badge badge-green">ДА</span>. Повторите для всех четырёх датчиков: ТСА, ЦАРГ, БАК, ВОДА.</div>
+        </div></div>
+    </div>
+
+    <h3>Клапаны калибровка (для ректификации)</h3>
+    <div class="callout callout-warn">
+        <i data-lucide="alert-triangle" class="callout-icon" style="width:15px;height:15px;color:#f59e0b"></i>
+        <span>Калибровка выполняется на этапе <span class="badge badge-amber">VALVE CAL</span>, когда колонна уже разогрета и стабилизирована. Цель: определить пропускную способность клапанов и определить значения таймингов для задания стандартных скоростей отбора</span>
+    </div>
+    <p>В процессе работы ректификации система рассчитывает объём отбора основываясь на пропускной способности клапанов — количества мл, которое проходит через клапан за одну минуту при полном открытии. И расчитывает общее время работы и скорость отбора для периодического отбора голов или тела</p>
+    <div class="steps">
+        <div class="step"><div class="step-content">
+            <div class="step-title">Дождитесь этапа VALVE CAL</div>
+            <div class="step-body">После разогрева и стабилизации колонны система предложит калибровку если <span class="badge badge-gray">КАЛИБРОВКА КЛ. = YES</span>. В этот момент пары спирта уже есть и реальный отбор возможен.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Запустите тест клапана</div>
+            <div class="step-body">В разделе <span class="badge badge-cyan">Клапана</span>укажите время открыт 30 и закрыт 1, ВРЕМЯ ТЕСТА 31  и нажмите <span class="badge badge-amber">RUN TEST</span> для нужного клапана. Подставьте мерную ёмкость и соберите весь вышедший продукт.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Рассчитайте и введите расход (пропускную способность)</div>
+            <div class="step-body">Измерьте объём в мл. Пересчитайте: <code>объём × (60 ÷ время_теста)</code>. Введите в поле <span class="badge badge-gray">РАСХ.ГОЛ.(ml/m)</span> или <span class="badge badge-gray">РАСХ.ТЕЛ.НЗ(ml/m)</span> / <span class="badge badge-gray">РАСХ.ТЕЛ.НО(ml/m)</span>.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Подбор скорости отбора</div>
+            <div class="step-body">В разделе <span class="badge badge-cyan">Клапана</span>укажите время открыт и закрыт и ВРЕМЯ ТЕСТА, нажмите <span class="badge badge-amber">RUN TEST</span> для нужного клапана. Он проработает <span class="badge badge-gray">ВРЕМЯ ТЕСТА (s)</span>. Подставьте мерную ёмкость и соберите весь вышедший продукт. Задача добится скорости отбора равной 50мл/ч для клапана голов и 500 мл/ч для клапана тела.</div>
+        </div></div>
+        <div class="step"><div class="step-content">
+            <div class="step-title">Завершите калибровку</div>
+            <div class="step-body">Нажмите <span class="badge badge-green">ЗАВЕРШИТЬ ТЕСТ</span> — система сохранит тайминги для клапанов  и их пропускную способность и перейдёт к следующему этапу.</div>
+        </div></div>
+    </div>
+    <div class="card card-info">
+        <p style="color:#67e8f9;font-weight:700;margin-bottom:6px;">Пример расчёта пропускной способности, время открыт 30 и закрыт 1, ВРЕМЯ ТЕСТА 31</p>
+        <p>Время пролива: 30 сек. Собрано: 75 мл.<br>
+        Расход = 75 × (60 ÷ 30) = <strong style="color:var(--amber)">150 мл/мин</strong> — типичное значение для большинства игольчатых клапанов.</p>
+    </div>
+</section>
+
+<!-- 4. ПАРАМЕТРЫ -->
+<section id="section-params">
+    <div class="section-header"><span class="section-num">04</span><h2>Параметры системы</h2></div>
+    <p>Названия в веб-интерфейсе и на LCD совпадают с тем что вы видите на экранах.</p>
+
+    <h3>Общие настройки</h3>
+    <table class="param-table">
+        <thead><tr><th>Параметр</th><th>Рек. значение</th><th>Описание</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><span class="param-name">ВРЕМЯ АВАРИИ</span><span class="param-lcd">мин / LCD: VREAC</span></td>
+                <td><span class="param-value">5 мин</span></td>
+                <td class="param-desc">Время на устранение аварии ТСА до принудительного останова. Отсчёт начинается как только температура ТСА превысила лимит.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">НАСЕБЯ</span><span class="param-lcd">мин / LCD: NASEBYA</span></td>
+                <td><span class="param-value">10 мин</span></td>
+                <td class="param-desc">Время стабилизации колонны перед отбором голов. Колонна работает «на себя» без отбора, выходя на рабочий режим.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ПОВТ.НАСЕБЯ</span><span class="param-lcd">мин / LCD: VKLAP</span></td>
+                <td><span class="param-value">10 мин</span></td>
+                <td class="param-desc">Время повторной стабилизации после «залёта» по гистерезису на этапе отбора тела (метод Стандарт). Клапан закрывается, система ждёт восстановления температуры.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">МАХ Т.СИСТЕМЫ</span><span class="param-lcd">°C / LCD: BOX_TPR</span></td>
+                <td><span class="param-value">50–55°C</span></td>
+                <td class="param-desc">Максимальная температура внутри корпуса контроллера. При превышении — звуковое предупреждение каждые 30 сек. Процесс не останавливается. Уточните при реальной эксплуатации.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">МОЩНОСТЬ</span><span class="param-lcd">Вт / LCD: POWER</span></td>
+                <td><span class="param-value">мощность нагрева</span></td>
+                <td class="param-desc">Рабочая мощность подаваемая в бак. Используется для расчёта скорости образования пара и объёма отбора в ректификации.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">КОЛ-ВО АС</span><span class="param-lcd">мл / LCD: AS_VOL</span></td>
+                <td><span class="param-value">объём АС в кубе</span></td>
+                <td class="param-desc">Объём абсолютного спирта в кубе перед ректификацией. Рассчитайте заранее: объём сырца (мл) × крепость / 100. Используется для расчёта времени и объёма в отборах.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">WIFI ЧЕК</span><span class="param-lcd">мин / LCD: WIFI CHK</span></td>
+                <td><span class="param-value">5 мин</span></td>
+                <td class="param-desc">Интервал проверки соединения. Не влияет на работу процесса.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Настройки дистилляции</h3>
+    <table class="param-table">
+        <thead><tr><th>Параметр</th><th>Рек. значение</th><th>Описание</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><span class="param-name">РАЗГОН ДО</span><span class="param-lcd">°C / LCD: RAZGON</span></td>
+                <td><span class="param-value">73°C</span></td>
+                <td class="param-desc">Температура в кубе для завершения разгона. Спирт начинает кипеть при 78.5°C — запас 5°C позволяет среагировать до первых испарений. Используется в обоих процессах: дистилляция и ректификация.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">БАКСТОП</span><span class="param-lcd">°C / LCD: BAKSTOP</span></td>
+                <td><span class="param-value">98°C</span></td>
+                <td class="param-desc">Температура в кубе при которой дистилляция завершается.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">СМЕНА ТАРЫ</span><span class="param-lcd">°C / LCD: MIDTERM</span></td>
+                <td><span class="param-value">92°C</span></td>
+                <td class="param-desc">Температура в <strong>кубе</strong>, при достижении которой система запрашивает смену ёмкости. Для простой дистилляции — 92°C. По методу Горбунова ориентируйтесь на крепость в струе отбора.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ТИП НАГРЕВА</span><span class="param-lcd"> LCD: NAGREV 1 ind 0 тэн</span></td>
+                <td><span class="param-value">TEN</span></td>
+                <td class="param-desc"><span class="badge badge-gray">TEN</span> — электрический ТЭН (система управляет автоматически). <span class="badge badge-gray">IND</span> — внешний нагрев индукция или газ (система не управляет нагревом, только сигнализирует о готовности к отбору).</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">РАЗГОН НА ВСЮ</span><span class="param-lcd"> LCD: FULL PWR</span></td>
+                <td><span class="param-value">NO</span></td>
+                <td class="param-desc">Разгон при полной мощности: установка получает всю мощность которую даёт сеть. Ускоряет разогрев, но требует соответствующей проводки.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ИСП.КЛ.ОТБОРА</span><span class="param-lcd">LCD: VALVE USE</span></td>
+                <td><span class="param-value">YES</span></td>
+                <td class="param-desc">Использовать клапан отбора тела в дистилляции. Если <span class="badge badge-gray">NO</span> — продукт идёт самотёком без управления клапаном.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ИСП. МЕШАЛКА</span><span class="param-lcd">LCD: MIXER EN</span></td>
+                <td><span class="param-value">NO</span></td>
+                <td class="param-desc">Включить мешалку в кубе. Обеспечивает равномерный нагрев. Работает циклически по расписанию.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">МЕШАЛКА ВКЛ / ВЫКЛ</span><span class="param-lcd">сек /LCD: MIXER ON/MIXER OFF</span></td>
+                <td><span class="param-value">30 / 120 сек</span></td>
+                <td class="param-desc">Время работы и время паузы мешалки за один цикл.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Настройки ректификации</h3>
+    <table class="param-table">
+        <thead><tr><th>Параметр</th><th>Рек. значение</th><th>Описание</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><span class="param-name">ТСА ЛИМИТ</span><span class="param-lcd">°C / LCD: TSALIMIT</span></td>
+                <td><span class="param-value">55°C</span></td>
+                <td class="param-desc">Температура тревоги датчика ТСА. При превышении запускается обратный отсчёт из ВРЕМЯ АВАРИИ. Если за это время не устранить причину — система завершит процесс.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ЦИКЛЫ ОТБОРА</span><span class="param-lcd">LCD: CYCLE</span></td>
+                <td><span class="param-value">3</span></td>
+                <td class="param-desc">Максимальное число циклов повторной стабилизации после «залёта» по гистерезису. </td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ГИСТЕРЕЗИС</span><span class="param-lcd">°C / LCD: HISTTER</span></td>
+                <td><span class="param-value">0.24°C</span></td>
+                <td class="param-desc">Для метода Стандарт: порог «залёта» — насколько температура в царге может подняться выше запомненной прежде чем клапан закроется. Для метода Шпора: порог окончания отбора тела.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ДЭЛЬТА</span><span class="param-lcd">°C / LCD: DELTA</span></td>
+                <td><span class="param-value">0.12–0.18°C</span></td>
+                <td class="param-desc">Только для метода Шпора: допустимый прирост температуры в царге. Если выше — система снижает скорость отбора. Подбирается при реальной работе.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ТИП.КЛ.ТЕЛО</span><span class="param-lcd">/ LCD: VALVEBODY</span></td>
+                <td><span class="param-value">NC</span></td>
+                <td class="param-desc"><span class="badge badge-gray">NC</span> — нормально закрытый. <span class="badge badge-gray">NO</span> — нормально открытый. Метод Шпора работает только с NC.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">МЕТОД ГОЛОВЫ</span><span class="param-lcd">/ LCD: HEADTYPE</span></td>
+                <td><span class="param-value">ST или KSS</span></td>
+                <td class="param-desc"><span class="badge badge-gray">ST</span> — Standard: фиксированные тайминги клапана. <span class="badge badge-gray">KSS</span> — расчётный объём из мощности и объёма АС. Подробнее в разделе Ректификация.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ИСП.КЛ.ГОЛОВ</span><span class="param-lcd">/ LCD: HEADVALVE</span></td>
+                <td><span class="param-value">YES</span></td>
+                <td class="param-desc">Использовать отдельный клапан для отбора голов. Если <span class="badge badge-gray">NO</span> — головы отбираются через клапан тела.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">КАЛИБРОВКА КЛ.</span><span class="param-lcd">/ LCD: CALIBRATE</span></td>
+                <td><span class="param-value">YES</span></td>
+                <td class="param-desc">Выполнять этап калибровки при ректификации после 1 стабилизации колонны. После первой успешной калибровки можно выставить <span class="badge badge-gray">NO</span>. В дальнейшем корректировать в самом меню Ректификации.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ГОЛ. ОТКР / ГОЛ. ЗАКР</span><span class="param-lcd">сек /LCD: HEAD OPN/HEAD CLS</span></td>
+                <td><span class="param-value">подбирается</span></td>
+                <td class="param-desc">Для коррекции Таймингов цикла клапана голов для метода ST (50 мл/ч/кВт): сколько секунд клапан открыт и закрыт. Соотношение определяет скорость отбора.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">ТЕЛО ОТКР / ТЕЛО ЗАКР</span><span class="param-lcd">сек /LCD: BODY OPN/BODY CLS</span></td>
+                <td><span class="param-value">подбирается</span></td>
+                <td class="param-desc">Для коррекции Таймингов цикла клапана тела для метода Стандарт (500 мл/ч/кВт).</td>
+            </tr>
+			<tr>
+                <td><span class="param-name">ВРЕМЯ ТЕСТА</span><span class="param-lcd">сек /LCD: TESTTIME</span></td>
+                <td><span class="param-value">подбирается</span></td>
+                <td class="param-desc">Время выполнения теста клапана.</td>
+            </tr>
+            <tr>
+                <td><span class="param-name">РАСХ.ГОЛ. / РАСХ.ТЕЛ.НЗ / РАСХ.ТЕЛ.НО</span><span class="param-lcd">мл/мин /LCD: HCAP/BCAP/B0CAP</span></td>
+                <td><span class="param-value">~150 мл/мин</span></td>
+                <td class="param-desc">Для коррекции Пропускной способности клапанов — измеренной при калибровке.</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- 5. ДИСТИЛЛЯЦИЯ -->
+<section id="section-dist">
+    <div class="section-header"><span class="section-num">05</span><h2>Процесс дистилляции</h2></div>
+    <p>Дистилляция — первичная перегонка браги в спирт-сырец (Подстил) , либо перегон араматного СС для получения дистиллята. Процесс автоматический: разогрев куба, ожидание начала испарений, отбор, смена тары, стоп.</p>
+    <h3>Цепочка этапов</h3>
+    <div class="flow">
+        <div class="flow-item"><div class="flow-stage active">WATER TEST</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">RAZGON</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">WAITING</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">OTBOR</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">REPLACEMENT</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage danger">BAKSTOP</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage finish">FINISHING</div></div>
+    </div>
+    <h3>Описание этапов</h3>
+    <div class="card">
+        <p><span class="badge badge-cyan">WATER TEST</span> &nbsp;Система открывает клапан воды и ждёт подтверждения. Проверьте что охлаждение работает и нет протечек. <span class="badge badge-green">ДА</span> — продолжить, <span class="badge badge-red">НЕТ</span> — отменить.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-amber">RAZGON</span> &nbsp;Нагрев куба до <span class="badge badge-gray">РАЗГОН ДО</span> (73°C). Если задан <span class="badge badge-gray">РАЗГОН НА ВСЮ = YES</span> — в кубе вся мощность сети. Мешалка работает по расписанию если включена.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-amber">WAITING</span> &nbsp;Ожидание начала испарения спирта. Куб разогрелся, первые пары поднимаются — система ждёт перед началом отбора. Завершается автоматически.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-cyan">OTBOR</span> &nbsp;Основной отбор.  Система следит за температурой куба. По достижении <span class="badge badge-gray">БАКСТОП</span> (98°C) — отбор заканчивается.</p>
+    </div>
+    <div class="card card-warn">
+        <p><span class="badge badge-amber">REPLACEMENT</span> &nbsp;При достижении температуры куба <span class="badge badge-gray">СМЕНА ТАРЫ</span> (92°C). Если <span class="badge badge-gray">ИСП.КЛ.ОТБОРА = YES</span> — клапан тела закрывается, и система запрашивает смену ёмкости. Замените тару и нажмите <span class="badge badge-green">ДА</span> чтобы продолжить отбор. <span class="badge badge-red">НЕТ</span> — завершить процесс.</p>
+    </div>
+    <div class="card card-danger">
+        <p><span class="badge badge-red">BAKSTOP</span> &nbsp;Температура куба достигла <span class="badge badge-gray">БАКСТОП</span>. Нагрев выключается — дистилляция завершена.</p>
+    </div>
+    <div class="card card-ok">
+        <p><span class="badge badge-green">FINISHING</span> &nbsp;Охлаждение: вода открыта 5 минут, нагрев и клапаны выключены. После 5 минут вода закрывается, система в режиме ожидания.</p>
+    </div>
+    <h3>Пример отображения на LCD во время отбора</h3>
+    <div class="lcd">36.19 DIST  -  W   40%<br>23.81 OTBOR       85%<br>34.06 NORMA<br>00:56 01:23:45   98</div>
+    <p style="color:var(--text-dim);font-size:11px;">Слева направо: температура ТСА / процесс / статус сети /крепость в баке</p>
+    <p style="color:var(--text-dim);font-size:11px;">Слева направо: температура ВОДА / этап / крепость в отборе</p>
+    <p style="color:var(--text-dim);font-size:11px;">Слева направо: температура ЦАРГА / сотояние</p>
+    <p style="color:var(--text-dim);font-size:11px;">Слева направо: температура БАК /общее время / температура останова</p>
+</section>
+
+<!-- 6. РЕКТИФИКАЦИЯ -->
+<section id="section-rect">
+    <div class="section-header"><span class="section-num">06</span><h2>Процесс ректификации</h2></div>
+    <p>Ректификация — получение чистого спирта 96°+ с разделением на фракции: головы / тело / хвосты. Требует калибровки клапанов и правильно настроенных параметров.</p>
+    <h3>Цепочка этапов</h3>
+    <div class="flow">
+        <div class="flow-item"><div class="flow-stage active">WATER TEST</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">RAZGON</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">NASEBYA</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">VALVE CAL</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">SET PW&AS</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">GOLOVY</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">GOLOVY OK?</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage active">TELO</div><div class="flow-arrow">→</div></div>
+        <div class="flow-item"><div class="flow-stage finish">FINISHING</div></div>
+    </div>
+    <h3>Описание этапов</h3>
+    <div class="card">
+        <p><span class="badge badge-amber">NASEBYA</span> &nbsp;Насыщение колонны. Нагрев включён, все клапаны закрыты — пар заполняет колонну и она выходит на рабочий режим. Длится <span class="badge badge-gray">НАСЕБЯ</span> (10 мин). Не торопитесь — от качества насыщения зависит вся ректификация.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-cyan">VALVE CAL</span> &nbsp;Калибровка клапанов (если <span class="badge badge-gray">КАЛИБРОВКА КЛ. = YES</span>). Колонна уже разогрета — пары спирта есть, можно реально измерить пропускную способность и затем подобрать тайминги. Подробнее в разделе «Калибровка».</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-cyan">SET PW & AS</span> &nbsp;Подтверждение параметров. Система показывает текущие <span class="badge badge-gray">МОЩНОСТЬ</span> и <span class="badge badge-gray">КОЛ-ВО АС</span>. Если верно — <span class="badge badge-green">ДАЛЕЕ</span>. Если нет — <span class="badge badge-amber">ОТМЕНА</span>, исправьте в Общих настройках и нажмите ДАЛЕЕ в шапке интерфейса.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-amber">GOLOVY</span> &nbsp;Отбор голов — первой фракции с вредными примесями (ацетон, метанол). Два метода:</p>
+        <ul class="dot" style="margin-top:8px;">
+            <li><strong>ST (Standard)</strong> — клапан голов работает циклически с таймингами <span class="badge badge-gray">ГОЛ. ОТКР / ГОЛ. ЗАКР</span>. скорость 50мл/ч/на 1 кВт.</li>
+            <li><strong>KSS</strong> — три подэтапа: Spit (плевок 2%), Standard (50мл/ч/на 1 кВт. 3%), AkaTelo (на скорости тела 15%). Объём вычисляется из <span class="badge badge-gray">МОЩНОСТЬ</span> и <span class="badge badge-gray">КОЛ-ВО АС</span>.</li>
+        </ul>
+    </div>
+    <div class="card card-warn">
+        <p><span class="badge badge-amber">GOLOVY OK?</span> &nbsp;По завершении отбора система спрашивает подтверждения. Понюхайте продукт — резкий запах должен уйти. Нажмите <span class="badge badge-green">ДА</span> для перехода к телу. Если сомневаетесь — продолжайте отбирать головы не подтверждая.</p>
+    </div>
+    <div class="card">
+        <p><span class="badge badge-green">TELO</span> &nbsp;Отбор тела — основная фракция, чистый спирт. Два метода:</p>
+        <ul class="dot" style="margin-top:8px;">
+            <li><strong>Стандарт (Overhist)</strong> — клапан работает циклически с таймингами <span class="badge badge-gray">ТЕЛО ОТКР / ТЕЛО ЗАКР</span>. Останавливается когда температура в царге поднялась на <span class="badge badge-gray">ГИСТЕРЕЗИС</span> выше рабочей («залёт»). Система закрывает клапан и ждёт повторной стабилизации (<span class="badge badge-gray">ПОВТ.НАСЕБЯ</span> мин). Если за <span class="badge badge-gray">ЦИКЛЫ ОТБОРА</span> циклов не восстановилась — завершение работы.</li>
+            <li><strong>Шпора</strong> — динамический метод: система снижает скорость отбора когда температура в царге растёт больше чем на <span class="badge badge-gray">ДЭЛЬТА</span>. Окончание — по <span class="badge badge-gray">ГИСТЕРЕЗИС</span>. Только для НЗ клапана.</li>
+        </ul>
+    </div>
+    
+</section>
+
+<!-- 7. АВАРИИ -->
+<section id="section-alarms">
+    <div class="section-header"><span class="section-num">07</span><h2>Аварии и предупреждения</h2></div>
+    <p>Два уровня тревог. Каждый сопровождается звуковым сигналом, статусом в шапке веб-интерфейса и уведомлением в Telegram.</p>
+    <div class="card" style="padding:0;">
+        <div style="padding:12px;border-bottom:1px solid var(--border);">
+            <div style="display:grid;grid-template-columns:155px 1fr 1fr;gap:12px;">
+                <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Тревога</div>
+                <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Причина</div>
+                <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Что делать</div>
+            </div>
+        </div>
+        <div class="alarm-item">
+            <div>
+                <div style="font-weight:700;font-size:12px;color:var(--red);">🔥 АВАРИЯ</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">3 бипа / каждые 10 сек</div>
+                <div style="font-size:10px;color:var(--text-dim);">LCD: ALARMTSA ММ:СС</div>
+            </div>
+            <div style="color:var(--text-dim);font-size:11px;">Температура ТСА превысила <span class="badge badge-gray">ТСА ЛИМИТ</span> (55°C). Запускается таймер ВРЕМЯ АВАРИИ. Процесс продолжается.</div>
+            <div style="color:var(--green);font-size:11px;">Проверьте подачу воды. При необходимости увеличте подачу. Устраните причину до обнуления таймера на экране. Иначе — принудительное завершение.</div>
+        </div>
+        
+        <div class="alarm-item">
+            <div>
+                <div style="font-weight:700;font-size:12px;color:var(--amber);">⚠️ ВНИМАНИЕ</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">2 бипа / каждые 30 сек</div>
+                <div style="font-size:10px;color:var(--text-dim);">LCD: ATTENT XX°C</div>
+            </div>
+            <div style="color:var(--text-dim);font-size:11px;">Температура корпуса контроллера превысила <span class="badge badge-gray">МАХ Т.СИСТЕМЫ</span>. Процесс не останавливается.</div>
+            <div style="color:var(--green);font-size:11px;">Улучшите вентиляцию корпуса. Уберите источники тепла. При постоянном перегреве — установите вентилятор охлаждения.</div>
+        </div>
+    </div>
+    <h3>Уведомления Telegram</h3>
+    <p>При наличии интернета: АВАРИЯ — каждые 10 сек, ВНИМАНИЕ — каждые 30 сек. При запуске системы приходит сообщение с IP-адресом.</p>
+    <h3>Журнал событий</h3>
+    <p>Все события записываются на SD-карту. Открыть: <span class="badge badge-gray">Общие настройки → ЛОГИ (открыть)</span>. При каждом перезапуске фиксируется причина сброса — ошибка кода, зависание или плановое отключение.</p>
+</section>
+
+<!-- 8. БЕЗОПАСНОСТЬ -->
+<section id="section-safety">
+    <div class="section-header"><span class="section-num">08</span><h2 style="color:#f87171;">Безопасность</h2></div>
+    <div class="callout callout-danger">
+        <i data-lucide="skull" class="callout-icon" style="width:15px;height:15px;color:#f87171"></i>
+        <span>Работа с нагревом и алкогольными парами требует соблюдения правил пожарной безопасности. Система автоматизирует управление, но не заменяет контроль оператора.</span>
+    </div>
+    <div class="card card-danger" style="margin-top:16px;">
+        <h3 style="color:#f87171;margin-top:0;">Обязательные правила</h3>
+        <ul class="dot">
+            <li>Никогда не оставляйте работающий аппарат без присмотра.</li>
+            <li>Обеспечьте хорошую вентиляцию — пары спирта горючи.</li>
+            <li>Держите рядом углекислотный или порошковый огнетушитель.</li>
+            <li>Проверяйте герметичность всех соединений перед каждым запуском.</li>
+            <li>Силовая проводка — с запасом минимум 25% от суммарной мощности ТЭНов.</li>
+            <li>Не запускайте систему при неисправных датчиках температуры.</li>
+            <li>При срабатывании EMERGENCY — выясняйте причину до следующего запуска.</li>
+        </ul>
+    </div>
+    <h3>Встроенные защиты</h3>
+    <ul class="dot">
+        <li>Датчик ТСА не найден или не отвечает — запуск заблокирован.</li>
+        
+        <li>Ручная остановка — нагрев выключается немедленно, охлаждение продолжается 5 минут.</li>
+        <li>Перезапуск после сбоя — система обнаруживает незавершённый процесс и корректно сбрасывает его.</li>
+    </ul>
+    <div class="callout callout-tip" style="margin-top:20px;">
+        <i data-lucide="info" class="callout-icon" style="width:15px;height:15px;color:#22d3ee"></i>
+        <span>Система использует оба ядра ESP32-S3: логика управления и сеть работают параллельно. Зависание веб-интерфейса или потеря WiFi <strong>не влияют</strong> на выполнение процесса.</span>
+    </div>
+</section>
+
+</main>
+</div>
+<script>
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('aside a[href^="#"]');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                links.forEach(l => l.classList.remove('active'));
+                const active = document.querySelector(`aside a[href="#${entry.target.id}"]`);
+                if (active) active.classList.add('active');
+            }
+        });
+    }, { threshold: 0.3 });
+    sections.forEach(s => observer.observe(s));
+</script>
+<!-- Модальное окно: пример wifi_config.txt -->
+<div id="wifi-example-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1f2937;border:1px solid #374151;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 10px 30px rgba(0,0,0,0.6);">
+    <h3 style="margin:0 0 16px 0;color:#f3f4f6;font-size:1rem;font-weight:700;">Пример файла <code style="background:#374151;padding:2px 6px;border-radius:4px;font-size:0.9rem;">wifi_config.txt</code></h3>
+    <pre style="background:#111827;border:1px solid #374151;border-radius:8px;padding:14px;font-size:0.82rem;line-height:1.7;color:#d1d5db;overflow-x:auto;margin:0 0 16px 0;"><span style="color:#9ca3af;"># Настройки WiFi (не писать в файле эту строку)</span>
+ssid1=MyWiFi
+pass1=myPassword123
+ssid2=BackupNetwork
+pass2=BackupPass456
+
+<span style="color:#9ca3af;"># Настройки Telegram (не писать в файле эту строку)</span>
+tg_token=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+tg_chat=987654321</pre>
+    <p style="margin:0 0 16px 0;font-size:0.8rem;color:#9ca3af;">Замените значения на свои. Вторая сеть необязательна. Файл сохраните в кодировке UTF-8 без BOM.</p>
+    <button onclick="document.getElementById('wifi-example-modal').style.display='none';" style="width:100%;background:#3b82f6;color:white;border:none;padding:10px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;">ЗАКРЫТЬ</button>
+  </div>
+</div>
+</body>
+</html>

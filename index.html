@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuhloWar Control Panel</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+    <script src="./js/lucide.js"></script>
+    <script src="./js/tailwindcss.js"></script>
+    <script src="./js/chart.umd.js"></script>
+    <style>
+        :root {
+            --amber: #f59e0b; --amber-dim: #92400e; --amber-glow: rgba(245,158,11,0.08);
+            --cyan: #22d3ee;    --cyan-dim: #164e63;
+            --red: #f87171; --green: #4ade80;
+            --bg: #0a0c0f; --surface: #111318; --surface2: #1a1d24;
+            --border: #2a2d36;
+            /* === ИЗМЕНЕНО: Более яркие цвета текста === */
+            --text: #e5e7eb;       /* Почти белый */
+            --text-dim: #9ca3af;    /* Ярко-серый */
+            /* ======================================== */
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg) !important; color: var(--text) !important; font-family: 'JetBrains Mono', monospace !important; font-size: 13px; }
+        body::before { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); pointer-events: none; z-index: 9999; }
+
+        /* Overrides */
+        .bg-gray-900 { background-color: var(--bg) !important; }
+        .bg-gray-800 { background-color: var(--surface) !important; }
+        .bg-gray-700 { background-color: var(--surface2) !important; }
+        .bg-gray-600 { background-color: #2a2d36 !important; }
+        .border-gray-700 { border-color: var(--border) !important; }
+        .border-gray-600 { border-color: var(--border) !important; }
+        .text-gray-200, .text-gray-300 { color: var(--text) !important; }
+        .text-gray-400, .text-gray-500 { color: var(--text-dim) !important; }
+        .text-white { color: #ffffff !important; }
+        .text-blue-400, .text-blue-300, .text-blue-500 { color: var(--cyan) !important; }
+        .text-green-400, .text-green-500 { color: var(--green) !important; }
+        .text-yellow-400, .text-yellow-500, .text-orange-400, .text-orange-500 { color: var(--amber) !important; }
+        
+        .bg-green-600 { background-color: #16a34a !important; }
+        .hover\:bg-green-700:hover { background-color: #15803d !important; }
+        .bg-red-600 { background-color: #dc2626 !important; }
+        .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
+        .bg-blue-600 { background-color: #1d4ed8 !important; }
+        .hover\:bg-blue-700:hover { background-color: #1e40af !important; }
+        
+        .from-blue-500 { --tw-gradient-from: var(--amber-dim) !important; }
+        .to-purple-600 { --tw-gradient-to: #92400e !important; }
+
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .status-online { animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--surface); border: 1px solid var(--amber-dim); padding: 24px; border-radius: 6px; width: 90%; max-width: 400px; box-shadow: 0 0 40px rgba(245,158,11,0.1); text-align: center; }
+
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); }
+        .setting-row label { font-size: 0.75rem; color: #ffffff; /* БЕЛЫЙ для яркости */ text-align: left; flex: 1; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .setting-inputs { display: flex; align-items: center; gap: 4px; }
+        .setting-inputs button { background: var(--surface2); border: 1px solid var(--border); color: var(--amber); width: 22px; height: 22px; border-radius: 3px; cursor: pointer; font-weight: bold; line-height: 1; transition: border-color 0.15s; }
+        .setting-inputs button:hover { border-color: var(--amber); }
+        .setting-inputs span { min-width: 50px; text-align: center; color: var(--cyan); font-size: 0.85rem; }
+
+        .bool-btn { padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: bold; cursor: pointer; border: 1px solid var(--border); color: white; min-width: 40px; }
+        .bool-btn.on { background-color: rgba(74,222,128,0.15); border-color: #14532d; color: var(--green); }
+        .bool-btn.off { background-color: var(--surface2); border-color: var(--border); color: var(--text-dim); }
+
+        h1.text-lg.font-bold { font-family: 'Unbounded', sans-serif !important; font-size: 13px !important; color: var(--amber) !important; letter-spacing: 0.08em; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* Custom Buttons */
+        .btn-cyan-outline { background-color: rgba(34, 211, 238, 0.1) !important; border: 1px solid var(--cyan-dim) !important; color: var(--cyan) !important; }
+        .btn-cyan-outline:hover { background-color: rgba(34, 211, 238, 0.2) !important; }
+        .btn-green-outline { background-color: rgba(74, 222, 128, 0.1) !important; border: 1px solid #14532d !important; color: var(--green) !important; }
+        .btn-green-outline:hover { background-color: rgba(74, 222, 128, 0.2) !important; }
+        .btn-amber-outline { background-color: rgba(245, 158, 11, 0.1) !important; border: 1px solid var(--amber-dim) !important; color: var(--amber) !important; }
+        .btn-amber-outline:hover { background-color: rgba(245, 158, 11, 0.2) !important; }
+        .btn-purple-outline { background-color: rgba(192, 132, 252, 0.1) !important; border: 1px solid #581c87 !important; color: #c084fc !important; }
+        .btn-purple-outline:hover { background-color: rgba(192, 132, 252, 0.2) !important; }
+
+        /* Monitoring Specific */
+        .glass-card { background: rgba(17, 19, 24, 0.8); backdrop-filter: blur(4px); border: 1px solid var(--border); }
+        
+        /* Барометр */
+        .baro-tube { position: relative; width: 100%; height: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+        .baro-mercury { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, #0891b2, #22d3ee, #67e8f9); transition: height 1.2s ease-out; box-shadow: 0 0 8px rgba(34, 211, 238, 0.4); height: 0%; }
+        
+        .baro-marks { position: absolute; top: 0; bottom: 0; right: 2px; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0; pointer-events: none; }
+        .baro-mark { width: 4px; height: 1px; background: var(--text-dim); }
+        .baro-mark.major { width: 8px; background: var(--text); }
+
+        .log-line { white-space: nowrap; overflow: hidden; text-overflow: clip; font-size: 11px; line-height: 1.4; color: var(--text-dim); }
+        
+        /* Temp Colors */
+        .temp-tsa { color: var(--amber) !important; }
+        .temp-tsar { color: var(--green) !important; }
+        .temp-tank { color: #c084fc !important; }
+        .temp-aqua { color: var(--cyan) !important; }
+        
+        /* Status Icons */
+        .status-icon-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5rem; border-radius: 0.5rem; background-color: var(--bg); }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 text-gray-200">
+    <div id="app" class="min-h-screen p-2 sm:p-4 flex flex-col">
+        <div class="max-w-3xl mx-auto flex-1 flex flex-col">
+            
+            <!-- Header -->
+            <header class="bg-gray-800 rounded-lg p-3 mb-4 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div><h1 class="text-lg font-bold text-white">BuhloWar</h1></div>
+                        <div class="flex flex-col items-center">
+                            <div id="esp32-status" class="w-2 h-2 bg-green-500 rounded-full status-online"></div>
+                            <span class="text-gray-400 text-[10px]">On</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Top Control Bar -->
+            <div class="bg-gray-800 rounded-lg p-2 mb-4 shadow-lg">
+                <div class="grid grid-cols-8 gap-1 items-center text-xs">
+                    <button onclick="showPage('settings')" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center"><i data-lucide="settings" class="w-4 h-4 text-gray-300"></i></button>
+                    <div class="text-left"><div class="text-sm font-mono text-white" id="process-time">00:00</div></div>
+                    <div class="text-center col-span-2"><div class="text-blue-400 font-bold" id="pressure-value">760</div><span class="text-gray-500 text-[10px]">mm Hg</span></div>
+                    <div class="text-center"><div class="text-green-400 font-bold" id="power-display">3000</div><span class="text-gray-500 text-[10px]">W</span></div>
+                    
+                    <!-- ИСПРАВЛЕНО: Температура и Влажность -->
+                    <div class="text-center">
+                        <div class="flex items-center justify-center gap-0.5">
+                            <span class="text-orange-400 font-bold" id="box-temp-value">--</span>
+                            <span class="text-gray-500">/</span>
+                            <span class="text-gray-500 font-bold" id="box-temp-max">--</span>
+                        </div>
+                        <span class="text-gray-500 text-[10px]">Box C</span>
+                    </div>
+                    
+                    <div class="text-center col-span-2">
+                        <div class="text-blue-400 font-bold" id="humidity-value">--</div>
+                        <span class="text-gray-500 text-[10px]">ВЛАЖН %</span>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <main id="main-content" class="flex-1">
+                
+                <!-- Main Menu -->
+                <div id="page-main" class="page-content space-y-4 fade-in">
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="showPage('distillation')" class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center"><i data-lucide="flask-conical" class="w-8 h-8 mx-auto mb-2 text-yellow-500"></i><div class="text-lg font-bold text-white">Дистилляция</div></button>
+                        <button onclick="showPage('rectification')" class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center"><i data-lucide="funnel" class="w-8 h-8 mx-auto mb-2 text-blue-500"></i><div class="text-lg font-bold text-white">Ректификация</div></button>
+                        <button onclick="showPage('sensors')" class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center"><i data-lucide="thermometer" class="w-8 h-8 mx-auto mb-2 text-teal-500"></i><div class="text-lg font-bold text-white">Датчики</div></button>
+                        <button onclick="showPage('monitoring')" class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center col-span-2 md:col-span-1">
+                            <i data-lucide="activity" class="w-8 h-8 mx-auto mb-2 text-cyan"></i>
+                            <div class="text-lg font-bold text-white">Мониторинг</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- MONITORING PAGE -->
+                <div id="page-monitoring" class="page-content hidden space-y-4 fade-in">
+                    <!-- Header Row -->
+                    <div class="flex items-center justify-between mb-2">
+                        <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg hover:bg-gray-600"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <div class="flex items-center gap-2">
+                             <span id="mon-proc-badge" class="font-bold uppercase text-yellow-400 text-xs">ОЖИДАНИЕ</span>
+                             <span id="mon-stage" class="font-bold text-blue-400 uppercase text-sm">--</span>
+                             <span id="mon-method" class="font-bold text-purple-400 uppercase text-xs hidden"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                             <span id="mon-sys-status" class="font-bold text-green-400 text-xs">НОРМА</span>
+                             <span class="text-gray-500 font-mono text-xs"><span id="mon-counter">00:00</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Row 1: Diagram + Pressure -->
+                    <div class="flex gap-2 items-stretch justify-center w-full">
+                        <div class="glass-card rounded-lg p-4 flex flex-col flex-1">
+                             <div class="flex-1 flex items-center justify-center gap-2 mt-10">
+                                <div class="relative w-52 h-52 flex-shrink-0 flex flex-col items-center justify-center">
+                                    <canvas id="gaugeCanvas" width="208" height="208"></canvas>
+                                    <div class="text-center mt-1">
+                                        <div class="text-xl font-bold text-white" id="center-time-val">00:00</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex flex-col justify-between gap-1 text-xs w-20 h-52">
+                                    <div class="bg-gray-900 p-1.5 rounded flex flex-col justify-center flex-1">
+                                        <div class="temp-tsa font-bold text-base leading-tight truncate"><span id="val-tsa-m">--</span>°</div>
+                                        <div class="text-gray-500 text-[9px]" id="desc-tsa-m">ТСА/Лимит --</div>
+                                    </div>
+                                    <div class="bg-gray-900 p-1.5 rounded flex flex-col justify-center flex-1">
+                                        <div class="temp-tsar font-bold text-base leading-tight truncate"><span id="val-tsar-m">--</span>°</div>
+                                        <div class="text-gray-500 text-[9px]">ЦАРГА</div>
+                                    </div>
+                                    <div class="bg-gray-900 p-1.5 rounded flex flex-col justify-center flex-1">
+                                        <div class="temp-tank font-bold text-base leading-tight truncate"><span id="val-tank-m">--</span>°</div>
+                                        <div class="text-gray-500 text-[9px]" id="desc-tank-m">БАК/Стоп --</div>
+                                    </div>
+                                    <div class="bg-gray-900 p-1.5 rounded flex flex-col justify-center flex-1">
+                                        <div class="temp-aqua font-bold text-base leading-tight truncate"><span id="val-aqua-m">--</span>°</div>
+                                        <div class="text-gray-500 text-[9px]">ВОДА</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card rounded-lg p-2 w-20 flex flex-col">
+                             <h3 class="text-[10px] font-bold text-cyan mb-1 uppercase tracking-wider text-center">АД</h3>
+                             <div class="flex-1 flex flex-col items-center justify-between py-1">
+                                <div class="text-[9px] text-gray-500">790</div>
+                                <div class="flex-1 w-4 relative my-1">
+                                    <div class="baro-tube">
+                                        <div id="baro-mercury" class="baro-mercury"></div>
+                                        <div class="baro-marks">
+                                            <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                            <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                            <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                            <div class="baro-mark major"></div><div class="baro-mark"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-[9px] text-gray-500">720</div>
+                                <div class="text-center mt-1">
+                                    <div class="text-base font-bold text-cyan" id="press-val-m">760</div>
+                                    <div class="text-[8px] text-gray-500">мм.рт.ст</div>
+                                </div>
+                                 <!-- ИСПРАВЛЕНО: Поправка с +/- и цветом -->
+                                 <div class="text-center mt-1 text-[9px]">
+                                    <span id="press-corr-m" class="text-amber">0.0</span>°
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: РАСЧЕТЫ -->
+                    <div class="flex gap-2 items-stretch justify-center w-full">
+                        <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
+                            <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">РАСЧЕТЫ</h3>
+                            
+                            <!-- Левая колонка: Головы -->
+                            <div class="mb-2 border-b border-gray-700 pb-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-500 font-bold text-xs">ГОЛОВЫ</span>
+                                    <span id="mon-head-speed" class="text-green font-bold">-- мл/ч</span>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>Метод: <span id="mon-head-method">--</span></span>
+                                    <span>Объем: <span id="mon-head-vol">--</span> мл</span>
+                                </div>
+                            </div>
+
+                            <!-- Правая колонка: Тело -->
+                            <div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-500 font-bold text-xs">ТЕЛО</span>
+                                    <span id="mon-body-speed" class="text-green font-bold">-- мл/ч</span>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>Метод: <span id="mon-body-method">--</span></span>
+                                    <span>Прогноз: <span id="mon-body-predict" class="text-cyan">--</span> мл</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Крепость -->
+                            <div class="mt-2 pt-2 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
+                                 <div class="flex justify-between"><span class="text-gray-500">КРЕП.КУБ</span><span class="text-green font-bold"><span id="mon-abv-tank">--</span>%</span></div>
+                                 <div class="flex justify-between"><span class="text-gray-500">ОТБОР</span><span class="text-green font-bold"><span id="mon-abv-out">--</span>%</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: СИСТЕМА -->
+                    <div class="flex gap-2 items-stretch justify-center w-full">
+                        <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
+                            <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">СИСТЕМА</h3>
+                            <div class="grid grid-cols-3 gap-4 text-xs">
+                                <!-- Нагрев -->
+                                <div class="status-icon-box">
+                                    <i data-lucide="flame" class="w-4 h-4 mb-1" id="icon-heater"></i>
+                                    <!-- ИСПРАВЛЕНО: Текст всегда НАГРЕВ -->
+                                    <span id="mon-heater-status" class="font-bold">НАГРЕВ</span>
+                                </div>
+                                <!-- Мешалка -->
+                                <div class="status-icon-box">
+                                    <i data-lucide="loader" class="w-4 h-4 mb-1" id="icon-mixer"></i>
+                                    <!-- ИСПРАВЛЕНО: Текст всегда МЕШАЛКА -->
+                                    <span id="mon-mixer-status" class="font-bold">МЕШАЛКА</span>
+                                </div>
+                                <!-- Вода -->
+                                <div class="status-icon-box">
+                                    <i data-lucide="droplets" class="w-4 h-4 mb-1" id="icon-water"></i>
+                                    <!-- ИСПРАВЛЕНО: Текст всегда ВОДА -->
+                                    <span id="mon-water-status" class="font-bold">ВОДА</span>
+                                </div>
+                            </div>
+                            <!-- Время этапа / Финиш -->
+                            <div class="mt-2 pt-2 border-t border-gray-700 text-center text-xs text-gray-400">
+                                <span id="mon-extra-info">Время этапа: <span id="mon-stage-time">00:00</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DISTILLATION PAGE -->
+                <div id="page-distillation" class="page-content hidden space-y-4 fade-in">
+                    <div class="flex items-center justify-between mb-2">
+                        <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-bold">Дистилляция</h2>
+                        <button id="main-process-btn-dist" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 text-sm">
+                         <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1 text-gray-300">
+                                <p>ТСА : <span id="dist-tsa" class="text-blue-400 font-mono">--</span>°C</p>
+                                <p>ВОДА: <span id="dist-aqua" class="text-blue-400 font-mono">--</span>°C</p>
+                                <p>ЦАРГ: <span id="dist-tsar" class="text-blue-400 font-mono">--</span>°C</p>                                
+                                <p>БАК : <span id="dist-tank" class="text-blue-400 font-mono">--</span>°C</p>
+                            </div>
+                            <div class="space-y-1 text-gray-300 border-l border-gray-700 pl-4">
+                                <p>Этап: <span id="dist-stage" class="text-yellow-400 font-bold">--</span></p>
+                                <p>Куб: <span id="dist-str-bak" class="text-green-400">--</span>%</p>
+                                <p>Отбор: <span id="dist-str-out" class="text-green-400">--</span>%</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Settings -->
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                        <h3 class="text-md font-semibold mb-3 text-blue-400 border-b border-gray-700 pb-2">Настройки</h3>
+                        <div class="space-y-2">
+                             <div class="setting-row"><label>PAЗГОН ДО (°C)</label><div class="setting-inputs"><button onclick="adjCfg('razgonTemp', -1)">-</button><span id="cfg-razgonTemp">78</span><button onclick="adjCfg('razgonTemp', 1)">+</button></div></div>
+                             <div class="setting-row"><label>БАКСТОП (°C)</label><div class="setting-inputs"><button onclick="adjCfg('bakStopTemp', -1)">-</button><span id="cfg-bakStopTemp">99</span><button onclick="adjCfg('bakStopTemp', 1)">+</button></div></div>
+                             <div class="setting-row"><label>СМЕНА ТАРЫ В КУБЕ (°C)</label><div class="setting-inputs"><button onclick="adjCfg('midterm', -1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm', 1)">+</button></div></div>
+                             <div class="setting-row"><label>СМЕНА ТАРЫ В ОТБОРЕ (%)</label><div class="setting-inputs"><button onclick="adjCfg('midterm_abv', -1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv', 1)">+</button></div></div>
+                             <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
+                             <div class="setting-row"><label>РАЗГОН НА ВСЮ</label><div class="setting-inputs"><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-btn">NO</button></div></div>
+                             <div class="setting-row"><label>ИСП.КЛ.ОТБОРА</label><div class="setting-inputs"><button id="btn-valveuse" onclick="toggleCfg('valveuse')" class="bool-btn">NO</button></div></div>
+                             <div class="setting-row"><label>ИСП. МЕШАЛКА </label><div class="setting-inputs"><button id="btn-mixerEnabled" onclick="toggleCfg('mixerEnabled')" class="bool-btn">NO</button></div></div>
+                             <div class="setting-row"><label>МЕШАЛКА ВКЛ  (s)</label><div class="setting-inputs"><button onclick="adjCfg('mixerOnTime', -5)">-</button><span id="cfg-mixerOnTime">30</span><button onclick="adjCfg('mixerOnTime', 5)">+</button></div></div>
+                             <div class="setting-row"><label>МЕШАЛКА ВЫКЛ (s)</label><div class="setting-inputs"><button onclick="adjCfg('mixerOffTime', -5)">-</button><span id="cfg-mixerOffTime">1</span><button onclick="adjCfg('mixerOffTime', 5)">+</button></div></div>
+                        </div>
+                        <button onclick="saveSettings('dist')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm">СОХРАНИТЬ</button>
+                    </div>
+                </div>
+
+                <!-- RECTIFICATION PAGE -->
+                <div id="page-rectification" class="page-content hidden space-y-4 fade-in">
+                     <div class="flex items-center justify-between mb-2">
+                        <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-bold">Ректификация</h2>
+                        <button id="main-process-btn-rect" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                    </div>
+                    
+                    <!-- Info Block -->
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 text-sm">
+                         <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1 text-gray-300">
+                                <p>ТСА : <span id="rect-tsa" class="text-blue-400 font-mono">--</span>°C</p>
+                                <p>ВОДА: <span id="rect-aqua" class="text-blue-400 font-mono">--</span>°C</p>
+                                <p>ЦАРГ: <span id="rect-tsar" class="text-blue-400 font-mono">--</span>°C</p>                                
+                                <p>БАК : <span id="rect-tank" class="text-blue-400 font-mono">--</span>°C</p>
+                            </div>
+                            <div class="space-y-1 text-gray-300 border-l border-gray-700 pl-4">
+                                <p>Этап: <span id="rect-stage" class="text-yellow-400 font-bold">--</span></p>
+                                <div id="rect-golovy-info" class="hidden text-xs">
+                                    <p>Метод: <span id="rect-method" class="text-purple-400 font-bold">--</span></p>
+                                    <p>Стадия: <span id="rect-substage" class="text-white">--</span></p>
+                                    <p>Осталось: <span id="rect-remain" class="text-green-400">--</span></p>
+                                    <p>Объем: <span id="rect-vol" class="text-blue-300">--</span> мл</p>
+                                </div>
+                                <div id="rect-telo-info" class="hidden text-xs">
+                                    <p>Метод: <span id="body-method" class="text-purple-400 font-bold">--</span></p>
+                                    <p>Скорость: <span id="body-speed" class="text-green-400 font-bold">--</span> мл/ч</p>
+                                    <p>Цикл: <span id="body-cycle" class="text-white">--</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings Rectification -->
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                        <h3 class="text-md font-semibold mb-3 text-blue-400 border-b border-gray-700 pb-2">Настройки процесса</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                            <div>
+                                <div class="setting-row"><label>ТСА ЛИМИТ</label><div class="setting-inputs"><button onclick="adjCfg('tsaLimit', -1)">-</button><span id="cfg-tsaLimit">92</span><button onclick="adjCfg('tsaLimit', 1)">+</button></div></div>
+                                <div class="setting-row"><label>PAЗГОН ДО</label><div class="setting-inputs"><button onclick="adjCfg('razgonTemp', -1)">-</button><span id="cfg-razgonTemp_rect">78</span><button onclick="adjCfg('razgonTemp', 1)">+</button></div></div>
+                                <div class="setting-row"><label>ЦИКЛЫ ОТБОРА</label><div class="setting-inputs"><button onclick="adjCfg('cycleLim', -1)">-</button><span id="cfg-cycleLim">1</span><button onclick="adjCfg('cycleLim', 1)">+</button></div></div>
+                                <div class="setting-row"><label>ГИСТЕРЕЗИС</label><div class="setting-inputs"><button onclick="adjCfg('histeresis', -0.06)">-</button><span id="cfg-histeresis">0.24</span><button onclick="adjCfg('histeresis', 0.06)">+</button></div></div>
+                                <div class="setting-row"><label>ДЭЛЬТА </label><div class="setting-inputs"><button onclick="adjCfg('delta', -0.06)">-</button><span id="cfg-delta">0.12</span><button onclick="adjCfg('delta', 0.06)">+</button></div></div>
+                                <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType_rect" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
+                                <div class="setting-row"><label>ИСП.КЛ.ГОЛОВ</label><div class="setting-inputs"><button id="btn-useHeadValve" onclick="toggleCfg('useHeadValve')" class="bool-btn">NO</button></div></div>
+                                <div class="setting-row"><label>ТИП.КЛ.ТЕЛО</label><div class="setting-inputs"><button id="btn-bodyValveNC" onclick="toggleCfg('bodyValveNC')" class="bool-btn">NO</button></div></div>
+                                <div class="setting-row"><label>МЕТОД ГОЛОВЫ</label><div class="setting-inputs"><button id="btn-headsTypeKSS" onclick="toggleCfg('headsTypeKSS')" class="bool-btn">ST</button></div></div>
+                            </div>
+                             <div>
+                                <div class="setting-row"><label>КАЛИБРОВКА КЛ.</label><div class="setting-inputs"><button id="btn-calibration" onclick="toggleCfg('calibration')" class="bool-btn">NO</button></div></div>
+                            </div>
+                        </div>
+                        <button onclick="saveSettings('rect')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm">СОХРАНИТЬ</button>
+                    </div>
+
+                    <!-- === БЛОК КАЛИБРОВКА КЛАПАНОВ === -->
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-4">
+                         <h3 class="text-md font-semibold mb-3 text-green-400 border-b border-gray-700 pb-2">Калибровка клапанов</h3>
+                         <div id="process-indicator" class="bg-blue-900/30 border border-blue-800 rounded-lg p-3 text-sm hidden mb-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-blue-300">Этап калибровки:</span>
+                                <span class="text-white font-bold">VALVE CAL</span>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">После калибровки нажмите "ЗАВЕРШИТЬ"</div>
+                        </div>
+                         
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- HEAD -->
+                            <div>
+                                <h4 class="font-bold text-blue-300 mb-2 text-sm">ГОЛОВЫ</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="setting-row"><label>ОТКРЫТ (s)</label><div class="setting-inputs"><button onclick="adjCfg('headOpenMs', -1)">-</button><span id="cfg-headOpenMs_val">1</span><button onclick="adjCfg('headOpenMs', 1)">+</button></div></div>
+                                    <div class="setting-row"><label>ЗАКРЫТ (s)</label><div class="setting-inputs"><button onclick="adjCfg('headCloseMs', -1)">-</button><span id="cfg-headCloseMs_val">1</span><button onclick="adjCfg('headCloseMs', 1)">+</button></div></div>
+                                    <div class="setting-row"><label>ВРЕМЯ ТЕСТА (s)</label><div class="setting-inputs"><button onclick="adjCfg('active_test', -5)">-</button><span id="cfg-active_test_val">30</span><button onclick="adjCfg('active_test', 5)">+</button></div></div>
+                                    <div id="head-test-progress" class="hidden mt-2">
+                                        <div class="flex justify-between text-xs"><span>Тест:</span><span id="head-test-time">0 / 30 с</span></div>
+                                        <div class="w-full bg-gray-700 h-2 rounded-full mt-1"><div id="head-test-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div></div>
+                                    </div>
+                                    <button onclick="runValveTest('head')" id="btn-test-head" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold mt-2 text-xs">RUN TEST</button>
+                                    <div class="setting-row mt-3"><label>РАСХОД (мл/мин)</label><div class="setting-inputs"><button onclick="adjCfg('valve_head_capacity', -5)">-</button><span id="cfg-valve_head_capacity_val">150</span><button onclick="adjCfg('valve_head_capacity', 5)">+</button></div></div>
+                                </div>
+                            </div>
+                            <!-- BODY -->
+                            <div>
+                                <h4 class="font-bold text-green-300 mb-2 text-sm">ТЕЛО <span id="body-valve-type-label" class="font-normal text-gray-400">(уст. НЗ)</span></h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="setting-row"><label>ОТКРЫТ (s)</label><div class="setting-inputs"><button onclick="adjCfg('bodyOpenMs', -1)">-</button><span id="cfg-bodyOpenMs_val">1</span><button onclick="adjCfg('bodyOpenMs', 1)">+</button></div></div>
+                                    <div class="setting-row"><label>ЗАКРЫТ (s)</label><div class="setting-inputs"><button onclick="adjCfg('bodyCloseMs', -1)">-</button><span id="cfg-bodyCloseMs_val">1</span><button onclick="adjCfg('bodyCloseMs', 1)">+</button></div></div>
+                                    <div class="setting-row"><label>ВРЕМЯ ТЕСТА (s)</label><div class="setting-inputs"><button onclick="adjCfg('active_test', -5)">-</button><span id="cfg-active_test_val2">30</span><button onclick="adjCfg('active_test', 5)">+</button></div></div>
+                                    <div id="body-test-progress" class="hidden mt-2">
+                                        <div class="flex justify-between text-xs"><span>Тест:</span><span id="body-test-time">0 / 30 с</span></div>
+                                        <div class="w-full bg-gray-700 h-2 rounded-full mt-1"><div id="body-test-bar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div></div>
+                                    </div>
+                                    <button onclick="runValveTest('body')" id="btn-test-body" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold mt-2 text-xs">RUN TEST</button>
+                                    <div class="setting-row mt-3"><label>РАСХОД (NC) мл/мин</label><div class="setting-inputs"><button onclick="adjCfg('valve_body_capacity', -5)">-</button><span id="cfg-valve_body_capacity_val">150</span><button onclick="adjCfg('valve_body_capacity', 5)">+</button></div></div>
+                                    <div class="setting-row"><label>РАСХОД (NO) мл/мин</label><div class="setting-inputs"><button onclick="adjCfg('valve0_body_capacity', -5)">-</button><span id="cfg-valve0_body_capacity_val">150</span><button onclick="adjCfg('valve0_body_capacity', 5)">+</button></div></div>
+                                </div>
+                            </div>
+                         </div>
+                         
+                         <div class="mt-6 grid grid-cols-2 gap-2">
+                            <button id="btn-stop-test" onclick="stopValveTest()" class="bg-gray-600 text-white py-3 rounded-lg font-bold text-sm transition-all opacity-50 cursor-not-allowed" disabled>СТОП ТЕСТ</button>
+                            <button id="btn-complete-calibration" onclick="completeCalibration()" class="bg-gray-600 text-white py-3 rounded-lg font-bold text-sm transition-all opacity-50 cursor-not-allowed" disabled>ЗАВЕРШИТЬ</button>
+                        </div>
+                    </div>
+                    <!-- Конец блока клапанов -->
+                     
+                </div>
+
+                <!-- SENSORS PAGE -->
+                <div id="page-sensors" class="page-content hidden space-y-4 fade-in">
+                    <div class="flex items-center gap-4 mb-4">
+                        <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-bold">Датчики</h2>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 text-sm text-gray-400">
+                        <p class="mb-4 text-xs">Нажмите датчик и нагрейте его на 5°C — система определит автоматически.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="startSensorCalib('TSA')" class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg text-center border border-gray-600">
+                                <div class="text-white font-bold">TSA</div>
+                                <div id="sensor-tsa-temp" class="text-cyan-400 text-xs mt-1">--°C</div>
+                                <div id="sensor-tsa-status" class="text-gray-500 text-xs">--</div>
+                            </button>
+                            <button onclick="startSensorCalib('AQUA')" class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg text-center border border-gray-600">
+                                <div class="text-white font-bold">AQUA</div>
+                                <div id="sensor-aqua-temp" class="text-cyan-400 text-xs mt-1">--°C</div>
+                                <div id="sensor-aqua-status" class="text-gray-500 text-xs">--</div>
+                            </button>
+                            <button onclick="startSensorCalib('TSAR')" class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg text-center border border-gray-600">
+                                <div class="text-white font-bold">TSAR</div>
+                                <div id="sensor-tsar-temp" class="text-cyan-400 text-xs mt-1">--°C</div>
+                                <div id="sensor-tsar-status" class="text-gray-500 text-xs">--</div>
+                            </button>
+                            <button onclick="startSensorCalib('TANK')" class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg text-center border border-gray-600">
+                                <div class="text-white font-bold">TANK</div>
+                                <div id="sensor-tank-temp" class="text-cyan-400 text-xs mt-1">--°C</div>
+                                <div id="sensor-tank-status" class="text-gray-500 text-xs">--</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SETTINGS PAGE -->
+                <div id="page-settings" class="page-content hidden space-y-4 fade-in">
+                    <div class="flex items-center gap-4 mb-4">
+                        <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-bold">Общие настройки</h2>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 space-y-2 text-sm">
+                         <div class="setting-row"><label>ВРЕМЯ АВАРИИ(min)</label><div class="setting-inputs"><button onclick="adjCfg('emergencyTime', -1)">-</button><span id="cfg-emergencyTime">3</span><button onclick="adjCfg('emergencyTime', 1)">+</button></div></div>
+                         <div class="setting-row"><label>НАСЕБЯ      (min)</label><div class="setting-inputs"><button onclick="adjCfg('nasebTime', -1)">-</button><span id="cfg-nasebTime">10</span><button onclick="adjCfg('nasebTime', 1)">+</button></div></div>
+                         <div class="setting-row"><label>ПОВТ.НАСЕБЯ (min)</label><div class="setting-inputs"><button onclick="adjCfg('reklapTime', -1)">-</button><span id="cfg-reklapTime">10</span><button onclick="adjCfg('reklapTime', 1)">+</button></div></div>
+                         <div class="setting-row"><label>МАХ Т.СИСТЕМЫ (C)</label><div class="setting-inputs"><button onclick="adjCfg('boxMaxTemp', -1)">-</button><span id="cfg-boxMaxTemp">60</span><button onclick="adjCfg('boxMaxTemp', 1)">+</button></div></div>
+                         <div class="setting-row"><label>МОЩНОСТЬ (W)</label><div class="setting-inputs"><button onclick="adjCfg('power', -100)">-</button><span id="cfg-power">3000</span><button onclick="adjCfg('power', 100)">+</button></div></div>
+                         <div class="setting-row"><label>КОЛ-ВО АС (ml)</label><div class="setting-inputs"><button onclick="adjCfg('asVolume', -100)">-</button><span id="cfg-asVolume">1000</span><button onclick="adjCfg('asVolume', 100)">+</button></div></div>
+                         <div class="setting-row"><label>WIFI ЧЕК (min)</label><div class="setting-inputs"><button onclick="adjCfg('chekwifi', -1)">-</button><span id="cfg-chekwifi">5</span><button onclick="adjCfg('chekwifi', 1)">+</button></div></div>
+                         <button onclick="saveSettings('general')" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm">СОХРАНИТЬ</button>
+                         <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button onclick="showSaveProfileModal()" class="btn-amber-outline py-2 rounded-lg font-bold text-sm">💾 СОХР. ПРОФИЛЬ</button>
+                            <button onclick="showLoadProfileModal()" class="btn-green-outline py-2 rounded-lg font-bold text-sm">📂 ЗАГР. ПРОФИЛЬ</button>
+                        </div>
+                        <a href="/help.html" target="_blank" class="block w-full mt-2 btn-cyan-outline py-2 rounded-lg font-bold text-sm text-center">📖 ИНСТРУКЦИЯ</a>
+                         <button onclick="window.open('/api/logs')" class="w-full btn-purple-outline py-2 rounded-lg font-bold text-sm">ЛОГИ</button>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="dialog-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="dialog-title" class="text-xl font-bold text-white mb-2"></h3><p id="dialog-text" class="text-gray-300 mb-6 text-sm"></p><div id="dialog-buttons" class="flex justify-center gap-4"></div></div></div>
+    <div id="alert-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="alert-title" class="text-xl font-bold text-yellow-400 mb-2"></h3><p id="alert-text" class="text-gray-300 mb-4 text-sm"></p><div class="flex justify-center gap-4 flex-col"><button onclick="sendCommand('NEXT_STAGE')" class="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold">ДАЛЕЕ</button><button onclick="closeAlert()" class="w-full bg-gray-600 text-white px-8 py-2 rounded-lg text-sm">Закрыть</button></div></div></div>
+    <div id="save-profile-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h3 class="text-xl font-bold text-white mb-4">СОЗДАТЬ ПРОФИЛЬ</h3>
+        <p class="text-gray-400 text-sm mb-3">Введите имя профиля:</p>
+        <input id="profile-name-input" type="text" maxlength="30" class="w-full bg-gray-700 text-white text-center text-lg rounded-lg p-2 mb-4 border border-gray-600" placeholder="Например: Дист Яблоко" />
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="document.getElementById('save-profile-modal').classList.add('hidden')" class="bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-bold text-sm">ОТМЕНА</button>
+          <button onclick="saveProfile()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-bold text-sm">СОХРАНИТЬ</button>
+        </div>
+      </div>
+    </div>
+    <div id="load-profile-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h3 class="text-xl font-bold text-white mb-4">ЗАГРУЗИТЬ ПРОФИЛЬ</h3>
+        <div id="profile-list" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
+        <p id="profile-list-empty" class="text-gray-500 text-sm text-center mb-4 hidden">Профили не найдены</p>
+        <button onclick="document.getElementById('load-profile-modal').classList.add('hidden')" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-bold text-sm">ЗАКРЫТЬ</button>
+      </div>
+    </div>
+    <div id="calc-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h3 class="text-xl font-bold text-white mb-1">РЕЗУЛЬТАТ ТЕСТА</h3>
+        <p id="calc-modal-subtitle" class="text-gray-400 text-xs mb-1"></p>
+        <p class="text-yellow-600 text-xs mb-4">⚠ Тайминги подбираются под скорость 50 головы и 500 тело мл/ч при 1 кВт.</p>
+        <div id="calc-input-block">
+          <p class="text-gray-300 text-sm mb-2">Сколько мл набралось?</p>
+          <input id="calc-ml-input" type="number" min="0.1" step="0.1" class="w-full bg-gray-700 text-white text-center text-lg rounded-lg p-2 mb-4 border border-gray-600" placeholder="мл" />
+          <button onclick="submitCalcValve()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold text-sm">РАССЧИТАТЬ</button>
+        </div>
+        <div id="calc-result-block" class="hidden">
+          <div class="bg-gray-700 rounded-lg p-3 mb-3 text-sm">
+            <p class="text-gray-400">Расход клапана:</p>
+            <p class="text-white font-bold text-lg"><span id="calc-capacity">--</span> мл/мин</p>
+            <p class="text-gray-400 mt-2">Скорость отбора:</p>
+            <p class="text-white font-bold text-lg"><span id="calc-speed">--</span> мл/ч</p>
+            <p class="text-gray-400 mt-1">Цель: <span id="calc-target">--</span> мл/ч</p>
+            <p id="calc-verdict" class="font-bold mt-2"></p>
+            <p class="text-gray-500 text-xs mt-2">Время открыт: <span id="calc-opened">--</span> сек из <span id="calc-total">--</span> сек</p>
+          </div>
+          <p class="text-green-400 text-xs mb-3">✓ Расход сохранён в настройки</p>
+          <button onclick="hideCalcModal()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-bold text-sm">ЗАКРЫТЬ</button>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        const API_STATUS = '/api/status';
+        const API_COMMAND = '/api/command';
+        const SYNC_INTERVAL = 1000;
+        let currentData = {};
+        let currentPage = 'main';
+        let configDirty = false; 
+        let userClosedSetPwAs = false;
+        
+        // === АНИМАЦИЯ ===
+        let gaugeAnimationId = null;
+        let gaugeAnimating = false;
+        const ANIM_EXPAND_MS   = 800;  
+        const ANIM_PAUSE_MS    = 300;  
+        const ANIM_COLLAPSE_MS = 600;  
+        const ANIM_RING_DELAY  = 150;  
+
+        document.addEventListener('DOMContentLoaded', () => { syncData(); setInterval(syncData, SYNC_INTERVAL); });
+
+        async function syncData() {
+            try {
+                const response = await fetch(API_STATUS);
+                if (!response.ok) throw new Error('Network error');
+                const newData = await response.json();
+                
+                currentData.tsa = newData.tsa;
+                currentData.tsar = newData.tsar;
+                currentData.aqua = newData.aqua;
+                currentData.tank = newData.tank;
+                currentData.stage = newData.stage;
+                currentData.time = newData.time;
+                currentData.safety_code = newData.safety_code;
+                currentData.safety_text = newData.safety_text;
+                currentData.process = newData.process;
+                currentData.str_bak = newData.str_bak;
+                currentData.str_out = newData.str_out;
+                currentData.pressure = newData.pressure;
+                currentData.box_temp = newData.box_temp; // Температура бокса
+                currentData.humidity = newData.humidity; // Влажность
+                currentData.online = newData.online;
+                currentData.power = newData.power;
+                
+                currentData.alarmTimerSec = newData.alarmTimerSec;
+                currentData.rectMethodName = newData.rectMethodName;
+                currentData.rectSubStage = newData.rectSubStage;
+                currentData.rectTimeRemaining = newData.rectTimeRemaining;
+                currentData.rectVolumeTarget = newData.rectVolumeTarget;
+                currentData.bodyMethodName = newData.bodyMethodName;
+                currentData.bodySpeed = newData.bodySpeed;
+                currentData.bodyCycle = newData.bodyCycle;
+                currentData.rtsarM = newData.rtsarM;
+                currentData.adPressM = newData.adPressM;
+                currentData.heaterStatus = newData.heaterStatus;
+                currentData.useHeadValve = newData.useHeadValve;
+                currentData.bodyValveNC = newData.bodyValveNC;
+                
+                currentData.heaterOn = newData.heaterOn;
+                currentData.mixerOn = newData.mixerOn;
+                currentData.waterValveOpen = newData.waterValveOpen;
+                currentData.finishingRemain = newData.finishingRemain;
+                currentData.stageTimeSec = newData.stageTimeSec;
+                currentData.headsVolDone = newData.headsVolDone || 0;
+                
+                if (!currentData.cfg || !configDirty) currentData.cfg = newData.cfg;
+                
+                currentData.headTest = newData.headTest;
+                currentData.bodyTest = newData.bodyTest;
+                currentData.webCalibStatus = newData.webCalibStatus;
+                currentData.testAwaitingInput = newData.testAwaitingInput;
+                currentData.testAwaitingType = newData.testAwaitingType;
+
+                updateUI();
+                
+            } catch (error) {
+                console.error('Sync failed:', error);
+                const el = document.getElementById('esp32-status');
+                if(el) { el.classList.remove('bg-green-500'); el.classList.add('bg-red-500'); }
+            }
+        }
+
+        function updateUI() {
+            const statusEl = document.getElementById('system-status');
+            if (statusEl) {
+                statusEl.textContent = currentData.safety_text || 'НОРМА';
+                statusEl.className = 'text-white px-3 py-1 rounded-lg text-xs font-medium transition-all ' + 
+                    (currentData.safety_code === 0 ? 'bg-green-600' : (currentData.safety_code === 3 ? 'bg-red-600' : 'bg-orange-600'));
+            }
+            
+            document.getElementById('esp32-status').className = 'w-2 h-2 rounded-full status-online ' + (currentData.online ? 'bg-green-500' : 'bg-red-500');
+            document.getElementById('process-time').textContent = formatTime(currentData.time || 0);
+            document.getElementById('pressure-value').textContent = Math.round(currentData.pressure || 0);
+            document.getElementById('power-display').textContent = currentData.power || 0;
+            
+            // === ШАПКА: Температура и Влажность ===
+            // Температура: Текущая (оранжевый) / Макс (серый)
+            const boxMax = currentData.cfg ? currentData.cfg.boxMaxTemp : '--';
+            document.getElementById('box-temp-value').textContent = (currentData.box_temp || 0).toFixed(0);
+            document.getElementById('box-temp-max').textContent = boxMax;
+            
+            // Влажность
+            document.getElementById('humidity-value').textContent = (currentData.humidity || 0).toFixed(0);
+            // =====================================
+            
+            const isRunning = (currentData.process == 1 || currentData.process == 2);
+            const stage = currentData.stage || '';
+            
+            const updateBtn = (id) => {
+                const btn = document.getElementById(id);
+                if(!btn) return;
+                if (stage === 'VALVE_CAL' || stage === 'SET_PW_AS') {
+                    btn.textContent = 'ДАЛЕЕ';
+                    btn.className = 'bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all';
+                    btn.onclick = function() { sendCommand('NEXT_STAGE'); };
+                } else {
+                    btn.textContent = isRunning ? 'СТОП' : 'СТАРТ';
+                    btn.className = 'text-white px-3 py-2 rounded-lg text-xs font-bold transition-all ' + (isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700');
+                    btn.onclick = toggleCurrentProcess;
+                }
+            };
+            
+            updateBtn('main-process-btn-dist');
+            updateBtn('main-process-btn-rect');
+
+            if (currentPage == 'distillation') updateDistPage();
+            if (currentPage == 'rectification') updateRectPage();
+            if (currentPage == 'monitoring') updateMonitoringPage();
+            
+            updateConfigDisplay();
+            
+            const setS = (id, temp, calibrated) => {
+                const tEl = document.getElementById('sensor-' + id + '-temp');
+                const sEl = document.getElementById('sensor-' + id + '-status');
+                if (tEl) tEl.textContent = (temp && temp > -100) ? temp.toFixed(1) + '°C' : '--°C';
+                if (sEl) { sEl.textContent = calibrated ? '✓ определён' : '? не определён'; sEl.className = 'text-xs mt-1 ' + (calibrated ? 'text-green-400' : 'text-gray-500'); }
+            };
+            if (currentData.cfg) {
+                setS('tsa',  currentData.tsa,  currentData.tsa  && currentData.tsa  > -100);
+                setS('aqua', currentData.aqua, currentData.aqua && currentData.aqua > -100);
+                setS('tsar', currentData.tsar, currentData.tsar && currentData.tsar > -100);
+                setS('tank', currentData.tank, currentData.tank && currentData.tank > -100);
+            }
+            checkModals();
+            updateTestUI();
+            updateValveButtons();
+            updateValveTypeLabel();
+        }
+        
+        // === МОНИТОРИНГ ===
+        function updateMonitoringPage() {
+            const badge = document.getElementById('mon-proc-badge');
+            if (badge) {
+                if (currentData.process == 1) { badge.textContent = "DIST"; badge.className = "font-bold uppercase text-yellow-400 text-xs"; }
+                else if (currentData.process == 2) { badge.textContent = "RECT"; badge.className = "font-bold uppercase text-blue-400 text-xs"; }
+                else { badge.textContent = "--"; badge.className = "font-bold uppercase text-gray-400 text-xs"; }
+            }
+
+            const stageEl = document.getElementById('mon-stage');
+            if (stageEl) stageEl.textContent = currentData.stage || '--';
+
+            const methodEl = document.getElementById('mon-method');
+            if (methodEl) {
+                 if (currentData.process == 2 && (currentData.stage == 'TELO' || currentData.stage == 'GOLOVY')) {
+                     methodEl.textContent = currentData.bodyMethodName || '';
+                     methodEl.classList.remove('hidden');
+                 } else { methodEl.classList.add('hidden'); }
+            }
+
+            const statusEl = document.getElementById('mon-sys-status');
+            const counterEl = document.getElementById('mon-counter');
+            let statusText = "НОРМА"; let statusClass = "text-green-400";
+            let counterVal = currentData.stageTimeSec || 0;
+            const tsaLimit = currentData.cfg ? currentData.cfg.tsaLimit : 92;
+            const boxMax = currentData.cfg ? currentData.cfg.boxMaxTemp : 50;
+            const alarmTimer = currentData.alarmTimerSec || 0;
+
+            if (currentData.tsa >= tsaLimit) { statusText = "АВАРИЯ"; statusClass = "text-red-500 animate-pulse"; counterVal = alarmTimer; }
+            else if (currentData.box_temp > boxMax) { statusText = "ВНИМАНИЕ"; statusClass = "text-orange-400"; }
+
+            if(statusEl) { statusEl.textContent = statusText; statusEl.className = `font-bold ${statusClass}`; }
+            if(counterEl) counterEl.textContent = formatTime(counterVal);
+
+            document.getElementById('center-time-val').textContent = formatTime(currentData.time || 0);
+            updateCalculationsBlock();
+
+            // Давление
+            document.getElementById('press-val-m').textContent = Math.round(currentData.pressure || 760);
+            
+            // === ИСПРАВЛЕНО: Поправка с +/- и цветом ===
+            let pressCorr = ((currentData.pressure || 760) - 760) * 0.037;
+            let pressCorrText = (pressCorr >= 0 ? "+" : "") + pressCorr.toFixed(2);
+            const pressCorrEl = document.getElementById('press-corr-m');
+            pressCorrEl.textContent = pressCorrText;
+            pressCorrEl.style.color = "var(--amber)"; // Оранжевый всегда
+            // =========================================
+            
+            if (!gaugeAnimating) updateBarometer(currentData.pressure || 760);
+
+            // Температуры
+            document.getElementById('val-tsa-m').textContent = currentData.tsa ? currentData.tsa.toFixed(1) : '--';
+            document.getElementById('val-tsar-m').textContent = currentData.tsar ? currentData.tsar.toFixed(1) : '--';
+            document.getElementById('val-tank-m').textContent = currentData.tank ? currentData.tank.toFixed(1) : '--';
+            document.getElementById('val-aqua-m').textContent = currentData.aqua ? currentData.aqua.toFixed(1) : '--';
+
+            document.getElementById('desc-tsa-m').textContent = `ТСА/Лимит ${tsaLimit}`;
+            document.getElementById('desc-tank-m').textContent = `БАК/Стоп ${currentData.cfg ? currentData.cfg.bakStopTemp : '--'}`;
+
+            drawGauge();
+            updateSystemIcons();
+            
+            // Время этапа
+            const extraInfo = document.getElementById('mon-extra-info');
+            if (currentData.stage == 'FINISHING_WORK') {
+                extraInfo.innerHTML = `Завершение: <span class="text-white font-bold">${formatTime(currentData.finishingRemain || 0)}</span>`;
+            } else {
+                extraInfo.innerHTML = `Время этапа: <span id="mon-stage-time">${formatTime(currentData.stageTimeSec || 0)}</span>`;
+            }
+        }
+        
+        function updateCalculationsBlock() {
+            const stage = currentData.stage || '';
+            const cfg = currentData.cfg || {};
+
+            // Головы
+            const headSpeedEl = document.getElementById('mon-head-speed');
+            const headMethodEl = document.getElementById('mon-head-method');
+            const headVolEl = document.getElementById('mon-head-vol');
+
+            if (stage == 'GOLOVY' || stage == 'GOLOVY_OK') {
+                headSpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч"; // В GOLOVY bodySpeed = speedGolovy
+                headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
+                headVolEl.textContent = currentData.headsVolDone || currentData.rectVolumeTarget || "--";
+            } else {
+                if (currentData.process == 2 && stage == 'TELO') {
+                     headSpeedEl.textContent = "-- мл/ч";
+                     headMethodEl.textContent = cfg.headsTypeKSS ? "Kss" : "ST";
+                     headVolEl.textContent = currentData.headsVolDone || "--";
+                } else {
+                    headSpeedEl.textContent = "-- мл/ч";
+                    headMethodEl.textContent = "--";
+                    headVolEl.textContent = "--";
+                }
+            }
+
+            // Тело
+            const bodySpeedEl = document.getElementById('mon-body-speed');
+            const bodyMethodEl = document.getElementById('mon-body-method');
+            const bodyPredictEl = document.getElementById('mon-body-predict');
+
+            if (stage == 'TELO') {
+                bodySpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
+                bodyMethodEl.textContent = cfg.headsTypeKSS ? "Kss" : "ST";
+                
+                let asVol = cfg.asVolume || 0;
+                let headsVol = currentData.headsVolDone || 0;
+                let tailsEst = asVol * 0.15; 
+                let predict = Math.round(asVol - headsVol - tailsEst);
+                bodyPredictEl.textContent = predict > 0 ? predict : "--";
+            } else {
+                bodySpeedEl.textContent = "-- мл/ч";
+                bodyMethodEl.textContent = "--";
+                bodyPredictEl.textContent = "--";
+            }
+
+            document.getElementById('mon-abv-tank').textContent = currentData.str_bak || '--';
+            document.getElementById('mon-abv-out').textContent = currentData.str_out || '--';
+        }
+
+        function updateSystemIcons() {
+            // === НАГРЕВ (Всегда НАГРЕВ, цвет меняется) ===
+            const hIcon = document.getElementById('icon-heater');
+            const hStatus = document.getElementById('mon-heater-status');
+            hStatus.textContent = "НАГРЕВ"; // Текст фиксирован
+            if (currentData.heaterOn) {
+                hIcon.style.color = "var(--amber)"; // Оранжевый
+                hStatus.style.color = "var(--amber)";
+            } else {
+                hIcon.style.color = "var(--text-dim)"; // Серый
+                hStatus.style.color = "var(--text-dim)";
+            }
+
+            // === МЕШАЛКА (Всегда МЕШАЛКА, цвет меняется) ===
+            const mIcon = document.getElementById('icon-mixer');
+            const mStatus = document.getElementById('mon-mixer-status');
+            mStatus.textContent = "МЕШАЛКА"; // Текст фиксирован
+            if (currentData.mixerOn) {
+                mIcon.style.color = "var(--green)"; // Зеленый
+                mStatus.style.color = "var(--green)";
+            } else {
+                mIcon.style.color = "var(--text-dim)"; // Серый
+                mStatus.style.color = "var(--text-dim)";
+            }
+
+            // === ВОДА (Всегда ВОДА, цвет меняется) ===
+            const wIcon = document.getElementById('icon-water');
+            const wStatus = document.getElementById('mon-water-status');
+            wStatus.textContent = "ВОДА"; // Текст фиксирован
+            if (currentData.waterValveOpen) {
+                wIcon.style.color = "var(--cyan)"; // Синий
+                wStatus.style.color = "var(--cyan)";
+            } else {
+                wIcon.style.color = "var(--text-dim)"; // Серый
+                wStatus.style.color = "var(--text-dim)";
+            }
+        }
+        
+        // === ГРАФИКА ===
+        const gaugeSettings = {
+            minTemp: 0, maxTemp: 105,
+            startAngle: 0.75 * Math.PI, endAngle: 2.25 * Math.PI,
+            rings: [ 
+                { key: 'aqua', color: '#22d3ee', bg: 'rgba(16, 185, 129, 0.1)' }, 
+                { key: 'tank', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.1)' }, 
+                { key: 'tsar', color: '#10b981', bg: 'rgba(34, 211, 238, 0.1)' }, 
+                { key: 'tsa',  color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)'} 
+            ],
+            lineWidth: 8, ringGap: 2,
+            outerRingRadius: 85, scaleGap: 2, tickMinorLen: 4, tickMajorLen: 8, labelOffset: 4
+        };
+
+        function drawGauge(animValue = null) {
+            const canvas = document.getElementById('gaugeCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const range = gaugeSettings.maxTemp - gaugeSettings.minTemp;
+            const angleRange = gaugeSettings.endAngle - gaugeSettings.startAngle;
+
+            ctx.save(); ctx.translate(cx, cy);
+            const tickInnerRadius = gaugeSettings.outerRingRadius + gaugeSettings.scaleGap;
+            for (let t = 0; t <= gaugeSettings.maxTemp; t += 2.5) {
+                const angle = gaugeSettings.startAngle + (t / range) * angleRange;
+                const isMajor = (t % 10 === 0);
+                const len = isMajor ? gaugeSettings.tickMajorLen : ((t % 5 === 0) ? 6 : gaugeSettings.tickMinorLen);
+                const r1 = tickInnerRadius; const r2 = tickInnerRadius + len;
+                ctx.beginPath(); ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1); ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
+                ctx.strokeStyle = '#6b7280'; ctx.lineWidth = isMajor ? 1.5 : 0.8; ctx.stroke();
+                if (isMajor) { ctx.fillStyle = '#9ca3af'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.toString(), Math.cos(angle) * (r2 + 4), Math.sin(angle) * (r2 + 4)); }
+            }
+            ctx.restore();
+
+            const rings = gaugeSettings.rings;
+            const tsaLimit = currentData.cfg ? currentData.cfg.tsaLimit : 999;
+
+            for (let i = rings.length - 1; i >= 0; i--) {
+                const ring = rings[i]; 
+                let temp = currentData[ring.key] || 0;
+                if (animValue !== null && animValue[i] !== undefined) temp = animValue[i];
+
+                const ringCenterR = gaugeSettings.outerRingRadius - (gaugeSettings.lineWidth + gaugeSettings.ringGap) * (rings.length - 1 - i);
+                const pct = Math.min(1, Math.max(0, (temp - gaugeSettings.minTemp) / range));
+                const valueAngle = gaugeSettings.startAngle + (pct * angleRange);
+
+                let ringColor = ring.color;
+                let ringBg = ring.bg;
+                if (animValue === null && ring.key === 'tsa' && temp >= tsaLimit) { ringColor = '#ef4444'; ringBg = 'rgba(239, 68, 68, 0.2)'; }
+
+                ctx.beginPath(); ctx.arc(cx, cy, ringCenterR, gaugeSettings.startAngle, gaugeSettings.endAngle, false);
+                ctx.strokeStyle = ringBg; ctx.lineWidth = gaugeSettings.lineWidth; ctx.lineCap = 'butt'; ctx.stroke();
+                if (temp > gaugeSettings.minTemp) { ctx.beginPath(); ctx.arc(cx, cy, ringCenterR, gaugeSettings.startAngle, valueAngle, false); ctx.strokeStyle = ringColor; ctx.lineCap = 'round'; ctx.stroke(); }
+            }
+
+            if (currentData.cfg && animValue === null) {
+                const limits = [
+                    { temp: currentData.cfg.tsaLimit, sensorKey: 'tsa', color: '#ef4444', label: 'TSA', showText: true, position: 'outside-left', yShift: 4 },
+                    { temp: currentData.cfg.bakStopTemp, sensorKey: 'tank', color: '#f97316', label: 'STOP', showText: true, position: 'inside', radialOffset: -55, yShift: 20 },
+                    { temp: currentData.cfg.midterm, sensorKey: 'tank', color: '#facc15', label: 'TARA', showText: true, position: 'inside', radialOffset: -40, yShift: 0 }
+                ];
+
+                ctx.save(); ctx.translate(cx, cy); ctx.textBaseline = 'middle'; ctx.font = 'bold 9px JetBrains Mono'; ctx.fillStyle = '#6b7280'; 
+
+                limits.forEach(lim => {
+                    if(lim.temp > 0 && lim.temp <= gaugeSettings.maxTemp) {
+                        const angle = gaugeSettings.startAngle + (lim.temp / range) * angleRange;
+                        let ringIdx = rings.findIndex(r => r.key === lim.sensorKey); if (ringIdx === -1) return;
+                        let ringCenterR = gaugeSettings.outerRingRadius - (gaugeSettings.lineWidth + gaugeSettings.ringGap) * (rings.length - 1 - ringIdx);
+                        let rInner = ringCenterR - gaugeSettings.lineWidth/2; let rOuter = ringCenterR + gaugeSettings.lineWidth/2;
+                        ctx.beginPath(); ctx.moveTo(Math.cos(angle) * rInner, Math.sin(angle) * rInner); ctx.lineTo(Math.cos(angle) * rOuter, Math.sin(angle) * rOuter);
+                        ctx.strokeStyle = lim.color; ctx.lineWidth = 2.5; ctx.stroke();
+                        
+                        if (lim.showText) {
+                            let textX = 0, textY = 0;
+                            if (lim.position === 'outside-left') {
+                                let textR = tickInnerRadius + gaugeSettings.tickMajorLen + 12; 
+                                textX = Math.cos(angle) * textR; textY = Math.sin(angle) * textR;
+                                if(lim.yShift) textY += lim.yShift; ctx.textAlign = 'right'; 
+                            } else if (lim.position === 'inside') {
+                                let ro = lim.radialOffset || -30; let textR = ringCenterR + ro;
+                                textX = Math.cos(angle) * textR; textY = Math.sin(angle) * textR;
+                                if(lim.yShift) textY += lim.yShift;
+                                ctx.textAlign = Math.cos(angle) >= 0 ? 'left' : 'right';
+                            }
+                            ctx.fillText(lim.label, textX, textY);
+                        }
+                    }
+                });
+                ctx.restore();
+            }
+        }
+
+        function updateBarometer(pressureMmHg) {
+            const el = document.getElementById('baro-mercury');
+            if (!el) return;
+            const minP = 720; const maxP = 790;
+            let pct = ((pressureMmHg - minP) / (maxP - minP)) * 100;
+            pct = Math.max(0, Math.min(100, pct));
+            el.style.height = pct + '%';
+        }
+
+        // === АНИМАЦИЯ ПРИ ВХОДЕ ===
+        function animateGaugeEntry() {
+            if (gaugeAnimating) return;
+            gaugeAnimating = true;
+
+            const rings = gaugeSettings.rings;
+            const maxT = gaugeSettings.maxTemp;
+            
+            let startTime = null;
+            let phase = 1;
+
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+                
+                if (phase === 1) {
+                    let elapsed = timestamp - startTime;
+                    let progress = Math.min(elapsed / ANIM_EXPAND_MS, 1);
+                    let vals = [];
+                    for (let i = 0; i < rings.length; i++) {
+                        let delay = i * ANIM_RING_DELAY;
+                        let p = Math.max(0, Math.min(1, (elapsed - delay) / (ANIM_EXPAND_MS)));
+                        vals[i] = p * maxT;
+                    }
+                    drawGauge(vals);
+                    if (progress < 1) {
+                        gaugeAnimationId = requestAnimationFrame(animate);
+                    } else {
+                        phase = 2;
+                        startTime = timestamp;
+                        gaugeAnimationId = requestAnimationFrame(animate);
+                    }
+                } else if (phase === 2) {
+                    if (timestamp - startTime < ANIM_PAUSE_MS) {
+                        gaugeAnimationId = requestAnimationFrame(animate);
+                    } else {
+                        phase = 3;
+                        startTime = timestamp;
+                        gaugeAnimationId = requestAnimationFrame(animate);
+                    }
+                } else if (phase === 3) {
+                    let elapsed = timestamp - startTime;
+                    let progress = Math.min(elapsed / ANIM_COLLAPSE_MS, 1);
+                    let vals = [];
+                    for (let i = 0; i < rings.length; i++) {
+                        let current = currentData[rings[i].key] || 0;
+                        vals[i] = maxT - (maxT - current) * progress;
+                    }
+                    drawGauge(vals);
+                    if (progress < 1) {
+                        gaugeAnimationId = requestAnimationFrame(animate);
+                    } else {
+                        gaugeAnimating = false;
+                        drawGauge();
+                    }
+                }
+            }
+            gaugeAnimationId = requestAnimationFrame(animate);
+        }
+
+        function updateValveTypeLabel() {
+            if(currentData.cfg) {
+               const isNC = currentData.cfg.bodyValveNC;
+               const label = document.getElementById('body-valve-type-label');
+               if(label) { label.textContent = "(уст. " + (isNC ? "НЗ" : "НО") + ")"; }
+            }
+        }
+
+        function updateValveButtons() {
+            const stage = currentData.stage || '';
+            const isRectRunning = (currentData.process == 2);
+            
+            const completeBtn = document.getElementById('btn-complete-calibration');
+            if (stage === 'VALVE_CAL' && isRectRunning) {
+                completeBtn.disabled = false; completeBtn.classList.remove('bg-gray-600', 'opacity-50', 'cursor-not-allowed'); completeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            } else {
+                completeBtn.disabled = true; completeBtn.classList.remove('bg-green-600', 'hover:bg-green-700'); completeBtn.classList.add('bg-gray-600', 'opacity-50', 'cursor-not-allowed');
+            }
+            
+            const stopBtn = document.getElementById('btn-stop-test');
+            const isAnyTest = (currentData.headTest && currentData.headTest.active) || (currentData.bodyTest && currentData.bodyTest.active);
+            
+            if (isAnyTest) {
+                stopBtn.disabled = false; stopBtn.classList.remove('bg-gray-600', 'opacity-50', 'cursor-not-allowed'); stopBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+            } else {
+                stopBtn.disabled = true; stopBtn.classList.remove('bg-red-600', 'hover:bg-red-700'); stopBtn.classList.add('bg-gray-600', 'opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        function updateTestUI() {
+            const headProg = document.getElementById('head-test-progress');
+            if (currentData.headTest && currentData.headTest.active) {
+                headProg.classList.remove('hidden');
+                const rem = currentData.headTest.remainingSec;
+                const tot = currentData.headTest.totalSec;
+                document.getElementById('head-test-time').textContent = `${tot - rem} / ${tot} с`;
+                document.getElementById('head-test-bar').style.width = ((tot - rem) / tot * 100) + '%';
+            } else { headProg.classList.add('hidden'); }
+            
+            const bodyProg = document.getElementById('body-test-progress');
+            if (currentData.bodyTest && currentData.bodyTest.active) {
+                bodyProg.classList.remove('hidden');
+                const rem = currentData.bodyTest.remainingSec;
+                const tot = currentData.bodyTest.totalSec;
+                document.getElementById('body-test-time').textContent = `${tot - rem} / ${tot} с`;
+                document.getElementById('body-test-bar').style.width = ((tot - rem) / tot * 100) + '%';
+            } else { bodyProg.classList.add('hidden'); }
+            if (currentData.testAwaitingInput && !document.getElementById('calc-modal').classList.contains('active')) { showCalcModal(currentData.testAwaitingType); }
+        }
+
+        function updateDistPage() {
+            document.getElementById('dist-tsa').textContent = currentData.tsa ? currentData.tsa.toFixed(2) : '--';
+            document.getElementById('dist-tsar').textContent = currentData.tsar ? currentData.tsar.toFixed(2) : '--';
+            document.getElementById('dist-aqua').textContent = currentData.aqua ? currentData.aqua.toFixed(2) : '--';
+            document.getElementById('dist-tank').textContent = currentData.tank ? currentData.tank.toFixed(2) : '--';
+            document.getElementById('dist-stage').textContent = currentData.stage || '--';
+            document.getElementById('dist-str-bak').textContent = currentData.str_bak || '--';
+            document.getElementById('dist-str-out').textContent = currentData.str_out || '--';
+        }
+        
+        function updateRectPage() {
+            document.getElementById('rect-tsa').textContent = currentData.tsa ? currentData.tsa.toFixed(2) : '--';
+            document.getElementById('rect-tsar').textContent = currentData.tsar ? currentData.tsar.toFixed(2) : '--';
+            document.getElementById('rect-aqua').textContent = currentData.aqua ? currentData.aqua.toFixed(2) : '--';
+            document.getElementById('rect-tank').textContent = currentData.tank ? currentData.tank.toFixed(2) : '--';
+            document.getElementById('rect-stage').textContent = currentData.stage || '--';
+            
+            const stage = currentData.stage || '';
+            document.getElementById('rect-golovy-info').classList.add('hidden');
+            document.getElementById('rect-telo-info').classList.add('hidden');
+            
+            if (stage === 'GOLOVY' || stage === 'GOLOVY_OK') {
+                document.getElementById('rect-golovy-info').classList.remove('hidden');
+                document.getElementById('rect-method').textContent = currentData.rectMethodName || '--';
+                document.getElementById('rect-substage').textContent = currentData.rectSubStage || '--';
+                let rem = currentData.rectTimeRemaining || 0;
+                let min = Math.floor(rem / 60); let sec = rem % 60;
+                document.getElementById('rect-remain').textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+                document.getElementById('rect-vol').textContent = currentData.rectVolumeTarget || '--';
+            } 
+            else if (stage === 'TELO') {
+                document.getElementById('rect-telo-info').classList.remove('hidden');
+                document.getElementById('body-method').textContent = currentData.bodyMethodName || '--';
+                document.getElementById('body-speed').textContent = (currentData.bodySpeed || 0).toFixed(1);
+                document.getElementById('body-cycle').textContent = currentData.bodyCycle || '0';
+            }
+        }
+
+        function updateConfigDisplay() {
+            if(!currentData.cfg) return;
+            const cfg = currentData.cfg;
+            
+            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+            const setBool = (id, val, t, f) => { 
+                const el = document.getElementById(id); 
+                if(el) { 
+                    el.textContent = val ? t : f; 
+                    el.className = 'bool-btn ' + (val ? 'on' : 'off');
+                } 
+            };
+            
+            setVal('cfg-emergencyTime', cfg.emergencyTime);
+            setVal('cfg-nasebTime', cfg.nasebTime);
+            setVal('cfg-reklapTime', cfg.reklapTime);
+            setVal('cfg-boxMaxTemp', cfg.boxMaxTemp);
+            setVal('cfg-power', cfg.power);
+            setVal('cfg-asVolume', cfg.asVolume);
+            setVal('cfg-chekwifi', cfg.chekwifi);
+            
+            setVal('cfg-razgonTemp', cfg.razgonTemp);
+            setVal('cfg-bakStopTemp', cfg.bakStopTemp);
+            setVal('cfg-midterm', cfg.midterm);
+            setVal('cfg-midterm_abv', cfg.midterm_abv);
+            setBool('btn-heaterType', cfg.heaterType == 1, 'IND', 'TEN');
+            setBool('btn-fullPwr', cfg.fullPwr, 'YES', 'NO');
+            setBool('btn-valveuse', cfg.valveuse, 'YES', 'NO');
+            setBool('btn-mixerEnabled', cfg.mixerEnabled, 'YES', 'NO');
+            setVal('cfg-mixerOnTime', cfg.mixerOnTime);
+            setVal('cfg-mixerOffTime', cfg.mixerOffTime);
+            
+            setVal('cfg-tsaLimit', cfg.tsaLimit);
+            setVal('cfg-razgonTemp_rect', cfg.razgonTemp);
+            setVal('cfg-cycleLim', cfg.cycleLim);
+            setVal('cfg-histeresis', cfg.histeresis.toFixed(2));
+            setVal('cfg-delta', cfg.delta.toFixed(2));
+            setBool('btn-heaterType_rect', cfg.heaterType == 1, 'IND', 'TEN');
+            setBool('btn-useHeadValve', cfg.useHeadValve, 'YES', 'NO');
+            setBool('btn-bodyValveNC', cfg.bodyValveNC, 'NC', 'NO');
+            setBool('btn-headsTypeKSS', cfg.headsTypeKSS, 'KSS', 'ST');
+            setBool('btn-calibration', cfg.calibration, 'YES', 'NO');
+            
+            setVal('cfg-headOpenMs', cfg.headOpenMs);
+            setVal('cfg-headCloseMs', cfg.headCloseMs);
+            setVal('cfg-bodyOpenMs', cfg.bodyOpenMs);
+            setVal('cfg-bodyCloseMs', cfg.bodyCloseMs);
+            setVal('cfg-active_test', cfg.active_test);
+            setVal('cfg-valve_head_capacity', cfg.valve_head_capacity);
+            setVal('cfg-valve_body_capacity', cfg.valve_body_capacity);
+            setVal('cfg-valve0_body_capacity', cfg.valve0_body_capacity);
+            
+            setVal('cfg-headOpenMs_val', cfg.headOpenMs);
+            setVal('cfg-headCloseMs_val', cfg.headCloseMs);
+            setVal('cfg-active_test_val', cfg.active_test);
+            setVal('cfg-active_test_val2', cfg.active_test);
+            setVal('cfg-bodyOpenMs_val', cfg.bodyOpenMs);
+            setVal('cfg-bodyCloseMs_val', cfg.bodyCloseMs);
+            setVal('cfg-valve_head_capacity_val', cfg.valve_head_capacity);
+            setVal('cfg-valve_body_capacity_val', cfg.valve_body_capacity);
+            setVal('cfg-valve0_body_capacity_val', cfg.valve0_body_capacity);
+        }
+
+        function checkModals() {
+            if (typeof currentData === 'undefined' || !currentData.stage) return;
+            const stage = currentData.stage;
+            const dModal = document.getElementById('dialog-modal');
+            const aModal = document.getElementById('alert-modal');
+            if (!dModal || !aModal) return;
+            aModal.classList.add('hidden');
+
+            // Сбрасываем флаг закрытия если процесс не запущен (новый запуск)
+            if (currentData.process == 0 || stage === 'IDLE') {
+                userClosedSetPwAs = false;
+            }
+
+            if (currentData.webCalibStatus && currentData.webCalibStatus > 0) {
+                const ws = currentData.webCalibStatus;
+                dModal.classList.remove('hidden');
+                const sensorName = currentData.webCalibSensorName || "";
+                if (ws == 1) {
+                    document.getElementById('dialog-title').textContent = "КАЛИБРОВКА " + sensorName;
+                    document.getElementById('dialog-text').textContent = "Грейте датчик " + sensorName + "...";
+                    document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendCommand(\'DIALOG_NO\');closeDialogModal()" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold">ОТМЕНА</button>';
+                    return;
+                } else if (ws == 2) {
+                    document.getElementById('dialog-title').textContent = "✓ ДАТЧИК НАЙДЕН";
+                    document.getElementById('dialog-text').textContent = "Датчик " + sensorName + " определён. Адрес сохранён.";
+                    document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendCommand(\'DIALOG_YES\');closeDialogModal()" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold">ОК</button>';
+                    return;
+                } else if (ws == 3) {
+                    document.getElementById('dialog-title').textContent = "✗ НЕ НАЙДЕН";
+                    document.getElementById('dialog-text').textContent = "Не удалось определить нагреваемый датчик " + sensorName + ".";
+                    document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendCommand(\'DIALOG_YES\');closeDialogModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-lg font-bold">ОК</button>';
+                    return;
+                }
+}
+
+            if (stage === 'WATER_TEST') { 
+                dModal.classList.remove('hidden');
+                document.getElementById('dialog-title').textContent = 'ТЕСТ ВОДЫ';
+                document.getElementById('dialog-text').textContent = 'Вода течет? Все герметично?';
+                document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendDialog(\'DIALOG_YES\')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold">ДА</button><button onclick="sendDialog(\'DIALOG_NO\')" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold">НЕТ</button>';
+            } else if (stage === 'REPLACEMENT') {
+                dModal.classList.remove('hidden');
+                document.getElementById('dialog-title').textContent = 'СМЕНА ПОСУДЫ';
+                document.getElementById('dialog-text').textContent = 'Замените тару и продолжите?';
+                document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendDialog(\'DIALOG_YES\')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold">ДА</button><button onclick="sendDialog(\'DIALOG_NO\')" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold">НЕТ</button>';
+            } else if (stage === 'GOLOVY_OK') { 
+                dModal.classList.remove('hidden');
+                document.getElementById('dialog-title').textContent = 'ГОЛОВЫ';
+                document.getElementById('dialog-text').textContent = 'Головы отобраны. Перейти к телу?';
+                document.getElementById('dialog-buttons').innerHTML = '<button onclick="sendDialog(\'DIALOG_YES\')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold">ДА</button>';
+            } 
+             else if (stage === 'SET_PW_AS' && !userClosedSetPwAs) { 
+                dModal.classList.remove('hidden');
+                document.getElementById('dialog-title').textContent = 'НАСТРОЙКА ПАРАМЕТРОВ';
+                
+                let p = currentData.cfg ? currentData.cfg.power : '??';
+                let v = currentData.cfg ? currentData.cfg.asVolume : '??';
+                
+                document.getElementById('dialog-text').innerHTML = 
+                    '<div class="text-left">' +
+                    '<p class="mb-2">Текущие настройки процесса:</p>' +
+                    '<p class="font-bold text-white">Мощность: <span class="text-yellow-400">' + p + ' W</span></p>' +
+                    '<p class="font-bold text-white mb-2">Объем АС: <span class="text-yellow-400">' + v + ' ml</span></p>' +
+                    '<p class="text-xs text-gray-400 mt-2">Если значения неверны, нажмите "ОТМЕНА", измените в Настройках и нажмите "ДАЛЕЕ" в шапке.</p>' +
+                    '</div>';
+                
+                document.getElementById('dialog-buttons').innerHTML = 
+                    '<button onclick="closeDialogModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">ОТМЕНА</button>' +
+                    '<button onclick="sendCommand(\'NEXT_STAGE\')" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold">ДАЛЕЕ</button>';
+            }
+            else {
+                dModal.classList.add('hidden');
+            }
+        }
+        
+        function closeDialogModal() {
+            document.getElementById('dialog-modal').classList.add('hidden');
+            userClosedSetPwAs = true;
+        }
+        
+        function closeAlert() { document.getElementById('alert-modal').classList.add('hidden'); }
+
+        async function sendCommand(cmd) {
+            console.log('Send Cmd:', cmd);
+            try { await fetch(API_COMMAND, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: cmd }) }); syncData(); } catch (e) {}
+        }
+        
+        function sendDialog(resp) { sendCommand(resp); closeDialogModal(); }
+        
+        function toggleCurrentProcess() {
+            const isRunning = (currentData.process == 1 || currentData.process == 2);
+            if (isRunning) sendCommand('STOP');
+            else { if (currentPage == 'rectification' || currentPage == 'monitoring') sendCommand('START_RECT'); else sendCommand('START_DIST'); }
+        }
+
+        function adjCfg(key, delta) {
+            if(!currentData.cfg) return;
+            configDirty = true; 
+            if (typeof currentData.cfg[key] === 'boolean') return;
+            if (key === 'histeresis' || key === 'delta') {
+                 currentData.cfg[key] = parseFloat((currentData.cfg[key] + delta).toFixed(2));
+            } else {
+                 currentData.cfg[key] += delta;
+            }
+            updateConfigDisplay();
+        }
+        
+        function toggleCfg(key) {
+            if(!currentData.cfg) return;
+            configDirty = true; 
+            currentData.cfg[key] = (currentData.cfg[key] == 1 || currentData.cfg[key] === true) ? 0 : 1;
+            updateConfigDisplay();
+        }
+
+        function saveSettings(type) {
+            if(!currentData.cfg) return;
+            console.log("Saving config...");
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentData.cfg)
+            }).then(r => r.text())
+              .then(resp => { 
+                  console.log("Save response:", resp); 
+                  alert("Настройки сохранены!"); 
+                  configDirty = false; 
+              })
+              .catch(e => console.error("Save failed", e));
+        }
+
+        function startSensorCalib(sensor) { sendCommand('IDENTIFY_' + sensor); }
+        function confirmSensorCalib(save) { sendCommand(save ? 'DIALOG_YES' : 'DIALOG_NO'); closeDialogModal(); }
+        function cancelSensorCalib() { closeDialogModal(); }
+        function dismissCalibError() { sendCommand('DIALOG_NO'); closeDialogModal(); }
+        function runValveTest(type) { sendCommand(type === 'head' ? 'TEST_HEAD' : 'TEST_BODY'); }
+        function stopValveTest() { sendCommand('STOP_TEST'); }
+        function completeCalibration() { sendCommand('FINISH_CALIBRATION'); }
+
+        function formatTime(s) {
+            const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60;
+            return h > 0 ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}` : `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+        
+        function showPage(pageName) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+            const target = document.getElementById(`page-${pageName}`);
+            if (target) { target.classList.remove('hidden'); currentPage = pageName; }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+            if (pageName === 'monitoring') {
+                animateGaugeEntry();
+                const baro = document.getElementById('baro-mercury');
+                if(baro) baro.style.height = '0%';
+                setTimeout(() => updateBarometer(currentData.pressure || 760), 50);
+            } else {
+                gaugeAnimating = false;
+            }
+
+            updateUI();
+        }
+        
+        let calcModalType = '';
+
+function showCalcModal(type) {
+    calcModalType = type;
+    const modal = document.getElementById('calc-modal');
+    const sub = document.getElementById('calc-modal-subtitle');
+    const inputBlock = document.getElementById('calc-input-block');
+    const resultBlock = document.getElementById('calc-result-block');
+
+    const labels = {
+        'head':    'Клапан ГОЛОВ',
+        'body_nc': 'Клапан ТЕЛА (НЗ)',
+        'body_no': 'Клапан ТЕЛА (НО)'
+    };
+    sub.textContent = labels[type] || type;
+
+    inputBlock.classList.remove('hidden');
+    resultBlock.classList.add('hidden');
+    document.getElementById('calc-ml-input').value = '';
+    modal.classList.remove('hidden');
+    modal.classList.add('active');
+}
+
+function hideCalcModal() {
+    const modal = document.getElementById('calc-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('active');
+}
+
+async function submitCalcValve() {
+    const ml = parseFloat(document.getElementById('calc-ml-input').value);
+    if (!ml || ml <= 0) { alert('Введите количество мл'); return; }
+
+    try {
+        const resp = await fetch('/api/calcvalve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: calcModalType, ml: ml })
+        });
+        const data = await resp.json();
+
+        const target = calcModalType === 'head' ? 50 : 500;
+const speed = data.speed;
+const diff = ((speed - target) / target) * 100;
+
+document.getElementById('calc-capacity').textContent = data.capacity.toFixed(1);
+document.getElementById('calc-speed').textContent    = speed.toFixed(1);
+document.getElementById('calc-target').textContent   = target;
+document.getElementById('calc-opened').textContent   = data.openedSec;
+document.getElementById('calc-total').textContent    = currentData.cfg ? currentData.cfg.active_test : '--';
+
+const verdict = document.getElementById('calc-verdict');
+if (Math.abs(diff) <= 1) {
+    verdict.textContent = '✓ Попадание в норму (±1%)';
+    verdict.className = 'font-bold mt-2 text-green-400';
+} else if (speed < target) {
+    verdict.textContent = '↑ Мало — увеличьте ОТКРЫТ или уменьшите ЗАКРЫТ (' + diff.toFixed(1) + '%)';
+    verdict.className = 'font-bold mt-2 text-orange-400';
+} else {
+    verdict.textContent = '↓ Много — уменьшите ОТКРЫТ или увеличьте ЗАКРЫТ (+' + diff.toFixed(1) + '%)';
+    verdict.className = 'font-bold mt-2 text-orange-400';
+}
+
+        document.getElementById('calc-input-block').classList.add('hidden');
+        document.getElementById('calc-result-block').classList.remove('hidden');
+
+        syncData();
+    } catch(e) { alert('Ошибка расчёта: ' + e); }
+}
+
+async function showSaveProfileModal() {
+    document.getElementById('profile-name-input').value = '';
+    document.getElementById('save-profile-modal').classList.remove('hidden');
+}
+
+async function saveProfile() {
+    const name = document.getElementById('profile-name-input').value.trim();
+    if (!name) { alert('Введите имя профиля'); return; }
+    
+    try {
+        const resp = await fetch('/api/saveprofile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name })
+        });
+        if (resp.ok) {
+            document.getElementById('save-profile-modal').classList.add('hidden');
+            alert('Профиль "' + name + '" сохранён');
+        } else { alert('Ошибка сохранения'); }
+    } catch(e) { alert('Ошибка: ' + e); }
+}
+
+async function showLoadProfileModal() {
+    const listEl   = document.getElementById('profile-list');
+    const emptyEl  = document.getElementById('profile-list-empty');
+    listEl.innerHTML = '<p class="text-gray-400 text-sm text-center">Загрузка...</p>';
+    document.getElementById('load-profile-modal').classList.remove('hidden');
+    
+    try {
+        const resp = await fetch('/api/listprofiles');
+        const profiles = await resp.json();
+        listEl.innerHTML = '';
+        
+        if (profiles.length === 0) { emptyEl.classList.remove('hidden'); } 
+        else {
+            emptyEl.classList.add('hidden');
+            profiles.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm text-left';
+                btn.textContent = p.name;
+                btn.onclick = () => loadProfile(p.file, p.name);
+                listEl.appendChild(btn);
+            });
+        }
+    } catch(e) {
+        listEl.innerHTML = '<p class="text-red-400 text-sm text-center">Ошибка загрузки списка</p>';
+    }
+}
+
+async function loadProfile(fileKey, name) {
+    if (!confirm('Загрузить профиль "' + name + '"?\nТекущие настройки будут заменены.')) return;
+    
+    try {
+        const resp = await fetch('/api/loadprofile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: fileKey })
+        });
+        if (resp.ok) {
+            document.getElementById('load-profile-modal').classList.add('hidden');
+            alert('Профиль "' + name + '" загружен');
+            syncData();
+        } else { alert('Ошибка загрузки профиля'); }
+    } catch(e) { alert('Ошибка: ' + e); }
+}
+    </script>
+    
+</body>
+</html>
