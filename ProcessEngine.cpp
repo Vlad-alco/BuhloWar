@@ -962,7 +962,7 @@ currentStatus.bodySpeed = 0.0f;
 }
 
 void ProcessEngine::handleGolovyOk() {
-    currentStatus.stageName = "GOLOVY OK?";
+    currentStatus.stageName = "GOLOVY_OK";  // Исправлено: было "GOLOVY OK?" (с пробелом)
     outputManager->openWaterValve();
 }
 
@@ -1322,7 +1322,7 @@ void ProcessEngine::handleRectProcess() {
         }
     } 
     else if (currentStage == Stage::SET_PW_AS) {
-        //currentStatus.stageName = "SET PW & AS";
+        currentStatus.stageName = "SET_PW_AS";  // Добавлено для корректного отображения в web
         if (setPwAsMenu->isReadyToRun()) {
             currentGolovyStage = GolovyStage::IDLE; 
             changeStage(Stage::GOLOVY);
