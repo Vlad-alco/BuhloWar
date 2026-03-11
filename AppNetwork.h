@@ -16,6 +16,11 @@ class ConfigManager;
 // Для Telegram
 #include <UniversalTelegramBot.h>
 
+// === НАСТРОЙКИ ОЧЕРЕДИ СООБЩЕНИЙ ===
+#define TG_QUEUE_SIZE 10        // Макс. сообщений в очереди
+#define TG_SEND_TIMEOUT 5000    // Таймаут отправки (мс)
+#define TG_RETRY_DELAY 30000    // Пауза после неудачи (мс)
+
 class AppNetwork {
 public:
     void begin(int checkIntervalMinutes);
@@ -52,6 +57,27 @@ private:
     UniversalTelegramBot* bot = nullptr;
     WebServer* server = nullptr;
 
+    // === АСИНХРОННАЯ ОЧЕРЕДЬ СООБЩЕНИЙ TELEGRAM ===
+    struct TgMessage {
+        String text;
+        unsigned long timestamp;
+    };
+    TgMessage tgQueue[TG_QUEUE_SIZE];
+    int tgQueueHead = 0;          // Индекс для добавления
+    int tgQueueTail = 0;          // Индекс для извлечения
+    int tgQueueCount = 0;         // Текущее кол-во сообщений
+    bool tgSending = false;       // Флаг: идёт отправка
+    unsigned long lastTgSendTime = 0;      // Время последней успешной отправки
+    unsigned long lastTgFailTime = 0;      // Время последней неудачи
+    int tgConsecutiveFails = 0;            // Счётчик подряд неудач
+    
+    // --- Методы очереди ---
+    void queueMessage(const String& text);  // Добавить в очередь
+    void processMessageQueue();              // Обработать очередь (неблокирующая)
+    bool isTelegramReady();                  // Проверка готовности к отправке
+    bool sendTelegramNow(const String& text); // Непосредственная отправка
+    // =============================================
+
     // --- Внутренние методы ---
     bool loadConfigFromSD();
     bool connectToWiFi();
@@ -68,7 +94,7 @@ private:
     void handleListProfiles();
     void handleLoadProfile();
     String buildCfgJson();
-String transliterate(String input); // транслитерация для имени файла
+    String transliterate(String input); // транслитерация для имени файла
 };
 
 #endif
