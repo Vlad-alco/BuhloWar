@@ -127,9 +127,9 @@ void AppNetwork::update() {
         // Предположим, что getSensorData есть (мы добавляли её ранее)
         const SensorData& sensors = processEngine->getSensorData(); 
 
-        // 1. Авария TSA (каждые 10 сек)
+        // 1. Авария TSA (каждые 60 сек) - увеличено для предотвращения блокировки интерфейса
         if (status.safety == SafetyState::WARNING_TSA || status.safety == SafetyState::EMERGENCY) {
-            if (now - lastAlarmTgTime > 10000) { // 10 секунд
+            if (now - lastAlarmTgTime > 60000) { // 60 секунд (было 10)
                 lastAlarmTgTime = now;
                 String msg = "🔥 АВАРИЯ! TSA: " + String(status.currentTsa, 1) + "C (Limit: " + String(configManager->getConfig().tsaLimit) + "C)";
                 sendMessage(msg);
@@ -536,9 +536,16 @@ bool AppNetwork::checkInternet() {
 
 void AppNetwork::sendMessage(const String& text) {
     if (!online || !bot) return;
+    
+    // === ЗАЩИТА ОТ БЛОКИРОВКИ ИНТЕРФЕЙСА ===
+    // Устанавливаем таймаут клиента перед отправкой (3 сек)
+    // Это предотвращает зависание при медленном соединении с Telegram
+    client.setTimeout(3);
+    
     // === ЛОГИРОВАНИЕ ===
-    logger.log("TG Send: " + text); // Логируем, что пытаемся отправить
+    Serial.println("[TG] Sending: " + text);
     // ==================
+    
     bot->sendMessage(tgChatId, text, "");
 }
 
