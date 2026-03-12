@@ -847,8 +847,8 @@
 
             // === КРЕПОСТЬ И РЕФЕРЕНТНЫЕ ===
             // Крепость показываем только если валидна (температура >= 78.5°C)
-            const strBakValid = currentData.str_bak_valid !== false; // true по умолчанию
-            const strOutValid = currentData.str_out_valid !== false;
+            const strBakValid = currentData.str_bak_valid === true;
+            const strOutValid = currentData.str_out_valid === true;
             document.getElementById('mon-abv-tank').textContent = strBakValid ? (currentData.str_bak || '--') : '--';
             document.getElementById('mon-abv-out').textContent = strOutValid ? (currentData.str_out || '--') : '--';
             
@@ -1093,8 +1093,9 @@
             document.getElementById('dist-aqua').textContent = currentData.aqua ? currentData.aqua.toFixed(2) : '--';
             document.getElementById('dist-tank').textContent = currentData.tank ? currentData.tank.toFixed(2) : '--';
             document.getElementById('dist-stage').textContent = currentData.stage || '--';
-            document.getElementById('dist-str-bak').textContent = currentData.str_bak || '--';
-            document.getElementById('dist-str-out').textContent = currentData.str_out || '--';
+            // Крепость показываем только если валидна (температура >= 78.5°C)
+            document.getElementById('dist-str-bak').textContent = currentData.str_bak_valid ? (currentData.str_bak || '--') : '--';
+            document.getElementById('dist-str-out').textContent = currentData.str_out_valid ? (currentData.str_out || '--') : '--';
         }
         
         function updateRectPage() {
