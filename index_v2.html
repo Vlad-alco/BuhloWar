@@ -600,6 +600,7 @@
         let currentPage = 'main';
         let configDirty = false; 
         let userClosedSetPwAs = false;
+        let lastStage = '';
         
         // === АНИМАЦИЯ ===
         let gaugeAnimationId = null;
@@ -1244,9 +1245,14 @@
             aPanel.style.display = 'none';
 
             // Сбрасываем флаг закрытия если процесс не запущен (новый запуск)
+            // или если stage изменился с SET_PW_AS на другой
             if (currentData.process == 0 || stage === 'IDLE') {
                 userClosedSetPwAs = false;
             }
+            if (lastStage === 'SET_PW_AS' && stage !== 'SET_PW_AS') {
+                userClosedSetPwAs = false;
+            }
+            lastStage = stage;
 
             if (currentData.webCalibStatus && currentData.webCalibStatus > 0) {
                 const ws = currentData.webCalibStatus;
@@ -1302,7 +1308,7 @@
                     '</div>';
                 
                 document.getElementById('dialog-buttons').innerHTML = 
-                    '<button onclick="closeDialogPanel()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">ОТМЕНА</button>' +
+                    '<button onclick="closeSetPwAsPanel()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">ОТМЕНА</button>' +
                     '<button onclick="sendCommand(\'NEXT_STAGE\')" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold">ДАЛЕЕ</button>';
             }
             else {
@@ -1311,6 +1317,10 @@
         }
         
         function closeDialogPanel() {
+            document.getElementById('dialog-panel').style.display = 'none';
+        }
+        
+        function closeSetPwAsPanel() {
             document.getElementById('dialog-panel').style.display = 'none';
             userClosedSetPwAs = true;
         }
