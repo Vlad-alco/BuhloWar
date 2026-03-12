@@ -1679,20 +1679,32 @@ void ProcessEngine::updateRectWebInfo() {
         bool isShpora = (cfg.cycleLim == 1 && cfg.bodyValveNC);
         currentStatus.bodyMethodName = isShpora ? "Шпора" : "Стандарт";
         
-        // Скорость (speedShpora или скорость для стандарта)
-        // speedShpora уже рассчитана в handleTelo в мл/час? 
-        // В коде: speedShpora = 500.0 * koff; (это мл/час)
+        // Скорость (speedShpora рассчитана в handleTelo, мл/час)
         currentStatus.bodySpeed = speedShpora;
-        if (cfg.useHeadValve) {
-    int cycle = cfg.headOpenMs + cfg.headCloseMs;
-    float cap = (float)cfg.valve_head_capacity;
-    currentStatus.headsSpeed = (cycle > 0) ? (cap * cfg.headOpenMs / cycle * 60.0f) : 0.0f;
-} else {
-    currentStatus.headsSpeed = 0.0f;
-}
+        
+        // headsSpeed на TELO не нужен (не показываем) - не перезаписываем
         
         // Цикл
         currentStatus.bodyCycle = counter;
+        
+        // Расчёт оставшегося времени для TELO
+        // Прогноз = AS - Heads - 15% tails
+        float asVol = cfg.asVolume;
+        float headsVol = headsVolDone;
+        float tailsEst = asVol * 0.15f;
+        float predictVol = asVol - headsVol - tailsEst;
+        
+        // Время = Объём / Скорость (в часах, переводим в секунды)
+        if (speedShpora > 0 && predictVol > 0) {
+            float timeHours = predictVol / speedShpora;
+            int totalSec = (int)(timeHours * 3600.0f);
+            // Вычитаем уже прошедшее время этапа
+            int elapsedSec = currentStatus.stageTimeSec;
+            int remainSec = totalSec - elapsedSec;
+            currentStatus.rectTimeRemaining = (remainSec > 0) ? remainSec : 0;
+        } else {
+            currentStatus.rectTimeRemaining = 0;
+        }
     } else {
         currentStatus.bodyMethodName = "";
         currentStatus.bodySpeed = 0;

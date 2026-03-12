@@ -259,7 +259,7 @@
                             <!-- ГОЛОВЫ -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-gray-500 font-bold text-xs">ГОЛОВЫ</span>
+                                    <span class="text-gray-500 font-bold text-xs">ГОЛОВЫ: <span id="mon-head-total" class="text-amber">--</span> мл</span>
                                     <span id="mon-head-speed" class="text-green font-bold">-- мл/ч</span>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
@@ -612,6 +612,7 @@
                 currentData.bodyMethodName = newData.bodyMethodName;
                 currentData.bodySpeed = newData.bodySpeed;
                 currentData.bodyCycle = newData.bodyCycle;
+                currentData.headsSpeed = newData.headsSpeed;
                 currentData.rtsarM = newData.rtsarM;
                 currentData.adPressM = newData.adPressM;
                 currentData.heaterStatus = newData.heaterStatus;
@@ -787,14 +788,16 @@
             const headVolEl = document.getElementById('mon-head-vol');
             const headVolTargetEl = document.getElementById('mon-head-vol-target');
             const headRemainEl = document.getElementById('mon-head-remain');
+            const headTotalEl = document.getElementById('mon-head-total');
 
             if (stage == 'GOLOVY') {
-                headSpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
+                headSpeedEl.textContent = (currentData.headsSpeed || 0) + " мл/ч";
                 headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
                 headSubstageEl.textContent = currentData.rectSubStage || "--";
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = currentData.rectVolumeTarget || "--";
                 headRemainEl.textContent = formatTime(currentData.rectTimeRemaining || 0);
+                headTotalEl.textContent = currentData.rectVolumeTarget || "--";
             } else if (stage == 'GOLOVY_OK') {
                 headSpeedEl.textContent = "-- мл/ч";
                 headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
@@ -802,6 +805,7 @@
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = "--";
                 headRemainEl.textContent = "--:--";
+                headTotalEl.textContent = Math.round(currentData.headsVolDone || 0);
             } else if (isRect && stage == 'TELO') {
                 // На этапе TELO показываем итоговые данные по головам
                 headSpeedEl.textContent = "-- мл/ч";
@@ -810,6 +814,7 @@
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = "--";
                 headRemainEl.textContent = "--:--";
+                headTotalEl.textContent = Math.round(currentData.headsVolDone || 0);
             } else {
                 headSpeedEl.textContent = "-- мл/ч";
                 headMethodEl.textContent = "--";
@@ -817,6 +822,7 @@
                 headVolEl.textContent = "--";
                 headVolTargetEl.textContent = "--";
                 headRemainEl.textContent = "--:--";
+                headTotalEl.textContent = "--";
             }
 
             // === ТЕЛО ===
@@ -829,7 +835,14 @@
             if (stage == 'TELO') {
                 bodySpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
                 bodyMethodEl.textContent = currentData.bodyMethodName || "--";
-                bodyCycleEl.textContent = currentData.bodyCycle || "--";
+                // Цикл: для Шпоры не показываем (counter=0), для Стандарта показываем текущий/максимум
+                let cycleVal = currentData.bodyCycle || 0;
+                let cycleLim = cfg.cycleLim || 1;
+                if (currentData.bodyMethodName == "Шпора" || cycleVal == 0) {
+                    bodyCycleEl.textContent = "--";
+                } else {
+                    bodyCycleEl.textContent = cycleVal + "/" + cycleLim;
+                }
                 bodyRemainEl.textContent = formatTime(currentData.rectTimeRemaining || 0);
                 
                 let asVol = cfg.asVolume || 0;
