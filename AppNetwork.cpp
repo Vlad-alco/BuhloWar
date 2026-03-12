@@ -235,6 +235,11 @@ void AppNetwork::handleApiStatus() {
     json += "\"rtsarM\":" + String(processEngine->getRtsarM(), 2) + ",";
     json += "\"adPressM\":" + String(processEngine->getAdPressM(), 1) + ",";
     // ===========================================================
+    
+    // === Общий объём голов для этапа (KSS=20%, Standard=10%) ===
+    float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f) : (cfg.asVolume * 0.10f);
+    json += "\"headsTotalTarget\":" + String((int)headsTotalTarget) + ",";
+    // ===========================================================
 
 
     // --- Настройки (Config) ---

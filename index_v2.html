@@ -647,6 +647,7 @@
                 currentData.headsSpeed = newData.headsSpeed;
                 currentData.rtsarM = newData.rtsarM;
                 currentData.adPressM = newData.adPressM;
+                currentData.headsTotalTarget = newData.headsTotalTarget || 0;
                 currentData.heaterStatus = newData.heaterStatus;
                 currentData.useHeadValve = newData.useHeadValve;
                 currentData.bodyValveNC = newData.bodyValveNC;
@@ -829,7 +830,7 @@
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = currentData.rectVolumeTarget || "--";
                 headRemainEl.textContent = formatTime(currentData.rectTimeRemaining || 0);
-                headTotalEl.textContent = currentData.rectVolumeTarget || "--";
+                headTotalEl.textContent = currentData.headsTotalTarget || "--";
             } else if (stage == 'GOLOVY_OK') {
                 headSpeedEl.textContent = "-- мл/ч";
                 headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
@@ -837,7 +838,7 @@
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = "--";
                 headRemainEl.textContent = "--:--";
-                headTotalEl.textContent = Math.round(currentData.headsVolDone || 0);
+                headTotalEl.textContent = currentData.headsTotalTarget || Math.round(currentData.headsVolDone || 0);
             } else if (isRect && stage == 'TELO') {
                 // На этапе TELO показываем итоговые данные по головам
                 headSpeedEl.textContent = "-- мл/ч";
@@ -846,7 +847,7 @@
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = "--";
                 headRemainEl.textContent = "--:--";
-                headTotalEl.textContent = Math.round(currentData.headsVolDone || 0);
+                headTotalEl.textContent = currentData.headsTotalTarget || Math.round(currentData.headsVolDone || 0);
             } else {
                 headSpeedEl.textContent = "-- мл/ч";
                 headMethodEl.textContent = "--";
