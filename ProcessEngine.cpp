@@ -1412,13 +1412,19 @@ void ProcessEngine::updateDisplayData() {
 // Коэффициент: 1 гПа = 0.75006 мм рт.ст.
     float pressure = data.pressure * 0.75006f;
     
-    // Расчет крепости
-    currentStatus.currentStrengthBak = configManager->getABV(data.tank.value, pressure, false);
+    // Расчет крепости (getABV возвращает -1 если температура ниже 78.5°C)
+    float abvBak = configManager->getABV(data.tank.value, pressure, false);
+    currentStatus.currentStrengthBak = (abvBak >= 0) ? abvBak : 0;
+    currentStatus.strengthBakValid = (abvBak >= 0);
+    
+    float abvOut = 0;
     if (activeProcess == PROCESS_DIST) {
-        currentStatus.currentStrength = configManager->getABV(data.tank.value, pressure, true);
+        abvOut = configManager->getABV(data.tank.value, pressure, true);
     } else {
-        currentStatus.currentStrength = configManager->getABV(data.tsar.value, pressure, true);
+        abvOut = configManager->getABV(data.tsar.value, pressure, true);
     }
+    currentStatus.currentStrength = (abvOut >= 0) ? abvOut : 0;
+    currentStatus.strengthOutValid = (abvOut >= 0);
     
     static char buf[25]; // Буфер
     
@@ -1428,7 +1434,7 @@ void ProcessEngine::updateDisplayData() {
         
         // --- Строка 0: TSA, DIST, Крепость куба ---
         char strAbvBak[8];
-        if (showStrength) snprintf(strAbvBak, sizeof(strAbvBak), "%%%.0f", currentStatus.currentStrengthBak);
+        if (showStrength && currentStatus.strengthBakValid) snprintf(strAbvBak, sizeof(strAbvBak), "%%%.0f", currentStatus.currentStrengthBak);
         else snprintf(strAbvBak, sizeof(strAbvBak), "%%--");
         
         // Используем символы W / X для статуса сети
@@ -1437,7 +1443,7 @@ void ProcessEngine::updateDisplayData() {
         
         // --- Строка 1: AQUA, Этап, Крепость в отборе ---
         char strAbvOut[8];
-        if (showStrength) snprintf(strAbvOut, sizeof(strAbvOut), "%%%.0f", currentStatus.currentStrength);
+        if (showStrength && currentStatus.strengthOutValid) snprintf(strAbvOut, sizeof(strAbvOut), "%%%.0f", currentStatus.currentStrength);
         else snprintf(strAbvOut, sizeof(strAbvOut), "%%--");
         
         snprintf(buf, sizeof(buf), "%5.2f %-8.8s%6s", data.aqua.value, currentStatus.stageName.c_str(), strAbvOut);

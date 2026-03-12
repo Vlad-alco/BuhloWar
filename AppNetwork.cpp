@@ -201,6 +201,8 @@ void AppNetwork::handleApiStatus() {
     // --- Крепость ---
     json += "\"str_bak\":" + String(status.currentStrengthBak) + ",";
     json += "\"str_out\":" + String(status.currentStrength) + ",";
+    json += "\"str_bak_valid\":" + String(status.strengthBakValid ? "true" : "false") + ",";
+    json += "\"str_out_valid\":" + String(status.strengthOutValid ? "true" : "false") + ",";
     json += "\"pressure\":" + String(sensors.pressure * 0.75) + ",";
     json += "\"box_temp\":" + String(sensors.boxTemp) + ",";
     json += "\"humidity\":" + String(sensors.humidity, 1) + ",";
@@ -227,6 +229,11 @@ void AppNetwork::handleApiStatus() {
     json += "\"heaterOn\":"       + String(processEngine->isHeaterOn()       ? "true" : "false") + ",";
     json += "\"mixerOn\":"        + String(processEngine->isMixerOn()        ? "true" : "false") + ",";
     json += "\"waterValveOpen\":" + String(processEngine->isWaterValveOpen() ? "true" : "false") + ",";
+    // ===========================================================
+    
+    // === Референтные значения для TELO (запоминаются перед этапом) ===
+    json += "\"rtsarM\":" + String(processEngine->getRtsarM(), 2) + ",";
+    json += "\"adPressM\":" + String(processEngine->getAdPressM(), 1) + ",";
     // ===========================================================
 
 
@@ -489,12 +496,18 @@ bool AppNetwork::connectToWiFi() {
         
         int tries = 0;
         while (WiFi.status() != WL_CONNECTED && tries < 30) {
-            delay(1000);
+            delay(100);
+            // === ВАЖНО: Не блокируем WebServer надолго! ===
+            if (server) server->handleClient();
+            yield();
+            // ============================================
             tries++;
         }
         
         if (WiFi.status() == WL_CONNECTED) return true;
-        delay(1000);
+        delay(100);  // Сокращено с 1000
+        if (server) server->handleClient();
+        yield();
     }
     
     // Попытка ко второй сети
@@ -505,12 +518,18 @@ bool AppNetwork::connectToWiFi() {
             
             int tries = 0;
             while (WiFi.status() != WL_CONNECTED && tries < 30) {
-                delay(1000);
+                delay(100);
+                // === ВАЖНО: Не блокируем WebServer надолго! ===
+                if (server) server->handleClient();
+                yield();
+                // ============================================
                 tries++;
             }
             
             if (WiFi.status() == WL_CONNECTED) return true;
-            delay(1000);
+            delay(100);  // Сокращено с 1000
+            if (server) server->handleClient();
+            yield();
         }
     }
     
@@ -590,29 +609,28 @@ bool AppNetwork::isTelegramReady() {
 bool AppNetwork::sendTelegramNow(const String& text) {
     if (!online || !bot) return false;
     
-    // === ПРОВЕРКА СОЕДИНЕНИЯ ПЕРЕД ОТПРАВКОЙ ===
-    // Используем отдельный WiFiClientSecure для проверки
-    WiFiClientSecure testClient;
-    testClient.setTimeout(2000);  // 2 сек на проверку (в миллисекундах для WiFiClient)
-    testClient.setInsecure();     // Не проверять сертификат для простого ping
-    
-    bool canConnect = testClient.connect("api.telegram.org", 443);
-    testClient.stop();
-    
-    if (!canConnect) {
-        Serial.println("[TG] Cannot reach api.telegram.org - skipping");
-        return false;
-    }
-    // ===========================================
-    
-    // Устанавливаем таймаут для основного клиента
-    client.setTimeout(3);
+    // Устанавливаем КОРОТКИЙ таймаут (1 сек) для быстрого отказа
+    client.setTimeout(1);
     
     // Логируем перед отправкой
     Serial.println("[TG] Sending: " + text);
     
-    // Отправляем сообщение
+    // === ВАЖНО: Даём WebServer шанс обработать запросы перед блокирующей операцией ===
+    if (server) server->handleClient();
+    yield();  // Позволяет WiFi stack работать
+    // =================================================================================
+    
+    // Отправляем сообщение (с таймаутом 1 сек)
     bool success = bot->sendMessage(tgChatId, text, "");
+    
+    if (!success) {
+        Serial.println("[TG] Send failed (timeout or error)");
+    }
+    
+    // === И после отправки тоже даём шанс WebServer ===
+    if (server) server->handleClient();
+    yield();
+    // ================================================
     
     return success;
 }

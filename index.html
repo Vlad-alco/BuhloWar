@@ -123,6 +123,12 @@
                             <div id="esp32-status" class="w-2 h-2 bg-green-500 rounded-full status-online"></div>
                             <span class="text-gray-400 text-[10px]">On</span>
                         </div>
+                        <!-- Мини-индикаторы НАГРЕВ/МЕШАЛКА/ВОДА -->
+                        <div class="flex items-center gap-1.5 ml-1">
+                            <i data-lucide="flame" class="w-3.5 h-3.5" id="icon-heater-hdr" title="Нагрев"></i>
+                            <i data-lucide="refresh-ccw-dot" class="w-3.5 h-3.5" id="icon-mixer-hdr" title="Мешалка"></i>
+                            <i data-lucide="droplets" class="w-3.5 h-3.5" id="icon-water-hdr" title="Вода"></i>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -250,7 +256,7 @@
                         <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
                             <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">РАСЧЕТЫ</h3>
                             
-                            <!-- Левая колонка: Головы -->
+                            <!-- ГОЛОВЫ -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-500 font-bold text-xs">ГОЛОВЫ</span>
@@ -258,12 +264,16 @@
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
                                     <span>Метод: <span id="mon-head-method">--</span></span>
-                                    <span>Объем: <span id="mon-head-vol">--</span> мл</span>
+                                    <span>Подэтап: <span id="mon-head-substage" class="text-amber">--</span></span>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>Объём: <span id="mon-head-vol">--</span>/<span id="mon-head-vol-target">--</span> мл</span>
+                                    <span>Осталось: <span id="mon-head-remain" class="text-cyan">--:--</span></span>
                                 </div>
                             </div>
 
-                            <!-- Правая колонка: Тело -->
-                            <div>
+                            <!-- ТЕЛО -->
+                            <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-500 font-bold text-xs">ТЕЛО</span>
                                     <span id="mon-body-speed" class="text-green font-bold">-- мл/ч</span>
@@ -272,43 +282,18 @@
                                     <span>Метод: <span id="mon-body-method">--</span></span>
                                     <span>Прогноз: <span id="mon-body-predict" class="text-cyan">--</span> мл</span>
                                 </div>
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>Цикл: <span id="mon-body-cycle">--</span></span>
+                                    <span>Осталось: <span id="mon-body-remain" class="text-cyan">--:--</span></span>
+                                </div>
                             </div>
                             
-                            <!-- Крепость -->
-                            <div class="mt-2 pt-2 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
-                                 <div class="flex justify-between"><span class="text-gray-500">КРЕП.КУБ</span><span class="text-green font-bold"><span id="mon-abv-tank">--</span>%</span></div>
-                                 <div class="flex justify-between"><span class="text-gray-500">ОТБОР</span><span class="text-green font-bold"><span id="mon-abv-out">--</span>%</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Row 3: СИСТЕМА -->
-                    <div class="flex gap-2 items-stretch justify-center w-full">
-                        <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
-                            <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">СИСТЕМА</h3>
-                            <div class="grid grid-cols-3 gap-4 text-xs">
-                                <!-- Нагрев -->
-                                <div class="status-icon-box">
-                                    <i data-lucide="flame" class="w-4 h-4 mb-1" id="icon-heater"></i>
-                                    <!-- ИСПРАВЛЕНО: Текст всегда НАГРЕВ -->
-                                    <span id="mon-heater-status" class="font-bold">НАГРЕВ</span>
-                                </div>
-                                <!-- Мешалка -->
-                                <div class="status-icon-box">
-                                    <i data-lucide="loader" class="w-4 h-4 mb-1" id="icon-mixer"></i>
-                                    <!-- ИСПРАВЛЕНО: Текст всегда МЕШАЛКА -->
-                                    <span id="mon-mixer-status" class="font-bold">МЕШАЛКА</span>
-                                </div>
-                                <!-- Вода -->
-                                <div class="status-icon-box">
-                                    <i data-lucide="droplets" class="w-4 h-4 mb-1" id="icon-water"></i>
-                                    <!-- ИСПРАВЛЕНО: Текст всегда ВОДА -->
-                                    <span id="mon-water-status" class="font-bold">ВОДА</span>
-                                </div>
-                            </div>
-                            <!-- Время этапа / Финиш -->
-                            <div class="mt-2 pt-2 border-t border-gray-700 text-center text-xs text-gray-400">
-                                <span id="mon-extra-info">Время этапа: <span id="mon-stage-time">00:00</span></span>
+                            <!-- Крепость и референтные значения -->
+                            <div class="grid grid-cols-4 gap-1 text-[10px]">
+                                <div class="text-center"><span class="text-gray-500">КРЕП.КУБ</span><div class="text-green font-bold text-xs"><span id="mon-abv-tank">--</span>%</div></div>
+                                <div class="text-center"><span class="text-gray-500">ОТБОР</span><div class="text-green font-bold text-xs"><span id="mon-abv-out">--</span>%</div></div>
+                                <div class="text-center"><span class="text-gray-500">REF TSAR</span><div class="text-amber font-bold text-xs"><span id="mon-ref-tsar">--</span>°</div></div>
+                                <div class="text-center"><span class="text-gray-500">REF АД</span><div class="text-cyan font-bold text-xs"><span id="mon-ref-press">--</span></div></div>
                             </div>
                         </div>
                     </div>
@@ -611,6 +596,8 @@
                 currentData.process = newData.process;
                 currentData.str_bak = newData.str_bak;
                 currentData.str_out = newData.str_out;
+                currentData.str_bak_valid = newData.str_bak_valid;
+                currentData.str_out_valid = newData.str_out_valid;
                 currentData.pressure = newData.pressure;
                 currentData.box_temp = newData.box_temp; // Температура бокса
                 currentData.humidity = newData.humidity; // Влажность
@@ -677,6 +664,9 @@
             // Влажность
             document.getElementById('humidity-value').textContent = (currentData.humidity || 0).toFixed(0);
             // =====================================
+            
+            // Мини-индикаторы в шапке (работают на всех страницах)
+            updateHeaderIcons();
             
             const isRunning = (currentData.process == 1 || currentData.process == 2);
             const stage = currentData.stage || '';
@@ -782,50 +772,65 @@
             document.getElementById('desc-tank-m').textContent = `БАК/Стоп ${currentData.cfg ? currentData.cfg.bakStopTemp : '--'}`;
 
             drawGauge();
-            updateSystemIcons();
-            
-            // Время этапа
-            const extraInfo = document.getElementById('mon-extra-info');
-            if (currentData.stage == 'FINISHING_WORK') {
-                extraInfo.innerHTML = `Завершение: <span class="text-white font-bold">${formatTime(currentData.finishingRemain || 0)}</span>`;
-            } else {
-                extraInfo.innerHTML = `Время этапа: <span id="mon-stage-time">${formatTime(currentData.stageTimeSec || 0)}</span>`;
-            }
+            updateHeaderIcons();
         }
         
         function updateCalculationsBlock() {
             const stage = currentData.stage || '';
             const cfg = currentData.cfg || {};
+            const isRect = currentData.process == 2;
 
-            // Головы
+            // === ГОЛОВЫ ===
             const headSpeedEl = document.getElementById('mon-head-speed');
             const headMethodEl = document.getElementById('mon-head-method');
+            const headSubstageEl = document.getElementById('mon-head-substage');
             const headVolEl = document.getElementById('mon-head-vol');
+            const headVolTargetEl = document.getElementById('mon-head-vol-target');
+            const headRemainEl = document.getElementById('mon-head-remain');
 
-            if (stage == 'GOLOVY' || stage == 'GOLOVY_OK') {
-                headSpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч"; // В GOLOVY bodySpeed = speedGolovy
+            if (stage == 'GOLOVY') {
+                headSpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
                 headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
-                headVolEl.textContent = currentData.headsVolDone || currentData.rectVolumeTarget || "--";
+                headSubstageEl.textContent = currentData.rectSubStage || "--";
+                headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
+                headVolTargetEl.textContent = currentData.rectVolumeTarget || "--";
+                headRemainEl.textContent = formatTime(currentData.rectTimeRemaining || 0);
+            } else if (stage == 'GOLOVY_OK') {
+                headSpeedEl.textContent = "-- мл/ч";
+                headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
+                headSubstageEl.textContent = "ГОТОВО";
+                headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
+                headVolTargetEl.textContent = "--";
+                headRemainEl.textContent = "--:--";
+            } else if (isRect && stage == 'TELO') {
+                // На этапе TELO показываем итоговые данные по головам
+                headSpeedEl.textContent = "-- мл/ч";
+                headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
+                headSubstageEl.textContent = "ОТБРАНО";
+                headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
+                headVolTargetEl.textContent = "--";
+                headRemainEl.textContent = "--:--";
             } else {
-                if (currentData.process == 2 && stage == 'TELO') {
-                     headSpeedEl.textContent = "-- мл/ч";
-                     headMethodEl.textContent = cfg.headsTypeKSS ? "Kss" : "ST";
-                     headVolEl.textContent = currentData.headsVolDone || "--";
-                } else {
-                    headSpeedEl.textContent = "-- мл/ч";
-                    headMethodEl.textContent = "--";
-                    headVolEl.textContent = "--";
-                }
+                headSpeedEl.textContent = "-- мл/ч";
+                headMethodEl.textContent = "--";
+                headSubstageEl.textContent = "--";
+                headVolEl.textContent = "--";
+                headVolTargetEl.textContent = "--";
+                headRemainEl.textContent = "--:--";
             }
 
-            // Тело
+            // === ТЕЛО ===
             const bodySpeedEl = document.getElementById('mon-body-speed');
             const bodyMethodEl = document.getElementById('mon-body-method');
             const bodyPredictEl = document.getElementById('mon-body-predict');
+            const bodyCycleEl = document.getElementById('mon-body-cycle');
+            const bodyRemainEl = document.getElementById('mon-body-remain');
 
             if (stage == 'TELO') {
                 bodySpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
-                bodyMethodEl.textContent = cfg.headsTypeKSS ? "Kss" : "ST";
+                bodyMethodEl.textContent = currentData.bodyMethodName || "--";
+                bodyCycleEl.textContent = currentData.bodyCycle || "--";
+                bodyRemainEl.textContent = formatTime(currentData.rectTimeRemaining || 0);
                 
                 let asVol = cfg.asVolume || 0;
                 let headsVol = currentData.headsVolDone || 0;
@@ -836,48 +841,36 @@
                 bodySpeedEl.textContent = "-- мл/ч";
                 bodyMethodEl.textContent = "--";
                 bodyPredictEl.textContent = "--";
+                bodyCycleEl.textContent = "--";
+                bodyRemainEl.textContent = "--:--";
             }
 
-            document.getElementById('mon-abv-tank').textContent = currentData.str_bak || '--';
-            document.getElementById('mon-abv-out').textContent = currentData.str_out || '--';
+            // === КРЕПОСТЬ И РЕФЕРЕНТНЫЕ ===
+            // Крепость показываем только если валидна (температура >= 78.5°C)
+            const strBakValid = currentData.str_bak_valid !== false; // true по умолчанию
+            const strOutValid = currentData.str_out_valid !== false;
+            document.getElementById('mon-abv-tank').textContent = strBakValid ? (currentData.str_bak || '--') : '--';
+            document.getElementById('mon-abv-out').textContent = strOutValid ? (currentData.str_out || '--') : '--';
+            
+            // Референтные TSAR и АД (показываем только после сохранения, т.е. когда > 0)
+            const rtsarM = currentData.rtsarM || 0;
+            const adPressM = currentData.adPressM || 0;
+            document.getElementById('mon-ref-tsar').textContent = rtsarM > 0 ? rtsarM.toFixed(2) : '--';
+            document.getElementById('mon-ref-press').textContent = adPressM > 0 ? Math.round(adPressM * 0.75) : '--';
         }
 
-        function updateSystemIcons() {
-            // === НАГРЕВ (Всегда НАГРЕВ, цвет меняется) ===
-            const hIcon = document.getElementById('icon-heater');
-            const hStatus = document.getElementById('mon-heater-status');
-            hStatus.textContent = "НАГРЕВ"; // Текст фиксирован
-            if (currentData.heaterOn) {
-                hIcon.style.color = "var(--amber)"; // Оранжевый
-                hStatus.style.color = "var(--amber)";
-            } else {
-                hIcon.style.color = "var(--text-dim)"; // Серый
-                hStatus.style.color = "var(--text-dim)";
-            }
+        function updateHeaderIcons() {
+            // === НАГРЕВ (мини-иконка в шапке) ===
+            const hHdr = document.getElementById('icon-heater-hdr');
+            if (hHdr) hHdr.style.color = currentData.heaterOn ? "var(--amber)" : "var(--text-dim)";
 
-            // === МЕШАЛКА (Всегда МЕШАЛКА, цвет меняется) ===
-            const mIcon = document.getElementById('icon-mixer');
-            const mStatus = document.getElementById('mon-mixer-status');
-            mStatus.textContent = "МЕШАЛКА"; // Текст фиксирован
-            if (currentData.mixerOn) {
-                mIcon.style.color = "var(--green)"; // Зеленый
-                mStatus.style.color = "var(--green)";
-            } else {
-                mIcon.style.color = "var(--text-dim)"; // Серый
-                mStatus.style.color = "var(--text-dim)";
-            }
+            // === МЕШАЛКА (мини-иконка в шапке) ===
+            const mHdr = document.getElementById('icon-mixer-hdr');
+            if (mHdr) mHdr.style.color = currentData.mixerOn ? "var(--green)" : "var(--text-dim)";
 
-            // === ВОДА (Всегда ВОДА, цвет меняется) ===
-            const wIcon = document.getElementById('icon-water');
-            const wStatus = document.getElementById('mon-water-status');
-            wStatus.textContent = "ВОДА"; // Текст фиксирован
-            if (currentData.waterValveOpen) {
-                wIcon.style.color = "var(--cyan)"; // Синий
-                wStatus.style.color = "var(--cyan)";
-            } else {
-                wIcon.style.color = "var(--text-dim)"; // Серый
-                wStatus.style.color = "var(--text-dim)";
-            }
+            // === ВОДА (мини-иконка в шапке) ===
+            const wHdr = document.getElementById('icon-water-hdr');
+            if (wHdr) wHdr.style.color = currentData.waterValveOpen ? "var(--cyan)" : "var(--text-dim)";
         }
         
         // === ГРАФИКА ===

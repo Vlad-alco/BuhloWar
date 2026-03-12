@@ -169,6 +169,14 @@ void setup() {
   // 4. Связываем Web с движком (чтобы Web мог управлять процессами)
   appNetwork.setEngine(&processEngine, &configManager);
   
+  // === ЗАПУСК NETWORK TASK НА CORE 0 ===
+  // Network Task (WiFi, WebServer, Telegram) работает на Core 0
+  // loop() (датчики, процесс, зуммер) работает на Core 1
+  // Это предотвращает блокировку основного цикла при отправке Telegram
+  appNetwork.startTask();
+  Serial.println("[System] Network Task started on Core 0");
+  // =====================================
+  
   // 5. Инициализация ProcessEngine (основная логика)
   processEngine.begin(&lcd, &sensorAdapter, &outputManager, &configManager);
   
@@ -191,10 +199,13 @@ void setup() {
 
 // ================= ОСНОВНОЙ ЦИКЛ =================
 void loop() {
-  // 1. Сначала СЕТЬ (получили команду от Web)
-  appNetwork.update();
+  // === ВАЖНО: appNetwork.update() больше НЕ вызывается здесь! ===
+  // Network Task запущен на Core 0 через startTask() в setup()
+  // loop() работает на Core 1 и не блокируется Telegram
+  // ===============================================================
 
-  // 1а. Обработка команд из очереди (AppNetwork → ProcessEngine)
+  // 1. Обработка команд из очереди (AppNetwork → ProcessEngine)
+  // Команды приходят из Network Task через FreeRTOS Queue
   CommandMessage msg;
   while (xQueueReceive(commandQueue, &msg, 0) == pdTRUE) {
       processEngine.handleCommand(msg.command);

@@ -129,6 +129,8 @@ String testAwaitingType = "";     // "head", "body_nc", "body_no"
     float currentTank = 0.0f;
     float currentStrength = 0.0f;      // Текущая крепость
     float currentStrengthBak = 0.0f;   // Крепость в баке
+    bool strengthOutValid = false;    // Крепость в струе определена (температура >= 78.5°C)
+    bool strengthBakValid = false;    // Крепость в баке определена (температура >= 78.5°C)
 
     // Статус теста клапанов (для Web)
     struct {

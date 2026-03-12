@@ -36,13 +36,17 @@ float interpolate(float x, float x0, float x1, float y0, float y1) {
 
 // Расчет крепости с учетом атмосферного давления
 // temp - измеренная температура, pressure - давление в мм рт.ст. (или hPa * 0.75006)
+// Возвращает -1 если температура ниже первой точки таблицы (куб ещё не нагрелся)
 float ConfigManager::getABV(float temp, float pressure_mmHg, bool isOutput) {
   // Корректировка температуры кипения на давление
   // Формула: T_correct = T_meas + (760 - P) * 0.037 (примерный коэффициент)
   float tempCorrected = temp + (760.0 - pressure_mmHg) * 0.037;
 
-  // Поиск в таблице
-  if (tempCorrected <= abvTemp[0]) return isOutput ? abvOut[0] : abvPot[0];
+  // === ВАЖНО: Если температура ниже первой точки таблицы (78.5°C) ===
+  // Куб ещё не нагрелся, крепость не определена
+  if (tempCorrected < abvTemp[0]) return -1.0f;
+  // ================================================================
+
   if (tempCorrected >= abvTemp[ABV_TABLE_SIZE - 1]) return isOutput ? abvOut[ABV_TABLE_SIZE - 1] : abvPot[ABV_TABLE_SIZE - 1];
 
   for (int i = 0; i < ABV_TABLE_SIZE - 1; i++) {
