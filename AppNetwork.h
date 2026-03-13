@@ -56,8 +56,9 @@ private:
     ConfigManager* configManager = nullptr;
     
     // --- Состояние ---
-    bool online = false;
-    bool sdInitialized = false;  // Флаг инициализации SD
+    bool online = false;           // Интернет доступен (для Telegram/NTP)
+    bool wifiConnected = false;    // WiFi подключен к роутеру
+    bool sdInitialized = false;    // Флаг инициализации SD
     NetworkMode networkMode = NetworkMode::OFFLINE;  // Текущий режим сети
     TaskHandle_t networkTaskHandle = nullptr;
 

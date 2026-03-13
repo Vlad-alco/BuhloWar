@@ -44,15 +44,26 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     // 3. Попытка подключения
     Serial.println("[NetMgr] Connecting...");
     if (connectToWiFi()) {
-        online = true;
+        // WiFi подключен к роутеру
+        wifiConnected = true;
         networkMode = NetworkMode::STA_MODE;  // Режим станции (роутер)
-        client.setCACert(TELEGRAM_CERTIFICATE_ROOT); 
         
-        if (tgToken.length() > 0) {
-            bot = new UniversalTelegramBot(tgToken, client);
+        // Проверяем интернет
+        online = checkInternet();
+        
+        if (online) {
+            // Интернет есть - запускаем Telegram и NTP
+            client.setCACert(TELEGRAM_CERTIFICATE_ROOT); 
+            
+            if (tgToken.length() > 0) {
+                bot = new UniversalTelegramBot(tgToken, client);
+            }
+            
+            syncNTP();
+            Serial.println("[NetMgr] Internet OK. Telegram/NTP enabled.");
+        } else {
+            Serial.println("[NetMgr] No internet. Web only mode.");
         }
-        
-        syncNTP();
         
         // ================== WEB SERVER SETUP (ОДИН РАЗ) ==================
         server = new WebServer(80);
@@ -212,17 +223,63 @@ void AppNetwork::update() {
     // === ПЕРВЫМ ДЕЛОМ: WebServer (самый приоритетный!) ===
     server->handleClient();
     
-    // Сеть и reconect
+    // === ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СЕТИ ===
     if (now - lastCheckTime > checkIntervalMs || lastCheckTime == 0) {
         lastCheckTime = now;
-        if (online) {
-            if (!checkInternet()) {
-                online = false; WiFi.disconnect();
-                if (connectToWiFi()) { online = true; syncNTP(); sendMessage("Connection restored."); }
+        
+        if (networkMode == NetworkMode::STA_MODE) {
+            // === РЕЖИМ STA: проверяем WiFi и интернет отдельно ===
+            
+            // 1. Проверка WiFi соединения с роутером
+            if (WiFi.status() != WL_CONNECTED) {
+                // WiFi отвалился - пробуем переподключиться
+                Serial.println("[NetMgr] WiFi lost. Reconnecting...");
+                if (connectToWiFi()) {
+                    Serial.println("[NetMgr] WiFi reconnected.");
+                } else {
+                    // WiFi не восстановился - переключаемся в AP режим
+                    Serial.println("[NetMgr] WiFi reconnect failed. Switching to AP...");
+                    if (startAPMode()) {
+                        networkMode = NetworkMode::AP_MODE;
+                    } else {
+                        networkMode = NetworkMode::OFFLINE;
+                    }
+                    return;
+                }
             }
-        } else {
-            if (connectToWiFi()) { online = true; syncNTP(); }
+            
+            // 2. Проверка интернета (только для Telegram/NTP)
+            bool hasInternet = checkInternet();
+            if (hasInternet && !online) {
+                // Интернет восстановился
+                online = true;
+                syncNTP();
+                sendMessage("Connection restored.");
+                Serial.println("[NetMgr] Internet restored.");
+            } else if (!hasInternet && online) {
+                // Интернет потерян, но WiFi работает
+                online = false;
+                Serial.println("[NetMgr] Internet lost. Web continues, Telegram disabled.");
+            }
+            
+        } else if (networkMode == NetworkMode::AP_MODE) {
+            // === РЕЖИМ AP: периодически пробуем подключиться к роутеру ===
+            if (connectToWiFi()) {
+                // Успешно подключились к роутеру - переключаемся в STA
+                Serial.println("[NetMgr] Connected to router. Switching to STA mode...");
+                WiFi.softAPdisconnect(true);  // Отключаем AP
+                networkMode = NetworkMode::STA_MODE;
+                wifiConnected = true;
+                online = checkInternet();
+                if (online) {
+                    if (tgToken.length() > 0) {
+                        bot = new UniversalTelegramBot(tgToken, client);
+                    }
+                    syncNTP();
+                }
+            }
         }
+        // OFFLINE режим - ничего не проверяем
     }
 
     // === ПЕРИОДИЧЕСКИЕ УВЕДОМЛЕНИЯ TELEGRAM (Аварии) ===
