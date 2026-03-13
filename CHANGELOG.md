@@ -4,6 +4,90 @@
 
 ---
 
+## [2025-03-13] — Сессия 10
+
+### Проблемы
+1. Web интерфейс не открывается в AP режиме (192.168.4.1)
+2. Система в AP режиме постоянно пытается подключиться к роутеру → ошибки `wifi:sta is connecting, cannot set config`
+3. Медленный Web интерфейс в AP режиме
+4. LCD показывает "X" вместо "A" в AP режиме
+
+### Решение
+
+#### 1. DNS сервер для AP режима (Captive Portal)
+ESP32 в AP режиме не отвечал на DNS запросы — многие устройства не могли открыть страницу.
+```cpp
+// AppNetwork.h
+#include <DNSServer.h>
+DNSServer* dnsServer = nullptr;
+
+// AppNetwork.cpp - startAPMode()
+dnsServer = new DNSServer();
+dnsServer->start(53, "*", WiFi.softAPIP());  // Перенаправляем все DNS на наш IP
+
+// update()
+if (dnsServer && networkMode == NetworkMode::AP_MODE) {
+    while (dnsServer->processNextRequest() && dnsProcessed < 10) { dnsProcessed++; }
+}
+```
+
+#### 2. AP режим без авто-переключения
+Убраны попытки подключения к роутеру в AP режиме — ESP32 не может одновременно работать как AP и STA.
+```cpp
+} else if (networkMode == NetworkMode::AP_MODE) {
+    // Режим AP: работаем до перезагрузки
+    // Пользователь должен исправить настройки WiFi и перезагрузить систему
+}
+```
+
+#### 3. Ускорение Web в AP режиме
+```cpp
+// Задержка в task:
+if (networkMode == NetworkMode::AP_MODE) {
+    vTaskDelay(pdMS_TO_TICKS(2));  // Быстро для AP
+} else {
+    vTaskDelay(pdMS_TO_TICKS(10)); // Нормально для STA
+}
+
+// DNS запросы обрабатываются пачкой (до 10 за цикл)
+```
+
+#### 4. Исправление символа сети на LCD
+LCD получал `boolean isOnline` вместо символа режима.
+```cpp
+// ProcessEngine.h - было:
+void updateNetworkStatus(bool online);
+
+// ProcessEngine.h - стало:
+void updateNetworkStatus(char networkSymbol);  // 'W' / 'A' / 'X'
+
+// BuhloWar...ino:
+processEngine.updateNetworkStatus(appNetwork.getNetworkSymbol());
+
+// ProcessEngine.cpp - line0:
+snprintf(buf, ..., currentStatus.networkSymbol.c_str());  // W/A/X
+```
+
+### Таблица режимов сети
+| Режим | LCD | Web | Telegram | DNS |
+|-------|-----|-----|----------|-----|
+| STA (роутер) | W | ✅ | ✅ | ❌ |
+| AP (точка) | A | ✅ | ❌ | ✅ |
+| OFFLINE | X | ❌ | ❌ | ❌ |
+
+### Изменённые файлы
+- **AppNetwork.h**: добавлен `#include <DNSServer.h>`, `DNSServer* dnsServer`
+- **AppNetwork.cpp**:
+  - `startAPMode()` — создание DNS сервера
+  - `update()` — обработка DNS запросов, убраны попытки подключения к роутеру
+  - `networkTaskWrapper()` — динамическая задержка (2мс AP / 10мс STA)
+- **ProcessEngine.h**: `updateNetworkStatus(char)` вместо `updateNetworkStatus(bool)`
+- **ProcessEngine.cpp**: использует `networkSymbol` в line0
+- **ProcessCommon.h**: `networkSymbol = "X"` по умолчанию
+- **BuhloWar110326CL2core.ino**: передаёт `getNetworkSymbol()` в ProcessEngine
+
+---
+
 ## [2025-03-13] — Сессия 9
 
 ### Проблема
