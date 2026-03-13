@@ -29,8 +29,8 @@ void ProcessEngine::begin(LiquidCrystal_I2C* lcd, SensorAdapter* sensors, Output
 }
 
 void ProcessEngine::syncConfig() {}
-void ProcessEngine::updateNetworkStatus(bool online) {
-    currentStatus.isOnline = online;
+void ProcessEngine::updateNetworkStatus(char networkSymbol) {
+    currentStatus.networkSymbol = String(networkSymbol);
 }
 void ProcessEngine::handleUiUp() {
     if (currentStage == Stage::VALVE_CAL) valveCalMenu->handleUpButton();
@@ -1430,8 +1430,8 @@ void ProcessEngine::updateDisplayData() {
         if (showStrength && currentStatus.strengthBakValid) snprintf(strAbvBak, sizeof(strAbvBak), "%%%.0f", currentStatus.currentStrengthBak);
         else snprintf(strAbvBak, sizeof(strAbvBak), "%%--");
         
-        // Используем символы W / X для статуса сети
-        snprintf(buf, sizeof(buf), "%5.2f %s %s %7s", data.tsa.value, "DIST", (currentStatus.isOnline ? "W" : "X"), strAbvBak);
+        // Используем символы W / A / X для статуса сети
+        snprintf(buf, sizeof(buf), "%5.2f %s %s %7s", data.tsa.value, "DIST", currentStatus.networkSymbol.c_str(), strAbvBak);
         currentStatus.line0 = String(buf);
         
         // --- Строка 1: AQUA, Этап, Крепость в отборе ---
@@ -1474,7 +1474,7 @@ void ProcessEngine::updateDisplayData() {
             const char* methodStr = "ST"; 
             if (cfg.headsTypeKSS) methodStr = "KSS";
             
-            snprintf(buf, sizeof(buf), "%5.2f RECT %s %s", data.tsa.value, (currentStatus.isOnline ? "W" : "X"), methodStr);
+            snprintf(buf, sizeof(buf), "%5.2f RECT %s %s", data.tsa.value, currentStatus.networkSymbol.c_str(), methodStr);
             currentStatus.line0 = String(buf);
             
             // Строка 1 (TELO / GOLOVY)

@@ -85,7 +85,7 @@ struct SystemStatus {
     
     // Сеть
     bool isOnline = false;
-    String networkSymbol = "-";        // "+" онлайн, "-" оффлайн
+    String networkSymbol = "X";        // 'W' = роутер, 'A' = AP, 'X' = офлайн
 
     // Блокировка запуска процесса (заполняется при отказе checkSensorsReady)
     String sensorErrorMsg = "";        // Список датчиков с проблемой, например "TSA TANK"

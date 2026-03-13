@@ -246,7 +246,7 @@ void loop() {
   static bool wasRunning = false; // Запоминаем, работал ли процесс
   
   if (processEngine.isProcessRunning()) {
-     processEngine.updateNetworkStatus(appNetwork.isOnline());
+     processEngine.updateNetworkStatus(appNetwork.getNetworkSymbol());  // 'W' / 'A' / 'X'
      
      // === ЛОГИКА СТАРТА (Edge Trigger) ===
      if (!wasRunning) {

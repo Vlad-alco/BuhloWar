@@ -67,7 +67,7 @@ void clearBodyTestAwait()   { bodyTestStatus.awaitingInput = false; }
     void handleUiDown();
     void handleUiSet();
     void handleUiBack();
-    void updateNetworkStatus(bool online);
+    void updateNetworkStatus(char networkSymbol);  // 'W' / 'A' / 'X'
     // Геттеры состояния выходов (для JSON веб-интерфейса)
     bool isHeaterOn()       const { return outputManager ? outputManager->isHeaterOn()      : false; }
     bool isMixerOn()        const { return outputManager ? outputManager->isMixerOn()        : false; }
