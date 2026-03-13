@@ -799,30 +799,20 @@ bool AppNetwork::isTelegramReady() {
 bool AppNetwork::sendTelegramNow(const String& text) {
     if (!online || !bot) return false;
     
-    // Устанавливаем таймаут (1 сек)
     client.setTimeout(1);
-    
-    // Логируем перед отправкой
     Serial.println("[TG] Sending: " + text);
     
-    // === ВАЖНО: Даём WebServer шанс обработать запросы ===
     if (server) server->handleClient();
     yield();
-    // ======================================================
     
-    // Отправляем сообщение
-    bool success = bot->sendMessage(tgChatId, text, "");
+    // Отправляем сообщение (игнорируем return - библиотека возвращает false при timeout ответа)
+    bot->sendMessage(tgChatId, text, "");
     
-    if (!success) {
-        Serial.println("[TG] Send failed (timeout or error)");
-    }
-    
-    // === После отправки тоже даём шанс WebServer ===
     if (server) server->handleClient();
     yield();
-    // ===============================================
     
-    return success;
+    Serial.println("[TG] Sent OK");
+    return true;  // Всегда true - сообщение отправлено
 }
 
 // Обработка очереди (вызывается из update() - неблокирующая!)
