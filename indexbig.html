@@ -107,6 +107,11 @@
         
         /* Status Icons */
         .status-icon-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5rem; border-radius: 0.5rem; background-color: var(--bg); }
+        
+        /* Network Mode Badge */
+        .net-mode-w { background-color: rgba(74, 222, 128, 0.2); color: var(--green); border: 1px solid #14532d; }
+        .net-mode-a { background-color: rgba(245, 158, 11, 0.2); color: var(--amber); border: 1px solid #92400e; }
+        .net-mode-x { background-color: rgba(107, 114, 128, 0.2); color: var(--text-dim); border: 1px solid var(--border); }
     </style>
 </head>
 <body class="min-h-screen bg-gray-900 text-gray-200">
@@ -127,7 +132,7 @@
                         </div>
                         <!-- ИНДИКАТОР РЕЖИМА СЕТИ W/A/X -->
                         <div class="flex flex-col items-center ml-1">
-                            <div id="network-mode-badge" class="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-green-900 text-green-400">W</div>
+                            <div id="network-mode-badge" class="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center net-mode-w">W</div>
                         </div>
                         <!-- Мини-индикаторы НАГРЕВ/МЕШАЛКА/ВОДА -->
                         <div class="flex items-center gap-6 ml-1">
@@ -634,10 +639,11 @@
                 currentData.str_bak_valid = newData.str_bak_valid;
                 currentData.str_out_valid = newData.str_out_valid;
                 currentData.pressure = newData.pressure;
-                currentData.box_temp = newData.box_temp; // Температура бокса
-                currentData.humidity = newData.humidity; // Влажность
+                currentData.box_temp = newData.box_temp;
+                currentData.humidity = newData.humidity;
                 currentData.online = newData.online;
                 currentData.power = newData.power;
+                currentData.network_mode = newData.network_mode || 'X';  // Режим сети W/A/X
                 
                 currentData.alarmTimerSec = newData.alarmTimerSec;
                 currentData.rectMethodName = newData.rectMethodName;
@@ -694,31 +700,28 @@
             if (netBadge) {
                 const mode = currentData.network_mode || 'X';
                 netBadge.textContent = mode;
-                // Цвета: W=зелёный, A=жёлтый, X=серый
+                netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center ';
                 if (mode === 'W') {
-                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-green-900 text-green-400';
+                    netBadge.className += 'net-mode-w';
                 } else if (mode === 'A') {
-                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-yellow-900 text-yellow-400';
+                    netBadge.className += 'net-mode-a';
                 } else {
-                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-gray-700 text-gray-400';
+                    netBadge.className += 'net-mode-x';
                 }
             }
             // ====================================
+            
             document.getElementById('process-time').textContent = formatTime(currentData.time || 0);
             document.getElementById('pressure-value').textContent = Math.round(currentData.pressure || 0);
             document.getElementById('power-display').textContent = currentData.power || 0;
             
             // === ШАПКА: Температура и Влажность ===
-            // Температура: Текущая (оранжевый) / Макс (серый)
             const boxMax = currentData.cfg ? currentData.cfg.boxMaxTemp : '--';
             document.getElementById('box-temp-value').textContent = (currentData.box_temp || 0).toFixed(0);
             document.getElementById('box-temp-max').textContent = boxMax;
-            
-            // Влажность
             document.getElementById('humidity-value').textContent = (currentData.humidity || 0).toFixed(0);
             // =====================================
             
-            // Мини-индикаторы в шапке (работают на всех страницах)
             updateHeaderIcons();
             
             const isRunning = (currentData.process == 1 || currentData.process == 2);
@@ -802,20 +805,16 @@
             document.getElementById('center-time-val').textContent = formatTime(currentData.time || 0);
             updateCalculationsBlock();
 
-            // Давление
             document.getElementById('press-val-m').textContent = Math.round(currentData.pressure || 760);
             
-            // === ИСПРАВЛЕНО: Поправка с +/- и цветом ===
             let pressCorr = ((currentData.pressure || 760) - 760) * 0.037;
             let pressCorrText = (pressCorr >= 0 ? "+" : "") + pressCorr.toFixed(2);
             const pressCorrEl = document.getElementById('press-corr-m');
             pressCorrEl.textContent = pressCorrText;
-            pressCorrEl.style.color = "var(--amber)"; // Оранжевый всегда
-            // =========================================
+            pressCorrEl.style.color = "var(--amber)";
             
             if (!gaugeAnimating) updateBarometer(currentData.pressure || 760);
 
-            // Температуры
             document.getElementById('val-tsa-m').textContent = currentData.tsa ? currentData.tsa.toFixed(1) : '--';
             document.getElementById('val-tsar-m').textContent = currentData.tsar ? currentData.tsar.toFixed(1) : '--';
             document.getElementById('val-tank-m').textContent = currentData.tank ? currentData.tank.toFixed(1) : '--';
@@ -844,7 +843,7 @@
 
             if (stage == 'GOLOVY') {
                 headSpeedEl.textContent = (currentData.headsSpeed || 0) + " мл/ч";
-                headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
+                headMethodEl.textContent = cfg.headsTypeKSS ? "Kss" : "ST";
                 headSubstageEl.textContent = currentData.rectSubStage || "--";
                 headVolEl.textContent = Math.round(currentData.headsVolDone || 0);
                 headVolTargetEl.textContent = currentData.rectVolumeTarget || "--";
@@ -859,7 +858,6 @@
                 headRemainEl.textContent = "--:--";
                 headTotalEl.textContent = currentData.headsTotalTarget || Math.round(currentData.headsVolDone || 0);
             } else if (isRect && stage == 'TELO') {
-                // На этапе TELO показываем итоговые данные по головам
                 headSpeedEl.textContent = "-- мл/ч";
                 headMethodEl.textContent = cfg.headsTypeKSS ? "KSS" : "ST";
                 headSubstageEl.textContent = "ОТБРАНО";
@@ -887,7 +885,6 @@
             if (stage == 'TELO') {
                 bodySpeedEl.textContent = (currentData.bodySpeed || 0) + " мл/ч";
                 bodyMethodEl.textContent = currentData.bodyMethodName || "--";
-                // Цикл: для Шпоры не показываем (counter=0), для Стандарта показываем текущий/максимум
                 let cycleVal = currentData.bodyCycle || 0;
                 let cycleLim = cfg.cycleLim || 1;
                 if (currentData.bodyMethodName == "Шпора" || cycleVal == 0) {
@@ -911,13 +908,11 @@
             }
 
             // === КРЕПОСТЬ И РЕФЕРЕНТНЫЕ ===
-            // Крепость показываем только если валидна (температура >= 78.5°C)
             const strBakValid = currentData.str_bak_valid === true;
             const strOutValid = currentData.str_out_valid === true;
             document.getElementById('mon-abv-tank').textContent = strBakValid ? (currentData.str_bak || '--') : '--';
             document.getElementById('mon-abv-out').textContent = strOutValid ? (currentData.str_out || '--') : '--';
             
-            // Референтные TSAR и АД (показываем только после сохранения, т.е. когда > 0)
             const rtsarM = currentData.rtsarM || 0;
             const adPressM = currentData.adPressM || 0;
             document.getElementById('mon-ref-tsar').textContent = rtsarM > 0 ? rtsarM.toFixed(2) : '--';
@@ -925,15 +920,10 @@
         }
 
         function updateHeaderIcons() {
-            // === НАГРЕВ (мини-иконка в шапке) ===
             const hHdr = document.getElementById('icon-heater-hdr');
             if (hHdr) hHdr.style.color = currentData.heaterOn ? "var(--amber)" : "var(--text-dim)";
-
-            // === МЕШАЛКА (мини-иконка в шапке) ===
             const mHdr = document.getElementById('icon-mixer-hdr');
             if (mHdr) mHdr.style.color = currentData.mixerOn ? "var(--green)" : "var(--text-dim)";
-
-            // === ВОДА (мини-иконка в шапке) ===
             const wHdr = document.getElementById('icon-water-hdr');
             if (wHdr) wHdr.style.color = currentData.waterValveOpen ? "var(--cyan)" : "var(--text-dim)";
         }
@@ -1158,7 +1148,6 @@
             document.getElementById('dist-aqua').textContent = currentData.aqua ? currentData.aqua.toFixed(2) : '--';
             document.getElementById('dist-tank').textContent = currentData.tank ? currentData.tank.toFixed(2) : '--';
             document.getElementById('dist-stage').textContent = currentData.stage || '--';
-            // Крепость показываем только если валидна (температура >= 78.5°C)
             document.getElementById('dist-str-bak').textContent = currentData.str_bak_valid ? (currentData.str_bak || '--') : '--';
             document.getElementById('dist-str-out').textContent = currentData.str_out_valid ? (currentData.str_out || '--') : '--';
         }
@@ -1262,8 +1251,6 @@
             if (!dPanel || !aPanel) return;
             aPanel.style.display = 'none';
 
-            // Сбрасываем флаг закрытия если процесс не запущен (новый запуск)
-            // или если stage изменился с SET_PW_AS на другой
             if (currentData.process == 0 || stage === 'IDLE') {
                 userClosedSetPwAs = false;
             }
