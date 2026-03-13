@@ -61,9 +61,9 @@
 - Пользователь: Vlad-alco
 - Репозиторий: BuhloWar
 - URL: https://github.com/Vlad-alco/BuhloWar
-- Token: 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
 
 После внесения изменений — коммит и push на GitHub.
+Токен хранится в git remote config (не в файлах репозитория).
 
 ---
 
