@@ -1246,7 +1246,6 @@ void ProcessEngine::handleTelo() {
 
         int openMs = (int)openMsCalc;
         int closeMs = cfg.bodyCloseMs * 1000;
-        if (closeMs < 5000) closeMs = 5000;
         outputManager->startBodyValveCycling(openMs, closeMs);
 
     }
@@ -1258,7 +1257,6 @@ void ProcessEngine::handleTelo() {
             // NC Клапан: Импульсный режим
             int openMs = (int)(cfg.bodyOpenMs * koff * 1000);
             int closeMs = cfg.bodyCloseMs * 1000;
-            if (closeMs < 5000) closeMs = 5000;
             outputManager->startBodyValveCycling(openMs, closeMs);
         } else {
             // NO Клапан: Ручной режим (Просто Открыть)
