@@ -10,21 +10,31 @@
 // Подключаем внешний объект логера
 extern SDLogger logger;
 
-void AppNetwork::begin(int checkIntervalMinutes) {
-    checkIntervalMs = checkIntervalMinutes * 60000;
-    
-    // 1. Инициализация SD карты
+// === ИНИЦИАЛИЗАЦИЯ SD КАРТЫ (отдельная функция) ===
+bool AppNetwork::initSD() {
     SPI.begin(SD_SPI_SCK, SD_SPI_MISO, SD_SPI_MOSI, SD_SPI_CS);
     Serial.println("[NetMgr] Mounting SD Card...");
-    
+
     if(!SD.begin(SD_SPI_CS)) {
-        Serial.println("[NetMgr] SD Card Mount FAILED! Switching to OFFLINE mode.");
-        // Важно: просто выходим. Система продолжит работу без сети.
-        return; 
-    } 
+        Serial.println("[NetMgr] SD Card Mount FAILED!");
+        sdInitialized = false;
+        return false;
+    }
 
     Serial.println("[NetMgr] SD Card Mounted OK.");
-    
+    sdInitialized = true;
+    return true;
+}
+
+void AppNetwork::begin(int checkIntervalMinutes) {
+    checkIntervalMs = checkIntervalMinutes * 60000;
+
+    // 1. Инициализация SD карты
+    if(!initSD()) {
+        Serial.println("[NetMgr] Switching to OFFLINE mode.");
+        return;
+    }
+
     // 2. Чтение конфигурации WiFi
     if (!loadConfigFromSD()) {
         Serial.println("[NetMgr] Config load failed! Switching to OFFLINE mode.");

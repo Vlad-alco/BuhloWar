@@ -56,6 +56,12 @@ void setup() {
   
   // Создаём очередь команд (AppNetwork → loop)
   commandQueue = xQueueCreate(10, sizeof(CommandMessage));
+
+  // === РАННЯЯ ИНИЦИАЛИЗАЦИЯ SD КАРТЫ ===
+  // Важно: SD должна быть инициализирована ДО первого logger.log()
+  appNetwork.initSD();
+  // =====================================
+
 // === АНАЛИЗ ПРИЧИНЫ СБРОСА ===
   esp_reset_reason_t reason = esp_reset_reason();
   
@@ -74,7 +80,7 @@ void setup() {
   else {
       logger.log("System Boot: Other Reset");
   }
-  logger.log("System Boot Start"); // Вместо Serial.println
+  logger.log("System Boot Start");
   logger.log("Firmware: " + String(FIRMWARE_VERSION));
   
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);

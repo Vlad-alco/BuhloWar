@@ -26,6 +26,7 @@ public:
     void begin(int checkIntervalMinutes);
     void update();
     void startTask();
+    bool initSD();  // Публичный метод для ранней инициализации SD
     
     // Метод для связи с логикой
     void setEngine(ProcessEngine* engine, ConfigManager* cfgMgr);
@@ -46,6 +47,7 @@ private:
     
     // --- Состояние ---
     bool online = false;
+    bool sdInitialized = false;  // Флаг инициализации SD
     TaskHandle_t networkTaskHandle = nullptr;
 
     unsigned long lastCheckTime = 0;

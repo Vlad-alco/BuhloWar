@@ -18,12 +18,18 @@ public:
     }
 
     void log(const String &message) {
-        // === АВТООПРЕДЕЛЕНИЕ SD ===
-        if (!sdAvailable) {
-            if (SD.cardSize() > 0) sdAvailable = true;
+        // === БЕЗОПАСНАЯ ПРОВЕРКА SD ===
+        // Если SD ещё не проверяли - проверяем один раз
+        if (!sdChecked) {
+            sdAvailable = (SD.cardSize() > 0);
+            sdChecked = true;
         }
         
-        if (!sdAvailable) return;
+        if (!sdAvailable) {
+            // SD недоступна - выводим только в Serial
+            Serial.println("[NO SD] " + message);
+            return;
+        }
 
         // === ОПТИМИЗАЦИЯ: Проверка размера ===
         // Проверяем, превысил ли *отслеживаемый* размер лимит.
@@ -83,6 +89,7 @@ public:
 
 private:
     bool sdAvailable = false;
+    bool sdChecked = false;  // Флаг: уже проверяли SD
     // === НОВАЯ ПЕРЕМЕННАЯ ===
     unsigned long currentFileSize = 0; 
     // ========================
