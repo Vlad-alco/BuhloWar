@@ -241,11 +241,10 @@ void AppNetwork::update() {
     server->handleClient();
     
     // === DNS SERVER (только в AP режиме) ===
-    // Обрабатываем ВСЕ DNS запросы за один цикл для быстродействия
+    // Обрабатываем несколько DNS запросов за один цикл для быстродействия
     if (dnsServer && networkMode == NetworkMode::AP_MODE) {
-        int dnsProcessed = 0;
-        while (dnsServer->processNextRequest() && dnsProcessed < 10) {
-            dnsProcessed++;
+        for (int i = 0; i < 10; i++) {
+            dnsServer->processNextRequest();
         }
     }
     
