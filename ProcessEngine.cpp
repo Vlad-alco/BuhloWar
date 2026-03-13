@@ -888,24 +888,47 @@ void ProcessEngine::handleGolovy() {
     currentStatus.stageName = "GOLOVY";
     SystemConfig& cfg = configManager->getConfig();
 
-    // === НОВОЕ: Расчет накопленного объема голов ===
-    // Рассчитываем dt (в часах)
+    // === Расчет накопленного объема голов (Вариант A) ===
+    // Скорость рассчитывается по реальному расходу клапана с учётом duty cycle
     unsigned long now = millis();
     float dt_h = (float)(now - lastVolCalcTime) / 3600000.0f;
     lastVolCalcTime = now;
-    
-    // Накапливаем объем — для AkaTelo скорость тела (speedTelo), для остальных speedGolovy
-    // На IDLE скорости ещё не инициализированы — не накапливаем
+
+    // Расчёт реальной скорости отбора
     float accumSpeed = 0.0f;
     if (currentGolovyStage != GolovyStage::IDLE) {
-        accumSpeed = (currentGolovyStage == GolovyStage::KSS_AKATELO) ? speedTelo : speedGolovy;
+        if (currentGolovyStage == GolovyStage::KSS_SPIT) {
+            // Spit: клапан открыт постоянно → полный расход
+            accumSpeed = (float)cfg.valve_head_capacity * 60.0f;  // мл/мин → мл/час
+        }
+        else if (currentGolovyStage == GolovyStage::KSS_STANDARD) {
+            // Standard: клапан циклирует с таймингами голов
+            float openTime = cfg.headOpenMs * koff;
+            float closeTime = cfg.headCloseMs;
+            float dutyCycle = (openTime + closeTime > 0) ? openTime / (openTime + closeTime) : 0.0f;
+            accumSpeed = (float)cfg.valve_head_capacity * dutyCycle * 60.0f;  // мл/час
+        }
+        else if (currentGolovyStage == GolovyStage::KSS_AKATELO) {
+            // AkaTelo: клапан циклирует с таймингами тела
+            float openTime = cfg.bodyOpenMs * koff;
+            float closeTime = cfg.bodyCloseMs;
+            float dutyCycle = (openTime + closeTime > 0) ? openTime / (openTime + closeTime) : 0.0f;
+            accumSpeed = (float)cfg.valve_body_capacity * dutyCycle * 60.0f;  // мл/час
+        }
+        else if (currentGolovyStage == GolovyStage::ST_MAIN) {
+            // Standard метод (не KSS): клапан циклирует с таймингами голов
+            float openTime = cfg.headOpenMs * koff;
+            float closeTime = cfg.headCloseMs;
+            float dutyCycle = (openTime + closeTime > 0) ? openTime / (openTime + closeTime) : 0.0f;
+            accumSpeed = (float)cfg.valve_head_capacity * dutyCycle * 60.0f;  // мл/час
+        }
     }
     headsVolDone += accumSpeed * dt_h;
-    
+
     // Обновляем статус для веба
     currentStatus.headsVolDone = headsVolDone;
     currentStatus.headsSpeed = accumSpeed;
-currentStatus.bodySpeed = 0.0f;
+    currentStatus.bodySpeed = 0.0f;
     // ==============================================
     
     if (currentGolovyStage == GolovyStage::IDLE) {
