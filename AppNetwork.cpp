@@ -286,35 +286,11 @@ void AppNetwork::update() {
             }
             
         } else if (networkMode == NetworkMode::AP_MODE) {
-            // === РЕЖИМ AP: периодически пробуем подключиться к роутеру ===
-            if (connectToWiFi()) {
-                // Успешно подключились к роутеру - переключаемся в STA
-                Serial.println("[NetMgr] Connected to router. Switching to STA mode...");
-                
-                // Останавливаем DNS сервер перед отключением AP
-                if (dnsServer) {
-                    dnsServer->stop();
-                    delete dnsServer;
-                    dnsServer = nullptr;
-                    Serial.println("[NetMgr] DNS Server stopped");
-                }
-                
-                WiFi.softAPdisconnect(true);  // Отключаем AP
-                networkMode = NetworkMode::STA_MODE;
-                wifiConnected = true;
-                online = checkInternet();
-                if (online) {
-                    if (tgToken.length() > 0) {
-                        // === ИСПРАВЛЕНО: Удаляем старый bot перед созданием нового ===
-                        if (bot) {
-                            delete bot;
-                            bot = nullptr;
-                        }
-                        bot = new UniversalTelegramBot(tgToken, client);
-                    }
-                    syncNTP();
-                }
-            }
+            // === РЕЖИМ AP: работаем до перезагрузки ===
+            // Попытки подключения к роутеру убраны - ESP32 не может одновременно
+            // работать как AP и STA. Пользователь должен исправить настройки
+            // WiFi и перезагрузить систему.
+            // Web интерфейс доступен по http://192.168.4.1
         }
         // OFFLINE режим - ничего не проверяем
     }
