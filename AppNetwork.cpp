@@ -800,8 +800,8 @@ bool AppNetwork::sendTelegramNow(const String& text) {
     if (!online || !bot) return false;
 
     // === ВАЖНО: Устанавливаем таймаут ДО отправки ===
-    // 2 секунды - достаточно для Telegram API, но не блокирует надолго
-    client.setTimeout(2000);
+    // 5 секунд - достаточно для получения ответа от Telegram API
+    client.setTimeout(5000);
 
     // Логируем перед отправкой
     Serial.println("[TG] Sending: " + text);
