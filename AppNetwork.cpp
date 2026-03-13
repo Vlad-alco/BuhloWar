@@ -241,12 +241,15 @@ void AppNetwork::update() {
     server->handleClient();
     
     // === DNS SERVER (только в AP режиме) ===
-    // Обрабатываем DNS запросы для captive portal
+    // Обрабатываем ВСЕ DNS запросы за один цикл для быстродействия
     if (dnsServer && networkMode == NetworkMode::AP_MODE) {
-        dnsServer->processNextRequest();
+        int dnsProcessed = 0;
+        while (dnsServer->processNextRequest() && dnsProcessed < 10) {
+            dnsProcessed++;
+        }
     }
     
-    // === ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СЕТИ ===
+    // === ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СЕТИ (только в STA режиме) ===
     if (now - lastCheckTime > checkIntervalMs || lastCheckTime == 0) {
         lastCheckTime = now;
         
@@ -883,7 +886,13 @@ static void networkTaskWrapper(void* param) {
     AppNetwork* self = static_cast<AppNetwork*>(param);
     for (;;) {
         self->update();
-        vTaskDelay(pdMS_TO_TICKS(10)); // уступаем процессор на 10мс
+        // В AP режиме минимальная задержка для быстрого Web-интерфейса
+        // В STA режиме можно больше, т.к. сеть стабильна
+        if (self->getNetworkMode() == NetworkMode::AP_MODE) {
+            vTaskDelay(pdMS_TO_TICKS(1));  // 1мс - быстро для AP
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(10)); // 10мс - нормально для STA
+        }
     }
 }
 
