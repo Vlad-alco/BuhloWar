@@ -4,6 +4,81 @@
 
 ---
 
+## [2025-03-13] — Сессия 9
+
+### Проблема
+1. Telegram сообщение "System BuhloWar v2.0 started" приходит каждую минуту
+2. Web интерфейс отвечает очень медленно
+3. ESP32 перезагружается каждые ~10 минут
+
+### Причина
+После изменений сессий 6-7 возникли проблемы:
+- `checkInternet()` блокировал loop на 5-10 секунд без handleClient()
+- `sendTelegramNow()` имел слишком короткий таймаут (1 сек), что приводило к retry
+- Утечка памяти: `new UniversalTelegramBot` без delete старого при переключении AP→STA
+- Очередь Telegram: сообщения повторялись бесконечно без лимита попыток
+
+### Решение
+
+#### 1. checkInternet() — неблокирующая проверка
+```cpp
+bool AppNetwork::checkInternet() {
+    WiFiClient testClient;
+    testClient.setTimeout(2000);  // 2 секунды максимум
+    for (int i = 0; i < 20; i++) {  // 20 * 100ms = 2 сек
+        if (testClient.connect("google.com", 80)) return true;
+        if (server) server->handleClient();  // WebServer работает!
+        delay(100);
+        yield();
+    }
+    return false;
+}
+```
+**Эффект**: Web остаётся отзывчивым во время проверки интернета
+
+#### 2. sendTelegramNow() — таймаут 2 секунды
+```cpp
+client.setTimeout(2000);  // Было 1 сек, нужно 2000 мс
+```
+
+#### 3. Лимит попыток на сообщение
+```cpp
+#define TG_MAX_RETRIES 3  // Новая константа
+
+struct TgMessage {
+    String text;
+    unsigned long timestamp;
+    int retryCount = 0;  // Счётчик попыток
+};
+```
+**Эффект**: После 3 неудач сообщение удаляется из очереди
+
+#### 4. Исправление утечки памяти
+```cpp
+if (bot) {
+    delete bot;  // Удаляем старый перед созданием нового
+    bot = nullptr;
+}
+bot = new UniversalTelegramBot(tgToken, client);
+```
+
+#### 5. Индикатор режима сети в Web
+- Добавлено поле `network_mode` в JSON (W/A/X)
+- В шапке Web интерфейса появился бейдж с режимом сети
+- Зелёный W = роутер, жёлтый A = AP, серый X = офлайн
+
+### Изменённые файлы
+- **AppNetwork.h**: добавлен `TG_MAX_RETRIES`, поле `retryCount` в TgMessage
+- **AppNetwork.cpp**:
+  - `checkInternet()` — неблокирующая проверка с handleClient()
+  - `sendTelegramNow()` — таймаут 2000 мс
+  - `processMessageQueue()` — учёт retryCount, удаление после 3 попыток
+  - `update()` — delete старого bot перед new
+  - `handleApiStatus()` — добавлено поле network_mode
+- **index.html**: индикатор network_mode в шапке
+
+---
+
 ## [2025-03-13] — Сессия 8
 
 ### Задача

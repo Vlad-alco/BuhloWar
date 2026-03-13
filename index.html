@@ -123,6 +123,10 @@
                             <div id="esp32-status" class="w-2 h-2 bg-green-500 rounded-full status-online"></div>
                             <span class="text-gray-400 text-[10px]">On</span>
                         </div>
+                        <!-- ИНДИКАТОР РЕЖИМА СЕТИ W/A/X -->
+                        <div class="flex flex-col items-center ml-1">
+                            <div id="network-mode-badge" class="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-green-900 text-green-400">W</div>
+                        </div>
                         <!-- Мини-индикаторы НАГРЕВ/МЕШАЛКА/ВОДА -->
                         <div class="flex items-center gap-1.5 ml-1">
                             <i data-lucide="flame" class="w-3.5 h-3.5" id="icon-heater-hdr" title="Нагрев"></i>
@@ -653,6 +657,23 @@
             }
             
             document.getElementById('esp32-status').className = 'w-2 h-2 rounded-full status-online ' + (currentData.online ? 'bg-green-500' : 'bg-red-500');
+            
+            // === ИНДИКАТОР РЕЖИМА СЕТИ W/A/X ===
+            const netBadge = document.getElementById('network-mode-badge');
+            if (netBadge) {
+                const mode = currentData.network_mode || 'X';
+                netBadge.textContent = mode;
+                // Цвета: W=зелёный, A=жёлтый, X=серый
+                if (mode === 'W') {
+                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-green-900 text-green-400';
+                } else if (mode === 'A') {
+                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-yellow-900 text-yellow-400';
+                } else {
+                    netBadge.className = 'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center bg-gray-700 text-gray-400';
+                }
+            }
+            // ====================================
+            
             document.getElementById('process-time').textContent = formatTime(currentData.time || 0);
             document.getElementById('pressure-value').textContent = Math.round(currentData.pressure || 0);
             document.getElementById('power-display').textContent = currentData.power || 0;

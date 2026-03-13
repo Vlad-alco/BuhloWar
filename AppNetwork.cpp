@@ -273,6 +273,11 @@ void AppNetwork::update() {
                 online = checkInternet();
                 if (online) {
                     if (tgToken.length() > 0) {
+                        // === ИСПРАВЛЕНО: Удаляем старый bot перед созданием нового ===
+                        if (bot) {
+                            delete bot;
+                            bot = nullptr;
+                        }
                         bot = new UniversalTelegramBot(tgToken, client);
                     }
                     syncNTP();
@@ -334,9 +339,10 @@ void AppNetwork::handleApiStatus() {
 
     // 2. Формируем JSON вручную
     String json = "{";
-    
+
     // --- Сеть и Время ---
     json += "\"online\":" + String(online ? "true" : "false") + ",";
+    json += "\"network_mode\":\"" + String(getNetworkSymbol()) + "\",";  // W/A/X
     json += "\"time\":" + String(status.processTimeSec) + ",";
     
     // --- Статус системы (Safety) ---
@@ -715,11 +721,29 @@ void AppNetwork::syncNTP() {
 }
 
 bool AppNetwork::checkInternet() {
-    // Пинг через коннект
+    // === НЕБЛОКИРУЮЩАЯ проверка интернета ===
+    // Таймаут 2 сек, handleClient() внутри цикла
     WiFiClient testClient;
-    bool result = testClient.connect("google.com", 80);
+    testClient.setTimeout(2000);  // 2 секунды максимум
+
+    // Пытаемся подключиться, но не блокируем надолго
+    // 20 итераций по 100мс = 2 секунды
+    for (int i = 0; i < 20; i++) {
+        if (testClient.connect("google.com", 80)) {
+            testClient.stop();
+            Serial.println("[NetMgr] Internet check: OK");
+            return true;
+        }
+
+        // === ВАЖНО: Обслуживаем WebServer во время ожидания ===
+        if (server) server->handleClient();
+        delay(100);
+        yield();
+    }
+
     testClient.stop();
-    return result;
+    Serial.println("[NetMgr] Internet check: FAILED (timeout)");
+    return false;
 }
 
 // === АСИНХРОННАЯ ОЧЕРЕДЬ СООБЩЕНИЙ TELEGRAM ===
@@ -774,30 +798,31 @@ bool AppNetwork::isTelegramReady() {
 // Проверка соединения с Telegram API
 bool AppNetwork::sendTelegramNow(const String& text) {
     if (!online || !bot) return false;
-    
-    // Устанавливаем КОРОТКИЙ таймаут (1 сек) для быстрого отказа
-    client.setTimeout(1);
-    
+
+    // === ВАЖНО: Устанавливаем таймаут ДО отправки ===
+    // 2 секунды - достаточно для Telegram API, но не блокирует надолго
+    client.setTimeout(2000);
+
     // Логируем перед отправкой
     Serial.println("[TG] Sending: " + text);
-    
+
     // === ВАЖНО: Даём WebServer шанс обработать запросы перед блокирующей операцией ===
     if (server) server->handleClient();
     yield();  // Позволяет WiFi stack работать
     // =================================================================================
-    
-    // Отправляем сообщение (с таймаутом 1 сек)
+
+    // Отправляем сообщение
     bool success = bot->sendMessage(tgChatId, text, "");
-    
+
     if (!success) {
         Serial.println("[TG] Send failed (timeout or error)");
     }
-    
+
     // === И после отправки тоже даём шанс WebServer ===
     if (server) server->handleClient();
     yield();
     // ================================================
-    
+
     return success;
 }
 
@@ -807,14 +832,14 @@ void AppNetwork::processMessageQueue() {
     if (tgQueueCount == 0) return;
     if (!isTelegramReady()) return;
     if (tgSending) return;  // Уже идёт отправка (защита от повторного входа)
-    
+
     // Берём сообщение из головы очереди
-    String msg = tgQueue[tgQueueTail].text;
-    
+    TgMessage& msg = tgQueue[tgQueueTail];
+
     tgSending = true;
-    
-    bool success = sendTelegramNow(msg);
-    
+
+    bool success = sendTelegramNow(msg.text);
+
     if (success) {
         // Успех - удаляем из очереди
         tgQueueTail = (tgQueueTail + 1) % TG_QUEUE_SIZE;
@@ -823,20 +848,27 @@ void AppNetwork::processMessageQueue() {
         tgConsecutiveFails = 0;
         Serial.println("[TG] Sent OK (remaining: " + String(tgQueueCount) + ")");
     } else {
-        // Неудача - оставляем в очереди для повторной попытки
+        // Неудача - увеличиваем счётчик попыток для ЭТОГО сообщения
+        msg.retryCount++;
         tgConsecutiveFails++;
         lastTgFailTime = millis();
-        Serial.println("[TG] Send FAILED (attempt " + String(tgConsecutiveFails) + ")");
-        
-        // После 3 неудач подряд - сбрасываем очередь (чтобы не копилась)
-        if (tgConsecutiveFails >= 3 && tgQueueCount > 1) {
+        Serial.println("[TG] Send FAILED (msg retry " + String(msg.retryCount) + "/" + String(TG_MAX_RETRIES) + ")");
+
+        // === НОВОЕ: Если сообщение превысило лимит попыток - удаляем его ===
+        if (msg.retryCount >= TG_MAX_RETRIES) {
+            Serial.println("[TG] Message exceeded max retries - DROPPED: " + msg.text);
+            tgQueueTail = (tgQueueTail + 1) % TG_QUEUE_SIZE;
+            tgQueueCount--;
+            tgConsecutiveFails = 0;  // Сбрасываем общий счётчик
+        }
+        // Если общих неудач много и очередь большая - тоже удаляем
+        else if (tgConsecutiveFails >= 5 && tgQueueCount > 3) {
             Serial.println("[TG] Too many fails - dropping oldest message");
             tgQueueTail = (tgQueueTail + 1) % TG_QUEUE_SIZE;
             tgQueueCount--;
-            tgConsecutiveFails = 0;
         }
     }
-    
+
     tgSending = false;
 }
 // ==============================================
