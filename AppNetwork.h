@@ -20,7 +20,6 @@ class ConfigManager;
 #define TG_QUEUE_SIZE 10        // Макс. сообщений в очереди
 #define TG_SEND_TIMEOUT 5000    // Таймаут отправки (мс)
 #define TG_RETRY_DELAY 30000    // Пауза после неудачи (мс)
-#define TG_MAX_RETRIES 3        // Макс. попыток на одно сообщение
 
 // === РЕЖИМЫ СЕТИ ===
 enum class NetworkMode {
@@ -76,7 +75,6 @@ private:
     struct TgMessage {
         String text;
         unsigned long timestamp;
-        int retryCount = 0;  // Счётчик попыток отправки
     };
     TgMessage tgQueue[TG_QUEUE_SIZE];
     int tgQueueHead = 0;          // Индекс для добавления
