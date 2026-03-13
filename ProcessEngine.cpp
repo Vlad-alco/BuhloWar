@@ -989,7 +989,6 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
         // Конфиг 1 или 2: Есть клапан голов
         int openMs = (int)(cfg.headOpenMs * koff * 1000);
         int closeMs = cfg.headCloseMs * 1000;
-        if (closeMs < 5000) closeMs = 5000;
         outputManager->startHeadValveCycling(openMs, closeMs);
         outputManager->closeBodyValve(); // Тело закрыто
     } else {
@@ -998,7 +997,6 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
             // Конфиг 3: Body(NC). Импульсный режим (тайминги голов!)
             int openMs = (int)(cfg.headOpenMs * koff * 1000);
             int closeMs = cfg.headCloseMs * 1000;
-            if (closeMs < 5000) closeMs = 5000;
             outputManager->startBodyValveCycling(openMs, closeMs);
         } else {
             // Конфиг 4: Body(NO). Ручной режим.
@@ -1068,7 +1066,6 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
     if (cfg.useHeadValve) {
         int openMs = (int)(cfg.headOpenMs * koff * 1000); // Тайминги голов
         int closeMs = cfg.headCloseMs * 1000;
-        if (closeMs < 5000) closeMs = 5000;
         outputManager->startHeadValveCycling(openMs, closeMs);
         outputManager->closeBodyValve();
     } else {
@@ -1076,7 +1073,6 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
             // Тайминги голов! (headOpenMs)
             int openMs = (int)(cfg.headOpenMs * koff * 1000);
             int closeMs = cfg.headCloseMs * 1000;
-            if (closeMs < 5000) closeMs = 5000;
             outputManager->startBodyValveCycling(openMs, closeMs);
         } else {
             // Body(NO) -> Ручной
@@ -1295,7 +1291,6 @@ void ProcessEngine::handleTelo() {
     if (cfg.useHeadValve) {
         int openMs = cfg.headOpenMs * 1000; // Без koff
         int closeMs = cfg.headCloseMs * 1000;
-        if (closeMs < 5000) closeMs = 5000;
         outputManager->startHeadValveCycling(openMs, closeMs);
     }
 }
