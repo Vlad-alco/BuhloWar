@@ -45,6 +45,7 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     Serial.println("[NetMgr] Connecting...");
     if (connectToWiFi()) {
         online = true;
+        networkMode = NetworkMode::STA_MODE;  // Режим станции (роутер)
         client.setCACert(TELEGRAM_CERTIFICATE_ROOT); 
         
         if (tgToken.length() > 0) {
@@ -99,8 +100,101 @@ void AppNetwork::begin(int checkIntervalMinutes) {
         sendMessage(msg);
         
     } else {
-        Serial.println("[NetMgr] WiFi Connection Failed. Switching to OFFLINE mode.");
-        logger.log("Network: Connection Failed");
+        // WiFi не подключился - пробуем AP режим
+        Serial.println("[NetMgr] WiFi Connection Failed. Trying AP mode...");
+        logger.log("Network: WiFi Failed, trying AP...");
+        
+        if (startAPMode()) {
+            networkMode = NetworkMode::AP_MODE;
+            logger.log("Network: AP Mode started");
+        } else {
+            networkMode = NetworkMode::OFFLINE;
+            Serial.println("[NetMgr] AP Mode Failed. Full OFFLINE mode.");
+            logger.log("Network: Full OFFLINE");
+        }
+    }
+}
+
+// === ЗАПУСК ТОЧКИ ДОСТУПА (AP MODE) ===
+bool AppNetwork::startAPMode() {
+    Serial.println("[NetMgr] Starting AP Mode...");
+    Serial.print("[NetMgr] SSID: "); Serial.println(AP_SSID);
+    Serial.print("[NetMgr] IP: "); Serial.println(AP_IP_ADDR);
+    
+    // Настройка IP адреса
+    IPAddress local_IP(192, 168, 4, 1);
+    IPAddress gateway(192, 168, 4, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    
+    if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
+        Serial.println("[NetMgr] AP Config FAILED!");
+        return false;
+    }
+    
+    // Запуск точки доступа
+    if (!WiFi.softAP(AP_SSID, AP_PASS, AP_CHANNEL)) {
+        Serial.println("[NetMgr] AP Start FAILED!");
+        return false;
+    }
+    
+    Serial.println("[NetMgr] AP Mode started successfully!");
+    
+    // ================== WEB SERVER SETUP (AP MODE) ==================
+    server = new WebServer(80);
+
+    // API Endpoints
+    server->on("/api/status", [this]() { handleApiStatus(); });
+    server->on("/api/command", HTTP_POST, [this]() { handleApiCommand(); });
+    server->on("/api/settings", HTTP_POST, [this]() { handleApiSettings(); });
+    server->on("/api/calcvalve", HTTP_POST, [this]() { handleCalcValve(); });
+
+    server->on("/api/saveprofile",  HTTP_POST, [this]() { handleSaveProfile(); });
+    server->on("/api/listprofiles", HTTP_GET,  [this]() { handleListProfiles(); });
+    server->on("/api/loadprofile",  HTTP_POST, [this]() { handleLoadProfile(); });
+    
+    // API для логов
+    server->on("/api/logs", HTTP_GET, [this]() {
+        String logContent = logger.readLastLog();
+        server->send(200, "text/plain", logContent);
+    });
+
+    // Главная страница
+    server->on("/", HTTP_GET, [this]() {
+        File file = SD.open("/www/index.html", "r");
+        if (file) {
+            server->streamFile(file, "text/html");
+            file.close();
+        } else {
+            server->send(404, "text/plain", "File Not Found: index.html");
+        }
+    });
+
+    // Статика
+    server->serveStatic("/", SD, "/www/");
+
+    server->onNotFound([this]() {
+        server->send(404, "text/plain", "Not Found");
+    });
+    
+    server->begin();
+    Serial.println("[NetMgr] HTTP Server started (AP mode)");
+    logger.log("---------------------------");
+    logger.log("Network: AP Mode");
+    
+    return true;
+}
+
+// === ПОЛУЧЕНИЕ РЕЖИМА СЕТИ ===
+NetworkMode AppNetwork::getNetworkMode() {
+    return networkMode;
+}
+
+// === СИМВОЛ СЕТИ ДЛЯ LCD ===
+char AppNetwork::getNetworkSymbol() {
+    switch (networkMode) {
+        case NetworkMode::STA_MODE: return 'W';
+        case NetworkMode::AP_MODE:  return 'A';
+        default:                    return 'X';
     }
 }
 

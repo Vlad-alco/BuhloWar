@@ -21,7 +21,7 @@
 
 #define LCD_COLS 20
 #define LCD_ROWS 4
-#define I2C_SDA_PIN      8       // GPIO8 для данных (SDA)I2C Шина №1	I2C_SDA_PIN, I2C_SCL_PIN Совместное использование LCD и BME280.
+#define I2C_SDA_PIN      8       // GPIO8 для данных (SDA)I2C Шина №1   I2C_SDA_PIN, I2C_SCL_PIN Совместное использование LCD и BME280.
 #define I2C_SCL_PIN      9       // GPIO9 для тактов (SCL)
 
 // ================= SENSORS (1-Wire для DS18B20) =================
@@ -56,6 +56,13 @@
 #define SD_SPI_MISO      12      // GPIO12 - Данные от карты (MISO)
 #define SD_SPI_MOSI      13      // GPIO13 - Данные к карте (MOSI)
 #define SD_SPI_CS        15      // GPIO15 - Выбор карты (CS)
+
+// ================= AP MODE (Точка доступа) =================
+#define AP_SSID          "ESP32"           // Имя точки доступа
+#define AP_PASS          "12345678"        // Пароль (минимум 8 символов)
+#define AP_IP_ADDR       "192.168.4.1"     // Фиксированный IP в AP режиме
+#define AP_CHANNEL       1                 // WiFi канал
+// =============================================================
 
 // ================= MENU & TIMING =================
 #define MAIN_MENU_ITEMS  4

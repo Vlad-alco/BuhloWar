@@ -21,18 +21,28 @@ class ConfigManager;
 #define TG_SEND_TIMEOUT 5000    // Таймаут отправки (мс)
 #define TG_RETRY_DELAY 30000    // Пауза после неудачи (мс)
 
+// === РЕЖИМЫ СЕТИ ===
+enum class NetworkMode {
+    OFFLINE,    // X - нет WiFi, нет AP (только LCD)
+    AP_MODE,    // A - точка доступа, Web работает
+    STA_MODE    // W - подключено к роутеру, интернет есть
+};
+
 class AppNetwork {
 public:
     void begin(int checkIntervalMinutes);
     void update();
     void startTask();
     bool initSD();  // Публичный метод для ранней инициализации SD
+    bool startAPMode();  // Запуск точки доступа
     
     // Метод для связи с логикой
     void setEngine(ProcessEngine* engine, ConfigManager* cfgMgr);
     
     void sendMessage(const String& text);
     bool isOnline(); 
+    NetworkMode getNetworkMode();  // Получить текущий режим сети
+    char getNetworkSymbol();        // Символ для LCD (W/A/X)
     String getTimeStr();
 
 private:
@@ -48,6 +58,7 @@ private:
     // --- Состояние ---
     bool online = false;
     bool sdInitialized = false;  // Флаг инициализации SD
+    NetworkMode networkMode = NetworkMode::OFFLINE;  // Текущий режим сети
     TaskHandle_t networkTaskHandle = nullptr;
 
     unsigned long lastCheckTime = 0;

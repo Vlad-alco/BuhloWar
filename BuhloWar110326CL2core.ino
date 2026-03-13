@@ -156,19 +156,37 @@ void setup() {
   lcd.setCursor(0, 0); lcd.print("Connecting WiFi...");
   appNetwork.begin(cfg.chekwifi);
 
-  // === B. ВЫВОД IP АДРЕСА ===
-  if (WiFi.status() == WL_CONNECTED) {
+  // === B. ВЫВОД ИНФОРМАЦИИ О СЕТИ ===
+  NetworkMode netMode = appNetwork.getNetworkMode();
+  
+  if (netMode == NetworkMode::STA_MODE) {
+      // Подключено к роутеру
       String ip = WiFi.localIP().toString();
       lcd.setCursor(0, 1); 
       lcd.print("IP: " + ip);
-      
-      // Информационная задержка
       Serial.print("System IP: "); Serial.println(ip);
-      logger.log("WiFi Connected: " + WiFi.localIP().toString());
+      logger.log("WiFi Connected: " + ip);
       delay(5000); 
-  } else {
-      lcd.setCursor(0, 1); lcd.print("WiFi Failed");
-      logger.log("WiFi Failed");
+  } 
+  else if (netMode == NetworkMode::AP_MODE) {
+      // Точка доступа
+      lcd.clear();
+      lcd.setCursor(0, 0); lcd.print("AP: ");
+      lcd.print(AP_SSID);
+      lcd.setCursor(0, 1); lcd.print("IP: ");
+      lcd.print(AP_IP_ADDR);
+      Serial.println("[System] AP Mode active");
+      Serial.print("[System] Connect to: "); Serial.println(AP_SSID);
+      Serial.print("[System] Password: "); Serial.println(AP_PASS);
+      Serial.print("[System] Web: http://"); Serial.println(AP_IP_ADDR);
+      logger.log("AP Mode: " + String(AP_SSID));
+      delay(5000); 
+  } 
+  else {
+      // Полный офлайн
+      lcd.setCursor(0, 1); lcd.print("OFFLINE Mode");
+      Serial.println("[System] Full OFFLINE - LCD only");
+      logger.log("Network: OFFLINE");
       delay(2000);
   }
   
