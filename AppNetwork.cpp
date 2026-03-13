@@ -150,7 +150,24 @@ bool AppNetwork::startAPMode() {
     
     Serial.println("[NetMgr] AP Mode started successfully!");
     
+    // ================== DNS SERVER (Captive Portal) ==================
+    // Удаляем старый DNS сервер если есть
+    if (dnsServer) {
+        dnsServer->stop();
+        delete dnsServer;
+    }
+    // DNS сервер перенаправляет все запросы на наш IP
+    // Это позволяет открывать страницу даже если клиент вводит любой домен
+    dnsServer = new DNSServer();
+    dnsServer->start(53, "*", WiFi.softAPIP());  // Порт 53, перенаправляем всё на наш IP
+    Serial.println("[NetMgr] DNS Server started (Captive Portal)");
+    
     // ================== WEB SERVER SETUP (AP MODE) ==================
+    // Удаляем старый сервер если есть (защита от утечки памяти)
+    if (server) {
+        server->stop();
+        delete server;
+    }
     server = new WebServer(80);
 
     // API Endpoints
@@ -223,6 +240,12 @@ void AppNetwork::update() {
     // === ПЕРВЫМ ДЕЛОМ: WebServer (самый приоритетный!) ===
     server->handleClient();
     
+    // === DNS SERVER (только в AP режиме) ===
+    // Обрабатываем DNS запросы для captive portal
+    if (dnsServer && networkMode == NetworkMode::AP_MODE) {
+        dnsServer->processNextRequest();
+    }
+    
     // === ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СЕТИ ===
     if (now - lastCheckTime > checkIntervalMs || lastCheckTime == 0) {
         lastCheckTime = now;
@@ -267,6 +290,15 @@ void AppNetwork::update() {
             if (connectToWiFi()) {
                 // Успешно подключились к роутеру - переключаемся в STA
                 Serial.println("[NetMgr] Connected to router. Switching to STA mode...");
+                
+                // Останавливаем DNS сервер перед отключением AP
+                if (dnsServer) {
+                    dnsServer->stop();
+                    delete dnsServer;
+                    dnsServer = nullptr;
+                    Serial.println("[NetMgr] DNS Server stopped");
+                }
+                
                 WiFi.softAPdisconnect(true);  // Отключаем AP
                 networkMode = NetworkMode::STA_MODE;
                 wifiConnected = true;

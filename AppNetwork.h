@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <WebServer.h>
+#include <DNSServer.h>   // DNS сервер для AP режима (captive portal)
 #include <SPI.h>
 #include <SD.h>
 #include "config.h"
@@ -70,6 +71,7 @@ private:
     WiFiClientSecure client;
     UniversalTelegramBot* bot = nullptr;
     WebServer* server = nullptr;
+    DNSServer* dnsServer = nullptr;  // DNS сервер для AP режима
 
     // === АСИНХРОННАЯ ОЧЕРЕДЬ СООБЩЕНИЙ TELEGRAM ===
     struct TgMessage {
