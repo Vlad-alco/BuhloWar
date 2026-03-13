@@ -4,6 +4,85 @@
 
 ---
 
+## [2025-03-14] — Сессия 11
+
+### Проблема
+Неверный расчёт отображаемого объёма голов в блоке РАСЧЕТЫ:
+- Spit: расчётный объём не соответствовал реальному отбору
+- Standard: скорость всегда показывала 225 мл/час, независимо от реального расхода
+- AkaTelo: скорость показывала правильно (2250 мл/час)
+
+### Причина
+Время и объём рассчитывались по разным формулам:
+
+| Подэтап | Время рассчитывалось по | Объём рассчитывался по |
+|---------|------------------------|------------------------|
+| KSS_SPIT | `valve_head_capacity` ✓ | `speedGolovy` (эмпирика) ❌ |
+| KSS_STANDARD | `speedGolovy` (эмпирика) | `speedGolovy` (эмпирика) ❌ |
+| KSS_AKATELO | `speedTelo` (эмпирика) | `speedTelo` (эмпирика) |
+| ST_MAIN | `speedGolovy` (эмпирика) | `speedGolovy` (эмпирика) ❌ |
+
+Где:
+- `speedGolovy = koff * 50` мл/час (koff = power / 1000)
+- `speedTelo = koff * 500` мл/час
+
+**Проблема:** Эти эмпирические формулы не учитывают реальный расход клапана и duty cycle при циклировании.
+
+### Решение — Вариант A (реализован)
+
+Исправлен только расчёт отображаемого объёма. Время этапов осталось как есть.
+
+#### Новые формулы расчёта скорости:
+
+```cpp
+// KSS_SPIT: клапан открыт постоянно → полный расход
+speed = valve_head_capacity * 60  // мл/мин → мл/час
+
+// KSS_STANDARD: клапан циклирует с таймингами голов
+dutyCycle = (headOpenMs * koff) / (headOpenMs * koff + headCloseMs)
+speed = valve_head_capacity * dutyCycle * 60  // мл/час
+
+// KSS_AKATELO: клапан циклирует с таймингами тела
+dutyCycle = (bodyOpenMs * koff) / (bodyOpenMs * koff + bodyCloseMs)
+speed = valve_body_capacity * dutyCycle * 60  // мл/час
+
+// ST_MAIN (Standard метод, не KSS): как KSS_STANDARD
+dutyCycle = (headOpenMs * koff) / (headOpenMs * koff + headCloseMs)
+speed = valve_head_capacity * dutyCycle * 60  // мл/час
+```
+
+#### Пример расчёта (koff = 4.5, valve_head_capacity = 9 мл/мин, headOpenMs = 1, headCloseMs = 9):
+
+| Подэтап | Duty Cycle | Скорость (было) | Скорость (стало) |
+|---------|------------|-----------------|------------------|
+| SPIT | 100% | 225 мл/час | 540 мл/час |
+| STANDARD | 33% (4.5/13.5) | 225 мл/час | 180 мл/час |
+
+### Вариант B (запасной, на будущее)
+
+Если Вариант A не даст точного результата — пересчитать также **время этапов** по реальному расходу:
+
+```cpp
+// KSS_SPIT
+float speedMlMin = valve_head_capacity;  // мл/мин
+golovyTargetTime = (headVol / speedMlMin) * 60;  // секунды
+accumSpeed = speedMlMin * 60;  // мл/час
+
+// KSS_STANDARD
+float dutyCycle = (headOpenMs * koff) / (headOpenMs * koff + headCloseMs);
+float speedMlMin = valve_head_capacity * dutyCycle;
+golovyTargetTime = (headVol / speedMlMin) * 60;
+accumSpeed = speedMlMin * 60;
+```
+
+**Плюсы B:** Полная согласованность — время и объём совпадают.
+**Минусы B:** Время этапов изменится, нужно заново калибровать capacity.
+
+### Изменённые файлы
+- **ProcessEngine.cpp**: функция `handleGolovy()` — новый расчёт `accumSpeed` для каждого подэтапа
+
+---
+
 ## [2025-03-13] — Сессия 10
 
 ### Проблемы
