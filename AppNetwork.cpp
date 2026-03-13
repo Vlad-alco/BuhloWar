@@ -886,10 +886,10 @@ static void networkTaskWrapper(void* param) {
     AppNetwork* self = static_cast<AppNetwork*>(param);
     for (;;) {
         self->update();
-        // В AP режиме минимальная задержка для быстрого Web-интерфейса
-        // В STA режиме можно больше, т.к. сеть стабильна
+        // В AP режиме меньшая задержка для отзывчивости Web
+        // В STA режиме больше, т.к. сеть стабильна
         if (self->getNetworkMode() == NetworkMode::AP_MODE) {
-            vTaskDelay(pdMS_TO_TICKS(1));  // 1мс - быстро для AP
+            vTaskDelay(pdMS_TO_TICKS(2));  // 2мс - баланс скорости и нагрузки
         } else {
             vTaskDelay(pdMS_TO_TICKS(10)); // 10мс - нормально для STA
         }
