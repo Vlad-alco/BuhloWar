@@ -497,7 +497,13 @@ void AppNetwork::handleApiSettings() {
 
     // === ПАРСИНГ JSON ВРУЧНУЮ (без ArduinoJson) ===
     
-        // Вспомогательная лямбда-функция для поиска целых чисел
+    // Вспомогательная функция: проверка наличия ключа в JSON
+    auto hasKey = [&](const char* key) -> bool {
+        String searchKey = "\"" + String(key) + "\":";
+        return body.indexOf(searchKey) != -1;
+    };
+    
+    // Вспомогательная лямбда-функция для поиска целых чисел
     auto getInt = [&](const char* key) -> int {
         String searchKey = "\"" + String(key) + "\":";
         int pos = body.indexOf(searchKey);
@@ -508,7 +514,7 @@ void AppNetwork::handleApiSettings() {
             String valStr = body.substring(start, end);
             valStr.trim();
             
-            // ИСПРАВЛЕНО: Проверяем текстовые булевы значения, которые мог прислать Web
+            // Проверяем текстовые булевы значения, которые мог прислать Web
             if (valStr.equalsIgnoreCase("true")) return 1;
             if (valStr.equalsIgnoreCase("false")) return 0;
             
@@ -531,7 +537,7 @@ void AppNetwork::handleApiSettings() {
         return 0.0f;
     };
 
-       // Вспомогательная функция для поиска bool (true/false)
+    // Вспомогательная функция для поиска bool (true/false)
     auto getBool = [&](const char* key) -> bool {
         String searchKey = "\"" + String(key) + "\":";
         int pos = body.indexOf(searchKey);
@@ -542,27 +548,28 @@ void AppNetwork::handleApiSettings() {
             String valStr = body.substring(start, end);
             valStr.trim();
             
-            // ИСПРАВЛЕНО: Анализируем только конкретное значение, а не всю строку дальше
+            // Анализируем только конкретное значение, а не всю строку дальше
             if (valStr == "1" || valStr.equalsIgnoreCase("true")) return true;
             return false;
         }
         return false;
     };
 
-    // === ОБНОВЛЕНИЕ ПОЛЕЙ (СООТВЕТСТВУЕТ ТВОИМ .h ФАЙЛАМ) ===
+    // === ОБНОВЛЕНИЕ ПОЛЕЙ: только если ключ присутствует в JSON ===
+    // Это предотвращает затирание настроек при частичном обновлении!
 
     // 1. Общие настройки (menu_settings.h)
-    cfg.emergencyTime = getInt("emergencyTime");
-    cfg.nasebTime = getInt("nasebTime");
-    cfg.reklapTime = getInt("reklapTime");
-    cfg.boxMaxTemp = getInt("boxMaxTemp");
-    cfg.power = getInt("power");
-    cfg.asVolume = getInt("asVolume");
-    cfg.chekwifi = getInt("chekwifi");
+    if (hasKey("emergencyTime")) cfg.emergencyTime = getInt("emergencyTime");
+    if (hasKey("nasebTime")) cfg.nasebTime = getInt("nasebTime");
+    if (hasKey("reklapTime")) cfg.reklapTime = getInt("reklapTime");
+    if (hasKey("boxMaxTemp")) cfg.boxMaxTemp = getInt("boxMaxTemp");
+    if (hasKey("power")) cfg.power = getInt("power");
+    if (hasKey("asVolume")) cfg.asVolume = getInt("asVolume");
+    if (hasKey("chekwifi")) cfg.chekwifi = getInt("chekwifi");
 
-            // 2. Дистилляция (menu_dist_setup.h)
-    cfg.razgonTemp = getInt("razgonTemp");
-    cfg.bakStopTemp = getInt("bakStopTemp");
+    // 2. Дистилляция (menu_dist_setup.h)
+    if (hasKey("razgonTemp")) cfg.razgonTemp = getInt("razgonTemp");
+    if (hasKey("bakStopTemp")) cfg.bakStopTemp = getInt("bakStopTemp");
 
     // === СМЕНА ТАРЫ: УМНАЯ ЛОГИКА ПРИОРИТЕТОВ ===
     int newMidtermAbv = getInt("midterm_abv");
@@ -599,41 +606,41 @@ void AppNetwork::handleApiSettings() {
     }
     // ==========================================
 
-    
-    cfg.heaterType = getInt("heaterType"); // 0 или 1
-    cfg.fullPwr = getBool("fullPwr");
-    cfg.valveuse = getBool("valveuse");
-    cfg.mixerEnabled = getBool("mixerEnabled");
-    cfg.mixerOnTime = getInt("mixerOnTime");
-    cfg.mixerOffTime = getInt("mixerOffTime");
+    // 2. Дистилляция (продолжение)
+    if (hasKey("heaterType")) cfg.heaterType = getInt("heaterType");
+    if (hasKey("fullPwr")) cfg.fullPwr = getBool("fullPwr");
+    if (hasKey("valveuse")) cfg.valveuse = getBool("valveuse");
+    if (hasKey("mixerEnabled")) cfg.mixerEnabled = getBool("mixerEnabled");
+    if (hasKey("mixerOnTime")) cfg.mixerOnTime = getInt("mixerOnTime");
+    if (hasKey("mixerOffTime")) cfg.mixerOffTime = getInt("mixerOffTime");
 
     // 3. Ректификация (menu_rect_setup.h)
-    cfg.tsaLimit = getInt("tsaLimit");
-    cfg.cycleLim = getInt("cycleLim");
-    cfg.histeresis = getFloat("histeresis");
-    cfg.delta = getFloat("delta");
-    cfg.useHeadValve = getBool("useHeadValve");
-    cfg.bodyValveNC = getBool("bodyValveNC");
-    cfg.headsTypeKSS = getBool("headsTypeKSS");
-    cfg.calibration = getBool("calibration");
+    if (hasKey("tsaLimit")) cfg.tsaLimit = getInt("tsaLimit");
+    if (hasKey("cycleLim")) cfg.cycleLim = getInt("cycleLim");
+    if (hasKey("histeresis")) cfg.histeresis = getFloat("histeresis");
+    if (hasKey("delta")) cfg.delta = getFloat("delta");
+    if (hasKey("useHeadValve")) cfg.useHeadValve = getBool("useHeadValve");
+    if (hasKey("bodyValveNC")) cfg.bodyValveNC = getBool("bodyValveNC");
+    if (hasKey("headsTypeKSS")) cfg.headsTypeKSS = getBool("headsTypeKSS");
+    if (hasKey("calibration")) cfg.calibration = getBool("calibration");
     
     // 4. Клапана (valve_cal_menu.h)
-    cfg.headOpenMs = getInt("headOpenMs");
-    cfg.headCloseMs = getInt("headCloseMs");
-    cfg.bodyOpenMs = getInt("bodyOpenMs");
-    cfg.bodyCloseMs = getInt("bodyCloseMs");
-    cfg.active_test = getInt("active_test");
-    cfg.valve_head_capacity = getInt("valve_head_capacity");
-    cfg.valve_body_capacity = getInt("valve_body_capacity");
-    cfg.valve0_body_capacity = getInt("valve0_body_capacity");
+    if (hasKey("headOpenMs")) cfg.headOpenMs = getInt("headOpenMs");
+    if (hasKey("headCloseMs")) cfg.headCloseMs = getInt("headCloseMs");
+    if (hasKey("bodyOpenMs")) cfg.bodyOpenMs = getInt("bodyOpenMs");
+    if (hasKey("bodyCloseMs")) cfg.bodyCloseMs = getInt("bodyCloseMs");
+    if (hasKey("active_test")) cfg.active_test = getInt("active_test");
+    if (hasKey("valve_head_capacity")) cfg.valve_head_capacity = getInt("valve_head_capacity");
+    if (hasKey("valve_body_capacity")) cfg.valve_body_capacity = getInt("valve_body_capacity");
+    if (hasKey("valve0_body_capacity")) cfg.valve0_body_capacity = getInt("valve0_body_capacity");
 
     // 5. Настройки уведомлений
-    cfg.tgEnabled = getBool("tgEnabled");
-    cfg.vkEnabled = getBool("vkEnabled");
-    cfg.notifySystem = getBool("notifySystem");
-    cfg.notifyDistillation = getBool("notifyDistillation");
-    cfg.notifyRectification = getBool("notifyRectification");
-    cfg.notifySensors = getBool("notifySensors");
+    if (hasKey("tgEnabled")) cfg.tgEnabled = getBool("tgEnabled");
+    if (hasKey("vkEnabled")) cfg.vkEnabled = getBool("vkEnabled");
+    if (hasKey("notifySystem")) cfg.notifySystem = getBool("notifySystem");
+    if (hasKey("notifyDistillation")) cfg.notifyDistillation = getBool("notifyDistillation");
+    if (hasKey("notifyRectification")) cfg.notifyRectification = getBool("notifyRectification");
+    if (hasKey("notifySensors")) cfg.notifySensors = getBool("notifySensors");
 
     // === СОХРАНЕНИЕ ===
     // Сохраняем все секции (или можно вызывать конкретные, если нужно оптимизировать ресурсы)
