@@ -329,8 +329,9 @@ void AppNetwork::update() {
         }
     }
     
-    // === ОБРАБОТКА ОЧЕРЕДИ TELEGRAM (после WebServer!) ===
+    // === ОБРАБОТКА ОЧЕРЕДИ TELEGRAM И VK (после WebServer!) ===
     processMessageQueue();
+    processVKQueue();  // Обработка очереди VK
 }
 
 // ================== API HANDLERS ==================
@@ -626,11 +627,20 @@ void AppNetwork::handleApiSettings() {
     cfg.valve_body_capacity = getInt("valve_body_capacity");
     cfg.valve0_body_capacity = getInt("valve0_body_capacity");
 
+    // 5. Настройки уведомлений
+    cfg.tgEnabled = getBool("tgEnabled");
+    cfg.vkEnabled = getBool("vkEnabled");
+    cfg.notifySystem = getBool("notifySystem");
+    cfg.notifyDistillation = getBool("notifyDistillation");
+    cfg.notifyRectification = getBool("notifyRectification");
+    cfg.notifySensors = getBool("notifySensors");
+
     // === СОХРАНЕНИЕ ===
     // Сохраняем все секции (или можно вызывать конкретные, если нужно оптимизировать ресурсы)
     configManager->saveConfig();      // Общие
     configManager->saveDistConfig();  // Дист
     configManager->saveRectConfig();  // Рект
+    configManager->saveNotifyConfig(); // Уведомления
     
     Serial.println("[API] Settings SAVED to EEPROM.");
     
@@ -655,8 +665,19 @@ bool AppNetwork::loadConfigFromSD() {
         else if (line.startsWith("pass2=")) pass2 = parseLine(line, "pass2");
         else if (line.startsWith("tg_token=")) tgToken = parseLine(line, "tg_token");
         else if (line.startsWith("tg_chat=")) tgChatId = parseLine(line, "tg_chat");
+        // === VK API CONFIG ===
+        else if (line.startsWith("vk_token=")) vkToken = parseLine(line, "vk_token");
+        else if (line.startsWith("vk_peer=")) vkPeerId = parseLine(line, "vk_peer");
+        // NOTE: Настройки категорий (notify_*) удалены из SD карты
+        // Теперь они хранятся в Preferences (SystemConfig)
     }
     file.close();
+    
+    // Логируем найденные настройки
+    Serial.println("[NetMgr] Config loaded:");
+    Serial.println("  SSID1: " + ssid1);
+    Serial.println("  TG enabled: " + String(tgToken.length() > 0 ? "YES" : "NO"));
+    Serial.println("  VK enabled: " + String(vkToken.length() > 0 ? "YES" : "NO"));
     
     if (ssid1.length() == 0) return false;
     return true;
@@ -1061,7 +1082,14 @@ String AppNetwork::buildCfgJson() {
     j += "\"active_test\":"   + String(cfg.active_test)   + ",";
     j += "\"valve_head_capacity\":"  + String(cfg.valve_head_capacity)  + ",";
     j += "\"valve_body_capacity\":"  + String(cfg.valve_body_capacity)  + ",";
-    j += "\"valve0_body_capacity\":" + String(cfg.valve0_body_capacity);
+    j += "\"valve0_body_capacity\":" + String(cfg.valve0_body_capacity) + ",";
+    // === НАСТРОЙКИ УВЕДОМЛЕНИЙ ===
+    j += "\"tgEnabled\":"         + String(cfg.tgEnabled ? "1":"0") + ",";
+    j += "\"vkEnabled\":"         + String(cfg.vkEnabled ? "1":"0") + ",";
+    j += "\"notifySystem\":"      + String(cfg.notifySystem ? "1":"0") + ",";
+    j += "\"notifyDistillation\":"+ String(cfg.notifyDistillation ? "1":"0") + ",";
+    j += "\"notifyRectification\":"+ String(cfg.notifyRectification ? "1":"0") + ",";
+    j += "\"notifySensors\":"     + String(cfg.notifySensors ? "1":"0");
     j += "}";
     return j;
 }
@@ -1258,4 +1286,188 @@ void AppNetwork::handleLoadProfile() {
     Serial.println("[Profile] Loaded: " + filename);
     logger.log("[Profile] Loaded: " + filename);
     server->send(200, "text/plain", "OK");
+}
+
+// ================== VK API INTEGRATION ==================
+
+// Проверка категории - отправлять или нет
+bool AppNetwork::shouldSendCategory(NotifyCategory category) {
+    // Категории ВСЕГДА отправляются
+    if (category == NotifyCategory::ALARM ||
+        category == NotifyCategory::PROCESS_BASIC ||
+        category == NotifyCategory::ATTENTION) {
+        return true;
+    }
+    
+    // Настраиваемые категории - берём из SystemConfig (Preferences)
+    if (!configManager) return false;  // Защита
+    
+    const SystemConfig& cfg = configManager->getConfig();
+    switch (category) {
+        case NotifyCategory::SYSTEM:       return cfg.notifySystem;
+        case NotifyCategory::DISTILLATION: return cfg.notifyDistillation;
+        case NotifyCategory::RECTIFICATION: return cfg.notifyRectification;
+        case NotifyCategory::SENSORS:      return cfg.notifySensors;
+        default: return false;
+    }
+}
+
+// Универсальный метод уведомлений
+void AppNetwork::sendNotification(NotifyCategory category, const String& text) {
+    if (!shouldSendCategory(category)) return;
+    
+    // Получаем настройки включения мессенджеров из SystemConfig
+    bool tgOn = configManager ? configManager->getConfig().tgEnabled : true;
+    bool vkOn = configManager ? configManager->getConfig().vkEnabled : true;
+    
+    // Отправляем в Telegram (если включен)
+    if (tgOn && online && tgToken.length() > 0) {
+        sendMessage(text);
+    }
+    
+    // Отправляем в VK (если включен)
+    if (vkOn && online && vkToken.length() > 0) {
+        sendVKMessage(text);
+    }
+}
+
+// Публичный метод: отправка в VK
+void AppNetwork::sendVKMessage(const String& text) {
+    queueVKMessage(text);
+}
+
+// Добавление сообщения в очередь VK
+void AppNetwork::queueVKMessage(const String& text) {
+    if (!online || vkToken.length() == 0 || vkPeerId.length() == 0) {
+        Serial.println("[VK] Offline or no token/peer_id - message dropped");
+        return;
+    }
+    
+    if (vkQueueCount >= VK_QUEUE_SIZE) {
+        Serial.println("[VK] Queue FULL! Dropping oldest message");
+        vkQueueTail = (vkQueueTail + 1) % VK_QUEUE_SIZE;
+        vkQueueCount--;
+    }
+    
+    vkQueue[vkQueueHead].text = text;
+    vkQueue[vkQueueHead].timestamp = millis();
+    vkQueueHead = (vkQueueHead + 1) % VK_QUEUE_SIZE;
+    vkQueueCount++;
+    
+    Serial.println("[VK] Queued: " + text + " (queue: " + String(vkQueueCount) + ")");
+}
+
+// Непосредственная отправка VK сообщения через API
+bool AppNetwork::sendVKNow(const String& text) {
+    if (!online || vkToken.length() == 0) return false;
+    
+    Serial.println("[VK] Sending: " + text);
+    
+    if (server) server->handleClient();
+    yield();
+    
+    // VK API использует HTTPS, используем тот же client что для Telegram
+    WiFiClientSecure vkClient;
+    vkClient.setTimeout(5000);
+    
+    // Подключаемся к api.vk.com
+    if (!vkClient.connect("api.vk.com", 443)) {
+        Serial.println("[VK] Connection failed");
+        vkClient.stop();
+        return false;
+    }
+    
+    // URL-кодирование сообщения
+    String encodedMsg = "";
+    for (unsigned int i = 0; i < text.length(); i++) {
+        char c = text.charAt(i);
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            encodedMsg += c;
+        } else if (c == ' ') {
+            encodedMsg += "+";
+        } else {
+            encodedMsg += "%" + String(c, HEX);
+        }
+    }
+    
+    // Формируем запрос
+    String request = "GET /method/messages.send?access_token=" + vkToken +
+                     "&v=5.131" +
+                     "&peer_id=" + vkPeerId +
+                     "&message=" + encodedMsg +
+                     "&random_id=0" +
+                     " HTTP/1.1\r\n" +
+                     "Host: api.vk.com\r\n" +
+                     "Connection: close\r\n\r\n";
+    
+    vkClient.print(request);
+    
+    // Читаем ответ (упрощённо - просто ждём и закрываем)
+    unsigned long start = millis();
+    while (vkClient.available() == 0 && millis() - start < 3000) {
+        if (server) server->handleClient();
+        delay(10);
+        yield();
+    }
+    
+    // Проверяем успешность (ищем "response" в ответе)
+    bool success = false;
+    while (vkClient.available()) {
+        String line = vkClient.readStringUntil('\n');
+        if (line.indexOf("\"response\"") >= 0) {
+            success = true;
+        }
+    }
+    
+    vkClient.stop();
+    
+    if (success) {
+        Serial.println("[VK] Sent OK");
+    } else {
+        Serial.println("[VK] Send may have failed");
+    }
+    
+    return true; // Считаем успешным если дошло до отправки
+}
+
+// Обработка очереди VK
+void AppNetwork::processVKQueue() {
+    if (vkQueueCount == 0) return;
+    
+    unsigned long now = millis();
+    
+    // Проверка готовности
+    if (vkConsecutiveFails > 0 && (now - lastVkFailTime) < TG_RETRY_DELAY) {
+        return;
+    }
+    if ((now - lastVkSendTime) < 1000) {  // Минимум 1 сек между отправками VK
+        return;
+    }
+    if (vkSending) return;
+    
+    String msg = vkQueue[vkQueueTail].text;
+    vkSending = true;
+    
+    bool success = sendVKNow(msg);
+    
+    if (success) {
+        vkQueueTail = (vkQueueTail + 1) % VK_QUEUE_SIZE;
+        vkQueueCount--;
+        lastVkSendTime = millis();
+        vkConsecutiveFails = 0;
+        Serial.println("[VK] Sent OK (remaining: " + String(vkQueueCount) + ")");
+    } else {
+        vkConsecutiveFails++;
+        lastVkFailTime = millis();
+        Serial.println("[VK] Send FAILED (attempt " + String(vkConsecutiveFails) + ")");
+        
+        if (vkConsecutiveFails >= 3 && vkQueueCount > 1) {
+            Serial.println("[VK] Too many fails - dropping oldest message");
+            vkQueueTail = (vkQueueTail + 1) % VK_QUEUE_SIZE;
+            vkQueueCount--;
+            vkConsecutiveFails = 0;
+        }
+    }
+    
+    vkSending = false;
 }

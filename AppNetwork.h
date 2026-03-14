@@ -14,6 +14,9 @@
 class ProcessEngine;
 class ConfigManager;
 
+// === Forward declaration для NotifyCategory (определён в ProcessEngine.h) ===
+enum class NotifyCategory;
+
 // Для Telegram
 #include <UniversalTelegramBot.h>
 
@@ -21,6 +24,11 @@ class ConfigManager;
 #define TG_QUEUE_SIZE 10        // Макс. сообщений в очереди
 #define TG_SEND_TIMEOUT 5000    // Таймаут отправки (мс)
 #define TG_RETRY_DELAY 30000    // Пауза после неудачи (мс)
+
+// === VK API ===
+#define VK_QUEUE_SIZE 5         // Макс. сообщений VK в очереди
+#define VK_API_HOST "api.vk.com"
+#define VK_API_PORT 443
 
 // === РЕЖИМЫ СЕТИ ===
 enum class NetworkMode {
@@ -40,7 +48,11 @@ public:
     // Метод для связи с логикой
     void setEngine(ProcessEngine* engine, ConfigManager* cfgMgr);
     
-    void sendMessage(const String& text);
+    // === УВЕДОМЛЕНИЯ (Telegram + VK) ===
+    void sendMessage(const String& text);  // Отправка в Telegram (существующий)
+    void sendVKMessage(const String& text); // Отправка в VK
+    void sendNotification(NotifyCategory category, const String& text); // Универсальный метод
+    
     bool isOnline(); 
     NetworkMode getNetworkMode();  // Получить текущий режим сети
     char getNetworkSymbol();        // Символ для LCD (W/A/X)
@@ -51,6 +63,14 @@ private:
     String ssid1, pass1;
     String ssid2, pass2;
     String tgToken, tgChatId;
+    String vkToken, vkPeerId;  // VK API
+    
+    // --- Флаги включения мессенджеров ---
+    bool tgEnabled = true;
+    bool vkEnabled = true;
+    
+    // NOTE: Настройки категорий (notifySystem, notifyDistillation, etc.)
+    // теперь хранятся в SystemConfig (Preferences), а не здесь!
     
     // --- Связь с системой ---
     ProcessEngine* processEngine = nullptr;
@@ -87,11 +107,31 @@ private:
     unsigned long lastTgFailTime = 0;      // Время последней неудачи
     int tgConsecutiveFails = 0;            // Счётчик подряд неудач
     
-    // --- Методы очереди ---
+    // === АСИНХРОННАЯ ОЧЕРЕДЬ СООБЩЕНИЙ VK ===
+    struct VkMessage {
+        String text;
+        unsigned long timestamp;
+    };
+    VkMessage vkQueue[VK_QUEUE_SIZE];
+    int vkQueueHead = 0;
+    int vkQueueTail = 0;
+    int vkQueueCount = 0;
+    bool vkSending = false;
+    unsigned long lastVkSendTime = 0;
+    unsigned long lastVkFailTime = 0;
+    int vkConsecutiveFails = 0;
+    
+    // --- Методы очереди Telegram ---
     void queueMessage(const String& text);  // Добавить в очередь
     void processMessageQueue();              // Обработать очередь (неблокирующая)
     bool isTelegramReady();                  // Проверка готовности к отправке
     bool sendTelegramNow(const String& text); // Непосредственная отправка
+    
+    // --- Методы очереди VK ---
+    void queueVKMessage(const String& text);  // Добавить в очередь VK
+    void processVKQueue();                    // Обработать очередь VK
+    bool sendVKNow(const String& text);       // Непосредственная отправка VK
+    bool shouldSendCategory(NotifyCategory category); // Проверка категории
     // =============================================
 
     // --- Внутренние методы ---

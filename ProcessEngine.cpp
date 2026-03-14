@@ -32,6 +32,17 @@ void ProcessEngine::syncConfig() {}
 void ProcessEngine::updateNetworkStatus(char networkSymbol) {
     currentStatus.networkSymbol = String(networkSymbol);
 }
+
+// === УВЕДОМЛЕНИЯ ===
+void ProcessEngine::sendNotification(NotifyCategory category, const String& message) {
+    // Всегда логируем в SD карту
+    logger.log(message);
+    
+    // Отправляем через сеть, если доступна
+    if (appNetwork) {
+        appNetwork->sendNotification(category, message);
+    }
+}
 void ProcessEngine::handleUiUp() {
     if (currentStage == Stage::VALVE_CAL) valveCalMenu->handleUpButton();
     else if (currentStage == Stage::SET_PW_AS) setPwAsMenu->handleUpButton();

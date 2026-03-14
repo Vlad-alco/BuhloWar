@@ -199,6 +199,14 @@ void ConfigManager::loadConfig() {
   currentConfig.valve_body_capacity = readInt(ADDR_VALVE_BODY_CAP, 100);
   currentConfig.valve0_body_capacity = readInt(ADDR_VALVE0_BODY_CAP, 100);
 
+  // === НАСТРОЙКИ УВЕДОМЛЕНИЙ ===
+  currentConfig.tgEnabled = readBool(ADDR_TG_ENABLED, true);
+  currentConfig.vkEnabled = readBool(ADDR_VK_ENABLED, true);
+  currentConfig.notifySystem = readBool(ADDR_NOTIFY_SYSTEM, false);
+  currentConfig.notifyDistillation = readBool(ADDR_NOTIFY_DIST, false);
+  currentConfig.notifyRectification = readBool(ADDR_NOTIFY_RECT, false);
+  currentConfig.notifySensors = readBool(ADDR_NOTIFY_SENSORS, false);
+
   loadSensorAddress(ADDR_TSA_ADDRESS, currentConfig.tsaAddress);
   loadSensorAddress(ADDR_AQUA_ADDRESS, currentConfig.aquaAddress);
   loadSensorAddress(ADDR_TSAR_ADDRESS, currentConfig.tsarAddress);
@@ -446,5 +454,17 @@ float ConfigManager::getOutputABVForTemp(float temp, float pressure_mmHg) {
     }
   }
   return 0.0;
+}
+
+// === СОХРАНЕНИЕ НАСТРОЕК УВЕДОМЛЕНИЙ ===
+void ConfigManager::saveNotifyConfig() {
+  writeBool(ADDR_TG_ENABLED, currentConfig.tgEnabled);
+  writeBool(ADDR_VK_ENABLED, currentConfig.vkEnabled);
+  writeBool(ADDR_NOTIFY_SYSTEM, currentConfig.notifySystem);
+  writeBool(ADDR_NOTIFY_DIST, currentConfig.notifyDistillation);
+  writeBool(ADDR_NOTIFY_RECT, currentConfig.notifyRectification);
+  writeBool(ADDR_NOTIFY_SENSORS, currentConfig.notifySensors);
+  EEPROM.commit();
+  Serial.println("Notify config saved to EEPROM");
 }
 

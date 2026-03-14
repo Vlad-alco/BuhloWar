@@ -58,7 +58,15 @@ enum EEPROMAddress {
   ADDR_VALVE_BODY_CAP = 200,    // BCAP (мл/мин)
   ADDR_VALVE0_BODY_CAP = 204,   // B0CAP (мл/мин) для НО клапана
   ADDR_FULL_PWR = 208,
-  ADDR_MIDTERM_ABV = 212   // Крепость смены тары (%)     
+  ADDR_MIDTERM_ABV = 212,   // Крепость смены тары (%)
+
+  // === НАСТРОЙКИ УВЕДОМЛЕНИЙ (Preferences, не SD!) ===
+  ADDR_TG_ENABLED = 216,        // Telegram включён (bool)
+  ADDR_VK_ENABLED = 220,        // VK включён (bool)
+  ADDR_NOTIFY_SYSTEM = 224,     // Системные уведомления (bool)
+  ADDR_NOTIFY_DIST = 228,       // Дистилляция (bool)
+  ADDR_NOTIFY_RECT = 232,       // Ректификация (bool)
+  ADDR_NOTIFY_SENSORS = 236     // Датчики (bool)
 };
 
 // Структура для хранения всех переменных
@@ -118,6 +126,15 @@ struct SystemConfig {
   int valve0_body_capacity = 100; // B0CAP
   // Внутри struct SystemConfig, после int active_test = 60;
   bool fullPwr = true; // Использовать полную мощность при разгоне (DIST)
+
+  // === НАСТРОЙКИ УВЕДОМЛЕНИЙ ===
+  bool tgEnabled = true;          // Telegram включён
+  bool vkEnabled = true;          // VK включён
+  bool notifySystem = false;      // Системные события (WiFi, восстановление)
+  bool notifyDistillation = false; // Дистилляция (детально)
+  bool notifyRectification = false; // Ректификация (детально)
+  bool notifySensors = false;     // Датчики
+
   // Служебные
   unsigned long localChangeTimestamp = 0;
   unsigned long webChangeTimestamp = 0;
@@ -155,6 +172,7 @@ public:
   // Отдельные методы для сохранения
   void saveDistConfig();
   void saveRectConfig();
+  void saveNotifyConfig();  // Настройки уведомлений
 
   // Методы для работы с адресами датчиков
   void saveSensorAddress(int address, uint8_t* addr);

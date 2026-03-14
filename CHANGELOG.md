@@ -4,6 +4,48 @@
 
 ---
 
+## [2025-03-14] — Сессия 12
+
+### Задача
+VK интеграция: перенос настроек уведомлений из SD карты в Preferences (EEPROM).
+
+### Решение
+Настройки категорий уведомлений (notify_system, notify_dist, notify_rect, notify_sensors) и флаги включения мессенджеров (tgEnabled, vkEnabled) хранились в SD карте (/wifi_config.txt), что приводило:
+- Износ SD карты при частых перезаписях
+- Медленный доступ
+- Низкая надёжность
+
+**Правильное решение**: хранить эти настройки в Preferences (EEPROM ESP32).
+
+### Изменённые файлы
+- **preferences.h**:
+  - Добавлены адреса EEPROM: `ADDR_TG_ENABLED` ... `ADDR_NOTIFY_SENSORS`
+  - Добавлены поля в `SystemConfig`: `tgEnabled`, `vkEnabled`, `notifySystem`, `notifyDistillation`, `notifyRectification`, `notifySensors`
+  - Добавлен метод `saveNotifyConfig()`
+- **preferences.cpp**:
+  - Загрузка 6 полей настроек уведомлений в `loadConfig()`
+  - Реализация `saveNotifyConfig()` — сохранение в EEPROM
+- **AppNetwork.h**:
+  - Удалены дублирующие поля (notifySystem, etc.)
+  - Добавлен комментарий о переносе настроек в SystemConfig
+- **AppNetwork.cpp**:
+  - Убрано чтение `notify_*` из `wifi_config.txt`
+  - `shouldSendCategory()` — читает из `configManager->getConfig()`
+  - `sendNotification()` — учитывает `tgEnabled/vkEnabled` из SystemConfig
+  - `buildCfgJson()` — добавлены 6 полей настроек
+  - `handleApiSettings()` — добавлено чтение и сохранение настроек
+
+### Категории уведомлений
+| Категория | Поведение |
+|-----------|----------|
+| ALARM, PROCESS_BASIC, ATTENTION | **ВСЕГДА** отправляются |
+| SYSTEM | Настраиваемый (notifySystem) |
+| DISTILLATION | Настраиваемый (notifyDistillation) |
+| RECTIFICATION | Настраиваемый (notifyRectification) |
+| SENSORS | Настраиваемый (notifySensors) |
+
+---
+
 ## [2025-03-14] — Сессия 11
 
 ### Проблема

@@ -6,7 +6,22 @@
 #include "ProcessCommon.h"
 #include "preferences.h"
 #include "ValveCalMenu.h"
-#include "SetPwAsMenu.h"  
+#include "SetPwAsMenu.h"
+
+// Предварительное объявление
+class AppNetwork;
+
+// === КАТЕГОРИИ УВЕДОМЛЕНИЙ ===
+enum class NotifyCategory {
+    ALARM,          // Тревоги (TSA, BOX, VREAC, EMERGENCY) - ВСЕГДА
+    PROCESS_BASIC,  // Процесс базовый (START, FINISH, CANCEL) - ВСЕГДА
+    ATTENTION,      // Требует внимания оператора - ВСЕГДА
+    SYSTEM,         // Система (WiFi, восстановление) - настраиваемый
+    DISTILLATION,   // Дистилляция (RAZGON, WAITING, OTBOR, BAKSTOP) - настраиваемый
+    RECTIFICATION,  // Ректификация (GOLOVY, TELO, NASEBYA) - настраиваемый
+    SENSORS         // Датчики (BME280 проблемы) - настраиваемый
+};
+
 enum class TestType { NONE, HEAD, BODY };
 
 struct TestStatus {
@@ -21,8 +36,12 @@ struct TestStatus {
 };
 class ProcessEngine {
 public:
-    // ИЗМЕНЕНО: Добавлен lcd
+    // ИЗМЕНЕНО: Добавлен lcd и appNetwork
     void begin(LiquidCrystal_I2C* lcd, SensorAdapter* sensors, OutputManager* outputs, ConfigManager* cfgMgr);
+    void setAppNetwork(AppNetwork* net) { appNetwork = net; }
+    
+    // === МЕТОД УВЕДОМЛЕНИЙ ===
+    void sendNotification(NotifyCategory category, const String& message);
     void update(); 
     EngineResponse handleCommand(UiCommand command);
     const SystemStatus& getStatus() const;
@@ -81,6 +100,7 @@ private:
     ConfigManager* configManager;
     ValveCalMenu* valveCalMenu;
     SetPwAsMenu* setPwAsMenu;
+    AppNetwork* appNetwork = nullptr;  // Ссылка на сеть для уведомлений
     TestStatus headTestStatus;
     TestStatus bodyTestStatus;
     DistConfig distConfig;
