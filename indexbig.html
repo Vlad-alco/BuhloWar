@@ -513,6 +513,7 @@
                         </div>
                         <a href="/help.html" target="_blank" class="block w-full mt-2 btn-cyan-outline py-2 rounded-lg font-bold text-sm text-center">📖 ИНСТРУКЦИЯ</a>
                          <button onclick="window.open('/api/logs')" class="w-full btn-purple-outline py-2 rounded-lg font-bold text-sm">ЛОГИ</button>
+                         <button onclick="showNotifyPanel()" class="w-full mt-2 btn-cyan-outline py-2 rounded-lg font-bold text-sm">🔔 УВЕДОМЛЕНИЯ</button>
                     </div>
                 </div>
 
@@ -594,6 +595,38 @@
                 </div>
                 <p class="text-green-400 text-xs mb-3">✓ Расход сохранён в настройки</p>
                 <button onclick="closeCalcPanel()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-bold text-sm">ЗАКРЫТЬ</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notify Panel - настройки уведомлений -->
+    <div id="notify-panel" class="dialog-panel">
+        <div class="dialog-backdrop" onclick="closeNotifyPanel()"></div>
+        <div class="dialog-content" style="max-width: 450px;">
+            <h3 class="text-xl font-bold text-white mb-4">🔔 УВЕДОМЛЕНИЯ</h3>
+            
+            <!-- Мессенджеры -->
+            <div class="mb-4">
+                <h4 class="text-sm font-bold text-cyan mb-2 uppercase">Мессенджеры</h4>
+                <div class="setting-row"><label>Telegram</label><div class="setting-inputs"><button id="btn-tgEnabled" onclick="toggleNotify('tgEnabled')" class="bool-btn">OFF</button></div></div>
+                <div class="setting-row"><label>VK</label><div class="setting-inputs"><button id="btn-vkEnabled" onclick="toggleNotify('vkEnabled')" class="bool-btn">OFF</button></div></div>
+            </div>
+            
+            <!-- Категории -->
+            <div class="mb-4">
+                <h4 class="text-sm font-bold text-amber mb-2 uppercase">Категории уведомлений</h4>
+                <p class="text-gray-500 text-xs mb-2">Настройки применяются к обоим мессенджерам</p>
+                <div class="setting-row"><label>Система</label><div class="setting-inputs"><button id="btn-notifySystem" onclick="toggleNotify('notifySystem')" class="bool-btn">OFF</button></div></div>
+                <div class="setting-row"><label>Дистилляция</label><div class="setting-inputs"><button id="btn-notifyDistillation" onclick="toggleNotify('notifyDistillation')" class="bool-btn">OFF</button></div></div>
+                <div class="setting-row"><label>Ректификация</label><div class="setting-inputs"><button id="btn-notifyRectification" onclick="toggleNotify('notifyRectification')" class="bool-btn">OFF</button></div></div>
+                <div class="setting-row"><label>Датчики</label><div class="setting-inputs"><button id="btn-notifySensors" onclick="toggleNotify('notifySensors')" class="bool-btn">OFF</button></div></div>
+            </div>
+            
+            <p class="text-gray-500 text-xs mb-4">⚠ Аварии и критические события отправляются всегда</p>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="closeNotifyPanel()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-bold text-sm">ОТМЕНА</button>
+                <button onclick="saveNotifySettings()" class="bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold text-sm">СОХРАНИТЬ</button>
             </div>
         </div>
     </div>
@@ -1537,6 +1570,77 @@
 
         function closeLoadProfilePanel() {
             document.getElementById('load-profile-panel').style.display = 'none';
+        }
+
+        // === УВЕДОМЛЕНИЯ ===
+        let notifyConfig = {
+            tgEnabled: false,
+            vkEnabled: false,
+            notifySystem: false,
+            notifyDistillation: false,
+            notifyRectification: false,
+            notifySensors: false
+        };
+
+        function showNotifyPanel() {
+            // Загружаем текущие значения из cfg
+            if (currentData.cfg) {
+                notifyConfig.tgEnabled = currentData.cfg.tgEnabled || false;
+                notifyConfig.vkEnabled = currentData.cfg.vkEnabled || false;
+                notifyConfig.notifySystem = currentData.cfg.notifySystem || false;
+                notifyConfig.notifyDistillation = currentData.cfg.notifyDistillation || false;
+                notifyConfig.notifyRectification = currentData.cfg.notifyRectification || false;
+                notifyConfig.notifySensors = currentData.cfg.notifySensors || false;
+            }
+            updateNotifyUI();
+            document.getElementById('notify-panel').style.display = 'flex';
+        }
+
+        function closeNotifyPanel() {
+            document.getElementById('notify-panel').style.display = 'none';
+        }
+
+        function updateNotifyUI() {
+            const setBtn = (id, val, t, f) => { 
+                const el = document.getElementById(id); 
+                if(el) { 
+                    el.textContent = val ? t : f; 
+                    el.className = 'bool-btn ' + (val ? 'on' : 'off');
+                } 
+            };
+            setBtn('btn-tgEnabled', notifyConfig.tgEnabled, 'ON', 'OFF');
+            setBtn('btn-vkEnabled', notifyConfig.vkEnabled, 'ON', 'OFF');
+            setBtn('btn-notifySystem', notifyConfig.notifySystem, 'ON', 'OFF');
+            setBtn('btn-notifyDistillation', notifyConfig.notifyDistillation, 'ON', 'OFF');
+            setBtn('btn-notifyRectification', notifyConfig.notifyRectification, 'ON', 'OFF');
+            setBtn('btn-notifySensors', notifyConfig.notifySensors, 'ON', 'OFF');
+        }
+
+        function toggleNotify(field) {
+            notifyConfig[field] = !notifyConfig[field];
+            updateNotifyUI();
+        }
+
+        async function saveNotifySettings() {
+            try {
+                const resp = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(notifyConfig)
+                });
+                if (resp.ok) {
+                    // Также обновляем local cfg
+                    if (currentData.cfg) {
+                        Object.assign(currentData.cfg, notifyConfig);
+                    }
+                    closeNotifyPanel();
+                    alert('Настройки уведомлений сохранены');
+                } else {
+                    alert('Ошибка сохранения');
+                }
+            } catch(e) {
+                alert('Ошибка: ' + e);
+            }
         }
 
         async function loadProfile(fileKey, name) {
