@@ -9,7 +9,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include "config.h"
-#include "ProcessEngine.h"  // Для полного определения NotifyCategory
+#include "NotifyCategory.h"  // Для enum NotifyCategory (без циклической зависимости)
 
 // Предварительное объявление классов
 class ProcessEngine;

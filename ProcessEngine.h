@@ -7,20 +7,10 @@
 #include "preferences.h"
 #include "ValveCalMenu.h"
 #include "SetPwAsMenu.h"
+#include "NotifyCategory.h"  // Вынесено для избежания циклических зависимостей
 
 // Предварительное объявление
 class AppNetwork;
-
-// === КАТЕГОРИИ УВЕДОМЛЕНИЙ ===
-enum class NotifyCategory {
-    ALARM,          // Тревоги (TSA, BOX, VREAC, EMERGENCY) - ВСЕГДА
-    PROCESS_BASIC,  // Процесс базовый (START, FINISH, CANCEL) - ВСЕГДА
-    ATTENTION,      // Требует внимания оператора - ВСЕГДА
-    SYSTEM,         // Система (WiFi, восстановление) - настраиваемый
-    DISTILLATION,   // Дистилляция (RAZGON, WAITING, OTBOR, BAKSTOP) - настраиваемый
-    RECTIFICATION,  // Ректификация (GOLOVY, TELO, NASEBYA) - настраиваемый
-    SENSORS         // Датчики (BME280 проблемы) - настраиваемый
-};
 
 enum class TestType { NONE, HEAD, BODY };
 
