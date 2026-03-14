@@ -9,13 +9,11 @@
 #include <SPI.h>
 #include <SD.h>
 #include "config.h"
+#include "ProcessEngine.h"  // Для полного определения NotifyCategory
 
 // Предварительное объявление классов
 class ProcessEngine;
 class ConfigManager;
-
-// === Forward declaration для NotifyCategory (определён в ProcessEngine.h) ===
-enum class NotifyCategory;
 
 // Для Telegram
 #include <UniversalTelegramBot.h>
