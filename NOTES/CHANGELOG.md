@@ -182,6 +182,11 @@ https://control.alcodist.ru/api/api.php
 - Все статические строки в Serial.printf заменены на F() макрос
 - Удалено создание локальных объектов в методах sendTelemetry, checkCommands, checkSettings
 
+### ВНИМАНИЕ - REVERTED
+- CloudManager.h изменения ОТКАТАНЫ — переиспользование WiFiClientSecure/HTTPClient 
+  как членов класса вызывало зависание (Watchdog Timeout)
+- Возвращена исходная версия с локальными объектами в каждом методе
+
 ### AppNetwork.cpp - Оптимизация загрузки веб-интерфейса
 - Удалён retry loop с delay(10) при открытии index.html (было до 30мс задержки)
 - Файл открывается сразу без повторных попыток

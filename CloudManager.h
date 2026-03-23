@@ -8,8 +8,6 @@ class CloudManager {
 private:
     String serverUrl;
     String apiKey;
-    WiFiClientSecure secureClient;
-    HTTPClient http;
     unsigned long lastTelemetryMs = 0;
     unsigned long lastCommandCheckMs = 0;
     unsigned long lastSettingsCheckMs = 0;
@@ -19,11 +17,9 @@ private:
     unsigned long settingsLastUpdate = 0;
     bool skipCertCheck = true;
     
-    // Callback for processing commands from cloud
     typedef void (*CommandCallback)(const String& command, const String& params);
     CommandCallback onCommand = nullptr;
     
-    // Callback for processing settings from cloud
     typedef void (*SettingsCallback)(const String& settingsJson);
     SettingsCallback onSettings = nullptr;
     
@@ -33,10 +29,7 @@ public:
     void begin(const String& url, const String& key) {
         serverUrl = url;
         apiKey = key;
-        if (skipCertCheck) {
-            secureClient.setInsecure();
-        }
-        Serial.println(F("[Cloud] Initialized"));
+        Serial.println("[Cloud] Initialized: " + serverUrl);
     }
     
     void onCommandReceived(CommandCallback callback) {
@@ -59,16 +52,23 @@ public:
         return serverUrl.length() > 0 && apiKey.length() > 0;
     }
     
-    // Send telemetry data to cloud
     bool sendTelemetry(const String& jsonData) {
         if (!isConfigured()) return false;
         
-        String url = serverUrl + F("?telemetry=1");
+        HTTPClient http;
+        WiFiClientSecure client;
         
-        http.begin(secureClient, url);
+        if (skipCertCheck) {
+            client.setInsecure();
+        }
+        
+        String url = serverUrl + "?telemetry=1";
+        
+        http.begin(client, url);
         http.setTimeout(5000);
-        http.addHeader(F("Content-Type"), F("application/json"));
-        http.addHeader(F("Authorization"), (String(F("Bearer ")) + apiKey).c_str());
+        http.addHeader("Content-Type", "application/json");
+        String authHeader = "Bearer " + apiKey;
+        http.addHeader("Authorization", authHeader.c_str());
         
         int httpCode = http.POST(jsonData);
         
@@ -77,21 +77,28 @@ public:
             http.end();
             return true;
         } else {
-            Serial.printf(F("[Cloud] Telemetry failed: %d\n"), httpCode);
+            Serial.printf("[Cloud] Telemetry failed: %d\n", httpCode);
             http.end();
             return false;
         }
     }
     
-    // Check for pending commands from cloud
     bool checkCommands() {
         if (!isConfigured()) return false;
         
-        String url = serverUrl + F("?commands=1");
+        HTTPClient http;
+        WiFiClientSecure client;
         
-        http.begin(secureClient, url);
+        if (skipCertCheck) {
+            client.setInsecure();
+        }
+        
+        String url = serverUrl + "?commands=1";
+        
+        http.begin(client, url);
         http.setTimeout(5000);
-        http.addHeader(F("Authorization"), (String(F("Bearer ")) + apiKey).c_str());
+        String authHeader = "Bearer " + apiKey;
+        http.addHeader("Authorization", authHeader.c_str());
         
         int httpCode = http.GET();
         
@@ -99,26 +106,33 @@ public:
             String response = http.getString();
             http.end();
             
-            if (response.indexOf(F("\"commands\"")) != -1) {
+            if (response.indexOf("\"commands\"") != -1) {
                 parseCommands(response);
                 return true;
             }
         } else {
-            Serial.printf(F("[Cloud] Command check failed: %d\n"), httpCode);
+            Serial.printf("[Cloud] Command check failed: %d\n", httpCode);
             http.end();
         }
         return false;
     }
     
-    // Check for settings update from cloud
     bool checkSettings() {
         if (!isConfigured() || onSettings == nullptr) return false;
         
-        String url = serverUrl + F("?settings=1");
+        HTTPClient http;
+        WiFiClientSecure client;
         
-        http.begin(secureClient, url);
+        if (skipCertCheck) {
+            client.setInsecure();
+        }
+        
+        String url = serverUrl + "?settings=1";
+        
+        http.begin(client, url);
         http.setTimeout(5000);
-        http.addHeader(F("Authorization"), (String(F("Bearer ")) + apiKey).c_str());
+        String authHeader = "Bearer " + apiKey;
+        http.addHeader("Authorization", authHeader.c_str());
         
         int httpCode = http.GET();
         
@@ -126,8 +140,8 @@ public:
             String response = http.getString();
             http.end();
             
-            if (response.indexOf(F("\"settings\"")) != -1) {
-                int tsPos = response.indexOf(F("\"settings_last_update\":"));
+            if (response.indexOf("\"settings\"") != -1) {
+                int tsPos = response.indexOf("\"settings_last_update\":");
                 unsigned long cloudTs = 0;
                 if (tsPos != -1) {
                     int start = tsPos + 22;
@@ -139,9 +153,9 @@ public:
                 
                 if (cloudTs > settingsLastUpdate) {
                     settingsLastUpdate = cloudTs;
-                    Serial.printf(F("[Cloud] Settings updated from cloud (ts: %lu)\n"), cloudTs);
+                    Serial.printf("[Cloud] Settings updated from cloud (ts: %lu)\n", cloudTs);
                     
-                    int settingsStart = response.indexOf(F("{\"settings\":"));
+                    int settingsStart = response.indexOf("{\"settings\":");
                     if (settingsStart != -1) {
                         int jsonStart = response.indexOf("{", settingsStart);
                         int depth = 0;
@@ -163,7 +177,7 @@ public:
                 }
             }
         } else {
-            Serial.printf(F("[Cloud] Settings check failed: %d\n"), httpCode);
+            Serial.printf("[Cloud] Settings check failed: %d\n", httpCode);
             http.end();
         }
         return false;
@@ -173,45 +187,36 @@ public:
         settingsLastUpdate = ts;
     }
     
-    // Call this periodically from main loop
     void update(const String& telemetryJson) {
         if (!isConfigured()) return;
         
         unsigned long now = millis();
         
-        // Send telemetry
         if (now - lastTelemetryMs >= telemetryIntervalMs) {
             sendTelemetry(telemetryJson);
         }
         
-        // Check commands
         if (now - lastCommandCheckMs >= commandCheckIntervalMs) {
             checkCommands();
         }
         
-        // Check settings
         if (now - lastSettingsCheckMs >= settingsCheckIntervalMs) {
             checkSettings();
         }
     }
     
-    // Get server connection status
     bool isConnected() {
         return WiFi.status() == WL_CONNECTED && isConfigured();
     }
     
 private:
     void parseCommands(const String& response) {
-        // Simple JSON parsing for commands
-        // Looking for: {"commands":[{"command":"NAME","params":{...}},...]}
-        
-        int cmdsStart = response.indexOf(F("\"commands\""));
+        int cmdsStart = response.indexOf("\"commands\"");
         if (cmdsStart == -1) return;
         
         int arrStart = response.indexOf("[", cmdsStart);
         if (arrStart == -1) return;
         
-        // Find matching ] by counting brackets depth
         int depth = 1;
         int pos = arrStart + 1;
         while (pos < response.length() && depth > 0) {
@@ -224,20 +229,17 @@ private:
         
         String commands = response.substring(arrStart + 1, arrEnd);
         
-        // Extract each command - find all {"command": patterns
         int cmdPos = 0;
         while (cmdPos < commands.length()) {
-            int cmdStart = commands.indexOf(F("{\"command\":"), cmdPos);
+            int cmdStart = commands.indexOf("{\"command\":", cmdPos);
             if (cmdStart == -1) break;
             
-            // Find command name
             int nameStart = commands.indexOf("\"", cmdStart + 11) + 1;
             int nameEnd = commands.indexOf("\"", nameStart);
             if (nameEnd == -1 || nameEnd <= nameStart) break;
             
             String cmdName = commands.substring(nameStart, nameEnd);
             
-            // Call callback for each command
             if (onCommand) {
                 onCommand(cmdName, "{}");
                 Serial.printf("[Cloud] Command parsed: %s\n", cmdName.c_str());
