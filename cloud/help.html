@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Руководство | BuhloWar</title>
+    <script src="./js/lucide.js"></script>
+    <script src="./js/tailwindcss.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700&display=swap');
+        :root {
+            --amber: #f59e0b; --amber-dim: #92400e; --cyan: #22d3ee;
+            --red: #f87171; --green: #4ade80;
+            --bg: #0a0c0f; --surface: #111318; --surface2: #1a1d24;
+            --border: #2a2d36; --text: #c9cdd6; --text-dim: #6b7280;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.7; }
+        header { background: var(--surface); border-bottom: 1px solid var(--amber-dim); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-family: 'Unbounded', sans-serif; font-size: 16px; color: var(--amber); letter-spacing: 0.1em; }
+        .header-back { color: var(--text-dim); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+        .header-back:hover { color: var(--amber); }
+        main { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+        section { margin-bottom: 48px; }
+        h2 { font-family: 'Unbounded', sans-serif; font-size: 20px; color: #fff; margin-bottom: 16px; }
+        h3 { font-size: 14px; color: var(--amber); text-transform: uppercase; letter-spacing: 0.1em; margin: 24px 0 12px; }
+        p { color: var(--text); margin-bottom: 12px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .card-warn { border-color: var(--amber-dim); background: rgba(245,158,11,0.05); }
+        .card-danger { border-color: #7f1d1d; background: rgba(239,68,68,0.05); }
+        .card-ok { border-color: #14532d; background: rgba(74,222,128,0.05); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; background: var(--surface2); color: var(--text); margin: 0 2px; }
+        .badge-green { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid #14532d; }
+        .badge-red { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid #7f1d1d; }
+        .badge-amber { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid var(--amber-dim); }
+        .badge-cyan { background: rgba(34,211,238,0.15); color: var(--cyan); border: 1px solid #164e63; }
+        ul { margin: 12px 0; padding-left: 20px; }
+        li { margin-bottom: 8px; color: var(--text); }
+        .lcd { background: #0d1a0d; border: 2px solid #1a3a1a; border-radius: 4px; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #4ade80; margin: 12px 0; line-height: 1.8; }
+        .btn { display: inline-block; padding: 8px 16px; background: var(--amber); color: var(--bg); border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
+        .step { display: flex; gap: 16px; margin-bottom: 16px; }
+        .step-num { width: 28px; height: 28px; background: var(--amber); color: var(--bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+        .step-content { flex: 1; }
+        .step-title { font-weight: 700; color: #fff; margin-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--surface2); font-size: 12px; color: var(--text-dim); text-transform: uppercase; }
+        .important { background: rgba(245,158,11,0.1); border-left: 3px solid var(--amber); padding: 12px; margin: 16px 0; }
+    </style>
+</head>
+<body>
+<header>
+    <span class="header-title"> BuhloWar — Руководство для начинающих</span>
+    <a href="/" class="header-back">← Назад к системе</a>
+</header>
+
+<main>
+
+<!-- ЧТО ТАКОЕ BUHLOWAR -->
+<section>
+    <h2>Что умеет BuhloWar?</h2>
+    <p>BuhloWar — это автоматика для самогонного аппарата. Она сама управляет нагревом, клапанами отбора, следит за температурой и останавливает процесс если что-то пошло не так.</p>
+    <p>Вам нужно только:</p>
+    <ul>
+        <li>Налить брагу в куб</li>
+        <li>Настроить параметры (мощность, объём)</li>
+        <li>Нажать СТАРТ</li>
+        <li>Следить за процессом через телефон или компьютер</li>
+    </ul>
+    <div class="important">
+        <strong>Важно:</strong> Система помогает, но вы всегда должны быть рядом и контролировать процесс!
+    </div>
+</section>
+
+<!-- ЧТО НУЖНО КУПИТЬ -->
+<section>
+    <h2>Что нужно для работы?</h2>
+    
+    <h3>Оборудование</h3>
+    <ul>
+        <li><strong>ESP32-S3</strong> — мини-компьютер (500-800 руб)</li>
+        <li><strong>Блок питания 5V 2A</strong> — для ESP32</li>
+        <li><strong>ТЭН</strong> — нагреватель куба</li>
+        <li><strong>Регулятор мощности (РМ-2М)</strong> — управляет ТЭНом</li>
+        <li><strong>Силовой контактор</strong> — включает/выключает РМ</li>
+        <li><strong>4 датчика температуры DS18B20</strong> — для куба, царги, воды, атмосферы</li>
+        <li><strong>Датчик давления BME280</strong> — для точности</li>
+        <li><strong>Клапаны</strong> — для отбора (нормально закрытые)</li>
+    </ul>
+
+    <h3>Датчики и их назначение</h3>
+    <table>
+        <tr><td><span class="badge badge-cyan">ТСА</span></td><td>Трубка связи с атмосферой — главный датчик для контроля</td></tr>
+        <tr><td><span class="badge badge-green">ЦАРГА</span></td><td>Царга — температура в верхней части колонны</td></tr>
+        <tr><td><span class="badge badge-amber">БАК</span></td><td>Бак (куб) — температура браги</td></tr>
+        <tr><td><span class="badge badge-cyan">ВОДА</span></td><td>Температура охлаждающей воды</td></tr>
+    </table>
+</section>
+
+<!-- ПЕРВЫЙ ЗАПУСК -->
+<section>
+    <h2>Первый запуск — пошагово</h2>
+
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+            <div class="step-title">Подготовьте SD-карту</div>
+            <div>Вставьте карту памяти в компьютер. Создайте файл <code>wifi_config.txt</code> с настройками WiFi:</div>
+            <div class="lcd">ssid1=ВашWiFi<br>pass1=ПарольWiFi<br>tg_token=ВашТокен<br>tg_chat=ВашID</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+            <div class="step-title">Вставьте SD в ESP32</div>
+            <div>Положите файлы веб-интерфейса (index.html и папки) на SD-карту в папку <code>/www/</code></div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+            <div class="step-title">Включите питание</div>
+            <div>ESP32 загрузится. На LCD экране появится IP-адрес (например <code>192.168.1.100</code>)</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+            <div class="step-title">Откройте веб-интерфейс</div>
+            <div>Введите IP-адрес в браузере. Вы увидите панель управления.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+            <div class="step-title">Назначьте датчики</div>
+            <div>Перейдите в раздел <span class="badge badge-cyan">Датчики</span>. Для каждого датчика: нажмите на него, нагрейте (подержите в руке), нажмите <span class="badge badge-green">ДА</span>.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+            <div class="step-title">Настройте параметры</div>
+            <div>В разделе <span class="badge badge-amber">Ректификация</span> или <span class="badge badge-amber">Дистилляция</span> задайте:</div>
+            <ul>
+                <li><strong>Мощность</strong> — мощность вашего ТЭНа (Вт)</li>
+                <li><strong>Объём АС</strong> — сколько чистого спирта в браге (мл)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+            <div class="step-title">Готово!</div>
+            <div>Нажмите СТАРТ и следите за процессом.</div>
+        </div>
+    </div>
+</section>
+
+<!-- КАК РАБОТАТЬ -->
+<section>
+    <h2>Как управлять процессом</h2>
+
+    <h3>Через веб-интерфейс (рекомендуется)</h3>
+    <p>Откройте в браузере IP-адрес ESP32. Там вы видите:</p>
+    <ul>
+        <li>Все температуры в реальном времени</li>
+        <li>Текущий этап процесса</li>
+        <li>Скорость отбора</li>
+        <li>Кнопки запуска и остановки</li>
+    </ul>
+
+    <h3>Через телефон (облако)</h3>
+    <p>Настройте облако в разделе <span class="badge badge-cyan">Настройки</span> — укажите адрес вашего сервера. Тогда вы сможете заходить на сайт и управлять издалека.</p>
+
+    <h3>Через LCD и кнопки</h3>
+    <p>Если нет интернета — используйте кнопки на корпусе:</p>
+    <ul>
+        <li><strong>ВВЕРХ/ВНИЗ</strong> — выбор пункта меню</li>
+        <li><strong>ОК</strong> — подтверждение</li>
+        <li><strong>НАЗАД</strong> — возврат</li>
+    </ul>
+</section>
+
+<!-- ПРОЦЕСС РЕКТИФИКАЦИИ -->
+<section>
+    <h2>Процесс ректификации — что происходит?</h2>
+    <p>Ректификация — это получение чистого спирта. Процесс идёт автоматически:</p>
+
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+            <div class="step-title">Водяной тест</div>
+            <div>Проверка охлаждения. Подтвердите — вода потекла.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+            <div class="step-title">Разгон</div>
+            <div>Нагрев куба до рабочей температуры. Колонна прогревается.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+            <div class="step-title">Насадка</div>
+            <div>Стабилизация колонны перед отбором. Обычно 10 минут.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+            <div class="step-title">Калибровка (если нужно)</div>
+            <div>Можно подобрать скорость клапанов. Не обязательно.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+            <div class="step-title">Мощность и объём</div>
+            <div>Подтвердите настройки перед отбором.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+            <div class="step-title">Отбор голов</div>
+            <div>Первая фракция — "головы". Система отбирает их автоматически. Объём зависит от метода:</div>
+            <ul>
+                <li><strong>KSS</strong> — 20% от чистого спирта (3 подэтапа)</li>
+                <li><strong>Standard</strong> — 10% от чистого спирта</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+            <div class="step-title">Подтверждение голов</div>
+            <div>Система спросит: "Готовы к подтверждению?" Нажмите ДА — пойдёт отбор тела.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">8</div>
+        <div class="step-content">
+            <div class="step-title">Отбор тела</div>
+            <div>Основная фракция — спирт. Система сама следит за скоростью и останавливает когда надо.</div>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num">9</div>
+        <div class="step-content">
+            <div class="step-title">Завершение</div>
+            <div>Охлаждение 5 минут, вода закрывается. Процесс окончен!</div>
+        </div>
+    </div>
+</section>
+
+<!-- ЧТО ДЕЛАТЬ ПРИ АВАРИИ -->
+<section>
+    <h2>Что делать при тревоге?</h2>
+    
+    <div class="card card-danger">
+        <strong style="color:var(--red)">АВАРИЯ! (красный)</strong>
+        <p>Температура в трубке связи превысила лимит (обычно 55°C). У вас есть время на исправление:</p>
+        <ul>
+            <li>Уменьшите мощность нагрева</li>
+            <li>Открите воду сильнее</li>
+            <li>Если не помогает — нажмите СТОП</li>
+        </ul>
+    </div>
+
+    <div class="card card-warn">
+        <strong style="color:var(--amber)">ВНИМАНИЕ (жёлтый)</strong>
+        <p>Перегрев корпуса контроллера. Проверьте вентиляцию.</p>
+    </div>
+
+    <div class="important">
+        <strong>Звуковой сигнал</strong> — при аварии система издаёт громкий звук. Также вы получите уведомление на телефон (если настроено).
+    </div>
+</section>
+
+<!-- РЕЖИМЫ СЕТИ -->
+<section>
+    <h2>Режимы работы сети</h2>
+    <p>В правом верхнем углу веб-интерфейса показывается режим:</p>
+    <table>
+        <tr><td><span class="badge badge-green">W</span></td><td>Подключено к WiFi роутеру — полный функционал</td></tr>
+        <tr><td><span class="badge badge-amber">A</span></td><td>Точка доступа — ESP32 создал свою сеть</td></tr>
+        <tr><td><span class="badge">X</span></td><td>Офлайн — только LCD и кнопки</td></tr>
+    </table>
+</section>
+
+<!-- ЧАСТЫЕ ВОПРОСЫ -->
+<section>
+    <h2>Частые вопросы</h2>
+    
+    <h3>Почему не запускается процесс?</h3>
+    <p>Проверьте что все датчики назначены (раздел "Датчики"). Без назначенных датчиков система не даст запустить процесс.</p>
+
+    <h3>Как настроить скорость отбора?</h3>
+    <p>В разделе "Ректификация" есть параметры "ГОЛ ОТКР" и "ГОЛ ЗАКР" — это время открытия и закрытия клапана в секундах. Экспериментируйте и смотрите результат.</p>
+
+    <h3>Что такое метод KSS?</h3>
+    <p>Это метод отбора голов в 3 этапа: сначала быстро (плевок), потом медленно, потом как для тела. Даёт более чистый продукт.</p>
+
+    <h3>Как остановить процесс?</h3>
+    <p>Нажмите кнопку СТОП в веб-интерфейсе или удерживайте кнопку ОК на корпусе.</p>
+</section>
+
+<!-- БЕЗОПАСНОСТЬ -->
+<section>
+    <h2>Техника безопасности</h2>
+    <div class="card card-danger">
+        <strong>ВНИМАНИЕ!</strong>
+        <p>Система работает с высокими температурами и электричеством. Всегда будьте рядом во время процесса. Не оставляйте без присмотра!</p>
+    </div>
+    <ul>
+        <li>Используйте УЗО в электрощите</li>
+        <li>Не допускайте перегрева куба</li>
+        <li>Следите за подачей воды</li>
+        <li>Держите под рукой огнетушитель</li>
+    </ul>
+</section>
+
+</main>
+</body>
+</html>
