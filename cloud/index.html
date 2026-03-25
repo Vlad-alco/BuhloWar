@@ -571,7 +571,7 @@
                             <button onclick="showLoadProfilePanel()" class="btn-green-outline py-2 rounded-lg font-bold text-sm">📂 ЗАГР. ПРОФИЛЬ</button>
                         </div>
                         <a href="/help.html" target="_blank" class="block w-full mt-2 btn-cyan-outline py-2 rounded-lg font-bold text-sm text-center">📖 ИНСТРУКЦИЯ</a>
-                         <button onclick="window.open('/api/logs')" class="w-full btn-purple-outline py-2 rounded-lg font-bold text-sm">ЛОГИ</button>
+                         <button onclick="cloudMode ? window.open(cloudApiUrl + '/?logs=1') : window.open('/api/logs')" class="w-full btn-purple-outline py-2 rounded-lg font-bold text-sm">ЛОГИ</button>
                     </div>
                 </div>
 

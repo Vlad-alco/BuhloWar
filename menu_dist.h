@@ -72,14 +72,8 @@ public:
       }
   }
 
-  // Обычное обновление экрана процесса
-  if (distState == DIST_PROCESS_SCREEN) {
-    const SystemStatus& status = processEngine.getStatus();
-    if (status.stageName == "REPLACEMENT") {
-      if (selectedItem != 0 && selectedItem != 1) selectedItem = 0; 
-    }
-    display();
-  }
+  // Всегда обновляем экран (а не только в PROCESS_SCREEN)
+  display();
 }
   
   void displayWaterTestScreen() {

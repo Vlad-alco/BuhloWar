@@ -161,6 +161,24 @@ if (isset($_GET['telemetry']) && $method === 'POST') {
         $telemetry['data'] = $data;
         writeJson($config['db_file'], $telemetry);
         
+        // === СОХРАНЕНИЕ ЛОГОВ ===
+        if (isset($data['new_logs']) && strlen($data['new_logs']) > 0) {
+            $logFile = dirname(__FILE__) . '/buhlo_cloud.log';
+            $newLogs = $data['new_logs'];
+            // Раскодируем \n обратно в переносы строк
+            $newLogs = str_replace('\\n', "\n", $newLogs);
+            // Дописываем в файл
+            file_put_contents($logFile, $newLogs, FILE_APPEND);
+            
+            // Ограничиваем размер файла 100KB
+            if (filesize($logFile) > 102400) {
+                $content = file_get_contents($logFile);
+                $content = substr($content, -81920); // Оставляем последние 80KB
+                file_put_contents($logFile, $content);
+            }
+        }
+        // ==========================
+        
         // Check for alerts and send push
         checkAndSendAlerts($data);
         
@@ -297,6 +315,19 @@ if (isset($_GET['settings']) && $method === 'POST') {
     } else {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid JSON']);
+    }
+    exit;
+}
+
+// ========== GET LOGS ==========
+if (isset($_GET['logs']) && $method === 'GET') {
+    $logFile = dirname(__FILE__) . '/buhlo_cloud.log';
+    if (file_exists($logFile)) {
+        $logs = file_get_contents($logFile);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $logs;
+    } else {
+        echo "Логи отсутствуют";
     }
     exit;
 }

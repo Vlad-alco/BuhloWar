@@ -40,17 +40,16 @@ public:
     static int lastSelected = -1;
     static int lastOffset = -1;
     
-    // Блок сброса кэша
+    // Блок сброса кэша - без clear() для скорости
     if (needMainMenuRedraw) {
       lastSelected = -1; 
       lastOffset = -1;
       needMainMenuRedraw = false; 
-      lcd->clear(); 
     }
-    // Если ничего не изменилось — ничего не пишем на экран
-    if (lastSelected == selectedItem && lastOffset == scrollOffset) {
-      return;
-    }
+    // Всегда перерисовываем для мгновенной реакции
+    //if (lastSelected == selectedItem && lastOffset == scrollOffset) {
+    //  return;
+    //}
     lastSelected = selectedItem; 
     lastOffset = scrollOffset;
     char buf[21];  // 20 символов + '\0'
@@ -138,6 +137,9 @@ public:
       case 2: *currentState = STATE_SETTINGS_MENU; break; // Сдвиг с 4 на 2
       case 3: *currentState = STATE_SENSORS_MENU; break;  // Сдвиг с 5 на 3
     }
+    
+    // Сразу отображаем новое меню
+    display();
   }
   
   void handleBackButton() {

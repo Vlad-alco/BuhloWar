@@ -426,7 +426,7 @@ void AppNetwork::handleApiStatus() {
     if (status.safety == SafetyState::WARNING_BOX) { 
         safetyCode = 1; 
         safetyText = "ВНИМАНИЕ: Перегрев"; 
-        safetyDetail = "Температура корпуса: " + String(status.boxTemp, 1) + "C";
+        safetyDetail = "Температура корпуса: " + String(sensors.boxTemp, 1) + "C";
     }
     else if (status.safety == SafetyState::WARNING_TSA) { 
         safetyCode = 2; 
@@ -602,8 +602,21 @@ String AppNetwork::buildTelemetryJson() {
     json += ",";
     // Используем готовый buildCfgJson()
     json += "\"cfg\": " + buildCfgJson();
+    
+    // === ОТПРАВКА НОВЫХ ЛОГОВ В ОБЛАКО ===
+    String newLogs = logger.readNewLog(lastLogSize);
+    if (newLogs.length() > 0) {
+        // Экранируем спецсимволы для JSON
+        newLogs.replace("\\", "\\\\");
+        newLogs.replace("\"", "\\\"");
+        newLogs.replace("\n", "\\n");
+        newLogs.replace("\r", "");
+        json += ",\"new_logs\":\"" + newLogs + "\"";
+    }
+    // =========================================
+    
     json += "}";
-
+    
     return json;
 }
 

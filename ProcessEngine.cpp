@@ -1522,7 +1522,7 @@ void ProcessEngine::handleRectProcess() {
     }
     else if (currentStage == Stage::GOLOVY_OK) {
         handleGolovyOk();
-        handleGolovy();  // Продолжаем накопление объёма и поддержание цикла клапана
+        // НЕ вызываем handleGolovy() - он запускает новые этапы!
     }
     else if (currentStage == Stage::TELO) {
         handleTelo();

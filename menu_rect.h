@@ -231,12 +231,8 @@ public:
         }
     }
 
-    if (rectState == RECT_PROCESS_SCREEN) {
-      const SystemStatus& status = processEngine.getStatus();
-      // Для экранов калибровки не обновляем лишний раз
-      if (status.stageName == "VALVE_CAL" || status.stageName == "SET_PW_AS") return; 
-      display();
-    }
+    // Всегда обновляем экран (а не только в PROCESS_SCREEN)
+    display();
   }
   RectState getState() { return rectState; }
   void setState(RectState state) { rectState = state; }

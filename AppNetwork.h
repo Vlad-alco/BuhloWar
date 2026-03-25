@@ -65,6 +65,7 @@ private:
     bool webServerStarted = false; // Флаг: WebServer уже запущен
     bool networkInitialized = false; // Флаг: сеть инициализирована
     NetworkMode networkMode = NetworkMode::OFFLINE;  // Текущий режим сети
+    unsigned long lastLogSize = 0;  // Позиция лога для отправки в облако
     TaskHandle_t networkTaskHandle = nullptr;
 
     unsigned long lastCheckTime = 0;

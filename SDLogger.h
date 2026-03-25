@@ -135,7 +135,50 @@ public:
         
         return content;
     }
-
+    
+    // Читает только НОВЫЕ записи с момента последнего вызова (для облака)
+    String readNewLog(unsigned long &lastSize) {
+        if (!sdAvailable) return "";
+        
+        SDScopeLock lock;
+        
+        File file = SD.open("/system.log");
+        if (!file) return "";
+        
+        unsigned long fileSize = file.size();
+        
+        // Если файл уменьшился (ротация) - сбрасываем
+        if (fileSize < lastSize) {
+            lastSize = 0;
+        }
+        
+        // Нет новых данных
+        if (fileSize <= lastSize) {
+            file.close();
+            return "";
+        }
+        
+        // Читаем только новую часть
+        file.seek(lastSize);
+        
+        const int maxNewBytes = 2048;  // Макс 2KB за раз
+        String newContent = "";
+        newContent.reserve(maxNewBytes);
+        
+        int bytesRead = 0;
+        while (file.available() && bytesRead < maxNewBytes) {
+            newContent += (char)file.read();
+            bytesRead++;
+        }
+        
+        file.close();
+        
+        // Обновляем позицию
+        lastSize = file.tell();
+        
+        return newContent;
+    }
+    
     bool isSdAvailable() { return sdAvailable; }
 
 private:
