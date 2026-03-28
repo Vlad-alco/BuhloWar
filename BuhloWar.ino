@@ -392,9 +392,9 @@ void loop() {
   // 6. Кнопки
   checkButtons();
   
-    // 7. Обновление экрана по таймеру (ускорено с 1000ms до 200ms)
+    // 7. Обновление экрана по таймеру (500ms - баланс между отзывчивостью и нагрузкой)
   static unsigned long lastUpdate = 0;
-  if (millis() - lastUpdate > 200) {
+  if (millis() - lastUpdate > 500) {
     lastUpdate = millis();
     
     // === ВАЖНО: Блокируем обновление RectMenu на этапе SET_PW_AS ===
