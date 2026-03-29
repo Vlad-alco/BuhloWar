@@ -864,7 +864,7 @@
             if (banner && bannerText) {
                 banner.classList.remove('hidden');
                 if (cloudMode) {
-                    const age = cloudLastUpdate ? Math.floor((Date.now()/1000 - cloudLastUpdate)) : '?';
+                    const age = cloudLastUpdate ? Math.max(0, Math.floor((Date.now()/1000 - cloudLastUpdate))) : '?';
                     bannerText.textContent = '☁️ ОБЛАЧНЫЙ РЕЖИМ — Подключено. Данные: ' + age + ' сек назад';
                     banner.className = 'bg-cyan-900 border border-cyan-500 rounded-lg p-2 mb-4 text-center';
                     bannerText.className = 'text-cyan-300 text-sm';
@@ -877,7 +877,7 @@
             
             if (status) {
                 if (cloudMode) {
-                    const age = cloudLastUpdate ? Math.floor((Date.now()/1000 - cloudLastUpdate)) : '?';
+                    const age = cloudLastUpdate ? Math.max(0, Math.floor((Date.now()/1000 - cloudLastUpdate))) : '?';
                     status.textContent = '☁️ ОБЛАКО: Подключено. Данные: ' + age + ' сек назад';
                     status.style.color = '#4ade80';
                 } else {
@@ -1076,7 +1076,8 @@
             // ====================================
             
             // Время процесса отображается только под диаграммой (center-time-val)
-            document.getElementById('pressure-value').textContent = Math.round(currentData.pressure || 0);
+            const pressureInfoEl = document.getElementById('pressure-value');
+            if (pressureInfoEl) pressureInfoEl.textContent = Math.round(currentData.pressure || 0);
             document.getElementById('power-display').textContent = currentData.power || 0;
             
             // === ШАПКА: Температура и Влажность ===
