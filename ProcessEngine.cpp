@@ -379,13 +379,7 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
         return EngineResponse::OK;
     }
 
-    if (currentStage == Stage::VALVE_CAL) {
-        if (command == UiCommand::DIALOG_YES) valveCalMenu->handleSetButton();
-        else if (command == UiCommand::DIALOG_NO) valveCalMenu->handleBackButton();
-        return EngineResponse::OK; 
-    }
-    
-    // === КОМАНДЫ КАЛИБРОВКИ ИЗ WEB (работают в любой момент) ===
+    // === КОМАНДЫ КАЛИБРОВКИ ИЗ WEB (работают в любой момент, ДО проверки VALVE_CAL) ===
     if (command == UiCommand::CALIB_START_DRY) {
         if (valveCalMenu) {
             valveCalMenu->startCalibFromWeb(param, 10);  // 10 сек
@@ -408,6 +402,13 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
             Serial.println("[WebCmd] Calib CANCELLED");
         }
         return EngineResponse::OK;
+    }
+    // ================================================================
+
+    if (currentStage == Stage::VALVE_CAL) {
+        if (command == UiCommand::DIALOG_YES) valveCalMenu->handleSetButton();
+        else if (command == UiCommand::DIALOG_NO) valveCalMenu->handleBackButton();
+        return EngineResponse::OK; 
     }
     // ==============================================================
     

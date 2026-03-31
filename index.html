@@ -266,12 +266,12 @@
                     <!-- Row 2: РАСЧЕТЫ -->
                     <div class="flex gap-2 items-stretch justify-center w-full">
                         <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
-                            <h3 class="text-xs font-bold text-gray-100 mb-2 uppercase tracking-wider">РАСЧЕТЫ (расч/тек)</h3>
+                            <h3 class="text-xs font-bold text-cyan-300 mb-2 uppercase tracking-wider">ДАННЫЕ РЕКТИФИКАЦИИ (расч/факт)</h3>
                             
                             <!-- ГОЛОВЫ -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-gray-200 font-bold text-xs">ГОЛОВЫ: <span id="mon-head-total" class="text-amber">--</span>/<span id="mon-head-done" class="text-green">--</span> мл</span>
+                                    <span class="text-green-200 font-bold text-xs">ГОЛОВЫ: <span id="mon-head-total" class="text-amber">--</span>/<span id="mon-head-done" class="text-green">--</span> мл</span>
                                     <span class="text-cyan font-bold text-xs"><span id="mon-head-speed-calc">--</span>/<span id="mon-head-speed-real" class="text-green">--</span> мл/ч</span>
                                 </div>
                                 <div class="flex justify-between items-center mt-1">
@@ -296,11 +296,8 @@
                             <!-- ТЕЛО -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-gray-200 font-bold text-xs">ТЕЛО</span>
+                                    <span class="text-amber-200 font-bold text-xs">ТЕЛО: <span id="mon-body-total" class="text-amber">--</span>/<span id="mon-body-done" class="text-green">--</span> мл</span>
                                     <span class="text-green font-bold text-xs"><span id="mon-body-speed-calc">--</span>/<span id="mon-body-speed-real" class="text-cyan">--</span> мл/ч</span>
-                                </div>
-                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>ОТОБРАНО: <span id="body-volume" class="text-green">--</span> мл</span>
                                 </div>
                                 <div class="flex justify-between items-center mt-1">
                                     <span class="text-[10px] text-gray-400">КОРРЕКЦИЯ:</span>
@@ -313,7 +310,6 @@
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
                                     <span>МЕТОД: <span id="mon-body-method">--</span></span>
-                                    <span>ПРОГНОЗ: <span id="mon-body-predict" class="text-cyan">--</span> мл</span>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
                                     <span>ЦИКЛ: <span id="mon-body-cycle">--</span></span>
@@ -772,6 +768,7 @@
         // === ЗВУК И УВЕДОМЛЕНИЯ ПРИ АВАРИИ ===
         let lastSafetyCode = 0;
         let prevSafetyCode = 0;
+        let prevTsaAlarmState = false;
         
         // Тест кнопка
         window.testAlarm = function() {
@@ -847,6 +844,16 @@
             //     triggerAlarm(code, currentData.safety_text, currentData.safety_detail);
             // }
             prevSafetyCode = code || 0;
+
+            // === ПРОВЕРКА TSA ЛИМИТ (уведомление + звук один раз) ===
+            const tsaLimit = currentData.cfg ? currentData.cfg.tsaLimit : 92;
+            const tsaNow = currentData.tsa || 0;
+            if (tsaNow >= tsaLimit && !prevTsaAlarmState) {
+                prevTsaAlarmState = true;
+                triggerAlarm(3, 'TSA ' + tsaNow.toFixed(1) + '°C >= лимит ' + tsaLimit + '°C');
+            } else if (tsaNow < tsaLimit && prevTsaAlarmState) {
+                prevTsaAlarmState = false;
+            }
         }
         
         function getCloudStatusUrl() {
@@ -1312,6 +1319,8 @@
             const bodySpeedRealEl = document.getElementById('mon-body-speed-real');
             const bodyMethodEl = document.getElementById('mon-body-method');
             const bodyPredictEl = document.getElementById('mon-body-predict');
+            const bodyTotalEl = document.getElementById('mon-body-total');
+            const bodyDoneEl = document.getElementById('mon-body-done');
             const bodyCycleEl = document.getElementById('mon-body-cycle');
             const bodyRemainEl = document.getElementById('mon-body-remain');
 
@@ -1341,12 +1350,16 @@
                 let bodyVol = currentData.bodyVolDone || 0;
                 let tailsEst = asVol * 0.15; 
                 let predict = Math.round(asVol - headsVol - tailsEst);
-                bodyPredictEl.textContent = predict > 0 ? predict : "--";
+                if (bodyPredictEl) bodyPredictEl.textContent = predict > 0 ? predict : "--";
+                if (bodyTotalEl) bodyTotalEl.textContent = predict > 0 ? predict : "--";
+                if (bodyDoneEl) bodyDoneEl.textContent = Math.round(currentData.bodyVolDone || 0);
             } else {
                 bodySpeedCalcEl.textContent = "--";
                 bodySpeedRealEl.textContent = "--";
                 bodyMethodEl.textContent = "--";
-                bodyPredictEl.textContent = "--";
+                if (bodyPredictEl) bodyPredictEl.textContent = "--";
+                if (bodyTotalEl) bodyTotalEl.textContent = "--";
+                if (bodyDoneEl) bodyDoneEl.textContent = "--";
                 bodyCycleEl.textContent = "--";
                 bodyRemainEl.textContent = "--:--";
             }
@@ -2184,11 +2197,9 @@
             
             // === ВАЖНО: Отменить тест на ESP32 ===
             try {
-                await fetch('/api/command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cmd: 'CALIB_CANCEL' })
-                });
+                let cmdUrl = (cloudMode && cloudApiUrl) ? (getCloudCommandUrl() + encodeURIComponent('CALIB_CANCEL') + '&params={}') : API_COMMAND;
+                let cmdOpts = (cloudMode && cloudApiUrl) ? { method: 'POST', headers: { 'Content-Type': 'application/json' } } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_CANCEL' }) };
+                await fetch(cmdUrl, cmdOpts);
             } catch(e) {
                 console.warn('[Calib] Cancel error:', e);
             }
@@ -2221,14 +2232,15 @@
             // valve: 1=heads, 2=body_nc, 3=body_no
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    cmd: 'CALIB_START_DRY', 
-                    valve: valveNum 
-                })
-            });
+            let cmdUrl, cmdOpts;
+            if (cloudMode && cloudApiUrl) {
+                cmdUrl = getCloudCommandUrl() + encodeURIComponent('CALIB_START_DRY') + '&params=' + encodeURIComponent(JSON.stringify({cmd:'CALIB_START_DRY',valve:valveNum}));
+                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+            } else {
+                cmdUrl = API_COMMAND;
+                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_START_DRY', valve: valveNum }) };
+            }
+            await fetch(cmdUrl, cmdOpts);
         }
         
         async function startCalibCapacity() {
@@ -2241,14 +2253,15 @@
             // Отправить команду на ESP32 для измерения capacity (60 сек)
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    cmd: 'CALIB_START_CAP', 
-                    valve: valveNum 
-                })
-            });
+            let cmdUrl, cmdOpts;
+            if (cloudMode && cloudApiUrl) {
+                cmdUrl = getCloudCommandUrl() + encodeURIComponent('CALIB_START_CAP') + '&params=' + encodeURIComponent(JSON.stringify({cmd:'CALIB_START_CAP',valve:valveNum}));
+                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+            } else {
+                cmdUrl = API_COMMAND;
+                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_START_CAP', valve: valveNum }) };
+            }
+            await fetch(cmdUrl, cmdOpts);
         }
         
         function adjCalibVolume(delta) {
@@ -2272,7 +2285,8 @@
             
             // Отправить на ESP32 через API settings
             try {
-                const response = await fetch('/api/settings', {
+                let saveUrl = (cloudMode && cloudApiUrl) ? (cloudApiUrl + '?settings=1') : '/api/settings';
+                const response = await fetch(saveUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ [field]: Math.round(capacity) })
