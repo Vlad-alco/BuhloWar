@@ -2217,7 +2217,7 @@
             
             if (cloudMode && cloudApiUrl) {
                 // === ОБЛАЧНЫЙ РЕЖИМ ===
-                await fetch(cloudApiUrl + '?cmd=CALIB_START_DRY&valve=' + valveNum, { 
+                await fetch(cloudApiUrl + '?cmd=CALIB_START_DRY&params=' + encodeURIComponent(JSON.stringify({valve: valveNum})), { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -2247,7 +2247,7 @@
             
             if (cloudMode && cloudApiUrl) {
                 // === ОБЛАЧНЫЙ РЕЖИМ ===
-                await fetch(cloudApiUrl + '?cmd=CALIB_START_CAP&valve=' + valveNum, { 
+                await fetch(cloudApiUrl + '?cmd=CALIB_START_CAP&params=' + encodeURIComponent(JSON.stringify({valve: valveNum})), { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
