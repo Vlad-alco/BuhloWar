@@ -835,11 +835,10 @@
         
         function checkSafetyAlarm() {
             const code = currentData.safety_code;
-            console.log('[Alarm] Check: code=' + code + ', prev=' + prevSafetyCode);
-            if (code >= 1 && code !== prevSafetyCode) {
-                console.log('[Alarm] ALARM TRIGGER!');
-                triggerAlarm(code, currentData.safety_text, currentData.safety_detail);
-            }
+            // УВЕДОМЛЕНИЯ ОТКЛЮЧЕНЫ (тормозили систему)
+            // if (code >= 1 && code !== prevSafetyCode) {
+            //     triggerAlarm(code, currentData.safety_text, currentData.safety_detail);
+            // }
             prevSafetyCode = code || 0;
         }
         
@@ -869,7 +868,7 @@
                 banner.classList.remove('hidden');
                 if (cloudMode) {
                     const age = cloudLastUpdate ? Math.floor((Date.now()/1000 - cloudLastUpdate)) : '?';
-                    bannerText.textContent = '☁️ ОБЛАЧНЫЙ РЕЖИМ — Подключено. Данные: ' + age + ' сек назад';
+                    bannerText.textContent = '☁️ ОБЛАКО — Подключено. Данные: ' + age + ' сек назад';
                     banner.className = 'bg-cyan-900 border border-cyan-500 rounded-lg p-2 mb-4 text-center';
                     bannerText.className = 'text-cyan-300 text-sm';
                 } else {
@@ -975,7 +974,7 @@
                 currentData.tank = newData.tank;
                 currentData.stage = newData.stage;
                 currentData.time = newData.time;
-                console.log('[Data] raw safety:', newData.safety, 'safety_code:', newData.safety_code);
+                // console.log('[Data] raw safety:', newData.safety, 'safety_code:', newData.safety_code);
                 currentData.safety_code = newData.safety_code !== undefined ? newData.safety_code : (newData.safety || 0);
                 currentData.safety_text = newData.safety_text || (newData.safety_code === 0 ? 'Норма' : (newData.safety_code === 1 ? 'ВНИМАНИЕ' : 'АВАРИЯ!'));
                 currentData.safety_detail = newData.safety_detail || '';
@@ -2215,14 +2214,24 @@
             // valve: 1=heads, 2=body_nc, 3=body_no
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    cmd: 'CALIB_START_DRY', 
-                    valve: valveNum 
-                })
-            });
+            
+            if (cloudMode && cloudApiUrl) {
+                // === ОБЛАЧНЫЙ РЕЖИМ ===
+                await fetch(cloudApiUrl + '?cmd=CALIB_START_DRY&valve=' + valveNum, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } else {
+                // === ЛОКАЛЬНЫЙ РЕЖИМ ===
+                await fetch('/api/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        cmd: 'CALIB_START_DRY', 
+                        valve: valveNum 
+                    })
+                });
+            }
         }
         
         async function startCalibCapacity() {
@@ -2235,14 +2244,24 @@
             // Отправить команду на ESP32 для измерения capacity (60 сек)
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    cmd: 'CALIB_START_CAP', 
-                    valve: valveNum 
-                })
-            });
+            
+            if (cloudMode && cloudApiUrl) {
+                // === ОБЛАЧНЫЙ РЕЖИМ ===
+                await fetch(cloudApiUrl + '?cmd=CALIB_START_CAP&valve=' + valveNum, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } else {
+                // === ЛОКАЛЬНЫЙ РЕЖИМ ===
+                await fetch('/api/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        cmd: 'CALIB_START_CAP', 
+                        valve: valveNum 
+                    })
+                });
+            }
         }
         
         function adjCalibVolume(delta) {
