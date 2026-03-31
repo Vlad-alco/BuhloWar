@@ -15,12 +15,16 @@ private:
     unsigned long commandCheckIntervalMs = 2000;  // Check commands every 2 sec
     unsigned long settingsCheckIntervalMs = 60000;  // Check settings every 60 sec (увеличено с 30)
     unsigned long settingsLastUpdate = 0;  // Timestamp of last settings update from cloud
-    bool skipCertCheck = true;  // Skip certificate verification for simplicity
     
     // === РОТАЦИЯ ЗАПРОСОВ: только один запрос за вызов ===
     // 0 = telemetry, 1 = commands, 2 = settings
     int nextRequestType = 0;
     // ====================================================
+    
+    // === ПЕРЕИСПОЛЬЗУЕМЫЙ HTTPS клиент (предотвращает фрагментацию кучи) ===
+    WiFiClientSecure _client;
+    bool _clientInitialized = false;
+    // ========================================================================
     
     // Callback for processing commands from cloud
     typedef void (*CommandCallback)(const String& command, const String& params);
@@ -29,6 +33,13 @@ private:
     // Callback for processing settings from cloud
     typedef void (*SettingsCallback)(const String& settingsJson);
     SettingsCallback onSettings = nullptr;
+    
+    void ensureClient() {
+        if (!_clientInitialized) {
+            _client.setInsecure();
+            _clientInitialized = true;
+        }
+    }
     
 public:
     CloudManager() : serverUrl(""), apiKey("") {}
@@ -63,16 +74,12 @@ public:
     bool sendTelemetry(const String& jsonData) {
         if (!isConfigured()) return false;
         
+        ensureClient();
         HTTPClient http;
-        WiFiClientSecure client;
-        
-        if (skipCertCheck) {
-            client.setInsecure();
-        }
         
         String url = serverUrl + "?telemetry=1";
         
-        http.begin(client, url);
+        http.begin(_client, url);
         http.setTimeout(2000);  // 2 сек таймаут (уменьшено с 5 сек)
         http.addHeader("Content-Type", "application/json");
         String authHeader = "Bearer " + apiKey;
@@ -96,16 +103,12 @@ public:
     bool checkCommands() {
         if (!isConfigured()) return false;
         
+        ensureClient();
         HTTPClient http;
-        WiFiClientSecure client;
-        
-        if (skipCertCheck) {
-            client.setInsecure();
-        }
         
         String url = serverUrl + "?commands=1";
         
-        http.begin(client, url);
+        http.begin(_client, url);
         http.setTimeout(2000);  // 2 сек таймаут
         String authHeader = "Bearer " + apiKey;
         http.addHeader("Authorization", authHeader.c_str());
@@ -138,16 +141,12 @@ public:
     bool checkSettings() {
         if (!isConfigured() || onSettings == nullptr) return false;
         
+        ensureClient();
         HTTPClient http;
-        WiFiClientSecure client;
-        
-        if (skipCertCheck) {
-            client.setInsecure();
-        }
         
         String url = serverUrl + "?settings=1";
         
-        http.begin(client, url);
+        http.begin(_client, url);
         http.setTimeout(2000);  // 2 сек таймаут
         String authHeader = "Bearer " + apiKey;
         http.addHeader("Authorization", authHeader.c_str());

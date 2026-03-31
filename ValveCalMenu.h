@@ -19,7 +19,7 @@ enum class CalibState {
   MENU_MAIN,           // Выбор клапана: HEADS / BODY NC / BODY NO / EXIT
   WIZARD_DRY_RUN,      // Шаг 1: Пролив системы (10 сек)
   WIZARD_CAPACITY,     // Шаг 2: Измерение capacity (60 сек)
-  WIZARD_INPUT,        // Ввод объёма (0.1 мл шаг)
+  WIZARD_INPUT,        // Ввод объёма (1 мл шаг)
   WIZARD_RESULT        // Результат калибровки
 };
 
@@ -242,19 +242,18 @@ public:
   }
   
   void displayInput() {
-    // Ввод объёма
+    // Ввод объёма (целое число, шаг 1 мл)
     lcd->setCursor(0, 0);
     lcd->print("ENTER VOLUME");
     
     lcd->setCursor(0, 1);
     lcd->print("[");
-    // Выводим с одним знаком после запятой
-    lcd->print(wizard.enteredVolume, 1);
+    lcd->print((int)wizard.enteredVolume);
     lcd->print("]");
     lcd->print(" ml");
     
     lcd->setCursor(0, 2);
-    lcd->print("UP/DOWN +/-0.1");
+    lcd->print("UP/DOWN +/-1");
     
     lcd->setCursor(0, 3);
     lcd->print("SET-confirm");
@@ -293,8 +292,8 @@ public:
         break;
         
       case CalibState::WIZARD_INPUT:
-        wizard.enteredVolume += 0.1f;
-        if (wizard.enteredVolume > 999.9f) wizard.enteredVolume = 999.9f;
+        wizard.enteredVolume += 1.0f;
+        if (wizard.enteredVolume > 9999.0f) wizard.enteredVolume = 9999.0f;
         display();
         break;
         
@@ -314,7 +313,7 @@ public:
         break;
         
       case CalibState::WIZARD_INPUT:
-        wizard.enteredVolume -= 0.1f;
+        wizard.enteredVolume -= 1.0f;
         if (wizard.enteredVolume < 0.0f) wizard.enteredVolume = 0.0f;
         display();
         break;
@@ -439,6 +438,15 @@ public:
           // Capacity завершён, переходим к вводу объёма
           wizard.step = CalibStep::INPUT_VOLUME;
           currentState = CalibState::WIZARD_INPUT;
+          // Инициализируем объём из текущего значения cap в настройках
+          SystemConfig& cfg = config->getConfig();
+          int currentCap = 0;
+          switch(wizard.valve) {
+            case CalibValve::HEADS: currentCap = cfg.valve_head_capacity; break;
+            case CalibValve::BODY_NC: currentCap = cfg.valve_body_capacity; break;
+            case CalibValve::BODY_NO: currentCap = cfg.valve0_body_capacity; break;
+          }
+          wizard.enteredVolume = (float)currentCap;
         }
         display();
       } else {

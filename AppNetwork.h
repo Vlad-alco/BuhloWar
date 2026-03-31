@@ -15,8 +15,8 @@
 class ProcessEngine;
 class ConfigManager;
 
-// Для Telegram
-#include <UniversalTelegramBot.h>
+// Telegram ОТКЛЮЧЁН — библиотека не подключается
+// #include <UniversalTelegramBot.h>
 
 // === НАСТРОЙКИ ОЧЕРЕДИ СООБЩЕНИЙ ===
 #define TG_QUEUE_SIZE 10        // Макс. сообщений в очереди
@@ -75,29 +75,12 @@ private:
     
     // --- Объекты ---
     WiFiClientSecure client;
-    UniversalTelegramBot* bot = nullptr;
+    // UniversalTelegramBot* bot = nullptr;  // Telegram ОТКЛЮЧЁН
     WebServer* server = nullptr;
     DNSServer* dnsServer = nullptr;  // DNS сервер для AP режима
 
-    // === АСИНХРОННАЯ ОЧЕРЕДЬ СООБЩЕНИЙ TELEGRAM ===
-    struct TgMessage {
-        String text;
-        unsigned long timestamp;
-    };
-    TgMessage tgQueue[TG_QUEUE_SIZE];
-    int tgQueueHead = 0;          // Индекс для добавления
-    int tgQueueTail = 0;          // Индекс для извлечения
-    int tgQueueCount = 0;         // Текущее кол-во сообщений
-    bool tgSending = false;       // Флаг: идёт отправка
-    unsigned long lastTgSendTime = 0;      // Время последней успешной отправки
-    unsigned long lastTgFailTime = 0;      // Время последней неудачи
-    int tgConsecutiveFails = 0;            // Счётчик подряд неудач
-    
-    // --- Методы очереди ---
-    void queueMessage(const String& text);  // Добавить в очередь
-    void processMessageQueue();              // Обработать очередь (неблокирующая)
-    bool isTelegramReady();                  // Проверка готовности к отправке
-    bool sendTelegramNow(const String& text); // Непосредственная отправка
+    // === TELEGRAM ОТКЛЮЧЁН ===
+    // Очередь, bot и методы Telegram удалены для экономии RAM
     // =============================================
 
     // --- Внутренние методы ---

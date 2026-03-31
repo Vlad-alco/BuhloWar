@@ -153,9 +153,8 @@
                 <div class="grid grid-cols-8 gap-1 items-center text-xs">
                     <button onclick="showPage('settings')" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center"><i data-lucide="settings" class="w-4 h-4 text-gray-300"></i></button>
                     <button onclick="testAlarm()" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center" title="Test alarm"><i data-lucide="volume-2" class="w-4 h-4 text-gray-300"></i></button>
-                    
                     <div class="text-center col-span-2"><div class="text-blue-400 font-bold" id="pressure-value">760</div><span class="text-gray-500 text-[10px]">mm Hg</span></div>
-                    <div class="text-center"><div class="text-green-400 font-bold" id="power-display">3000</div><span class="text-gray-500 text-[10px]">PWR</span></div>
+                    <div class="text-center"><div class="text-green-400 font-bold" id="power-display">3000</div><span class="text-gray-500 text-[10px]">W</span></div>
                     
                     <!-- ИСПРАВЛЕНО: Температура и Влажность -->
                     <div class="text-center">
@@ -214,7 +213,7 @@
                                     <div class="text-xl font-bold text-white" id="center-time-val">00:00</div>
                                 </div>
                             </div>
-
+                            
                             <div class="flex flex-col justify-between gap-1 text-xs w-20 h-52">
                                 <div class="bg-gray-900 p-1.5 rounded flex flex-col justify-center flex-1">
                                     <div class="temp-tsa font-bold text-base leading-tight truncate"><span id="val-tsa-m">--</span>°</div>
@@ -254,10 +253,9 @@
                                         <div class="text-base font-bold text-cyan" id="press-val-m">760</div>
                                         <div class="text-[8px] text-gray-500">мм.рт.ст</div>
                                     </div>
-                                 <!-- ИСПРАВЛЕНО: Поправка с +/- и цветом -->
-                                 <div class="text-center mt-1 text-[9px]">
-                                    <span id="press-corr-m" class="text-amber">0.0</span>°
-                                 </div>
+                                    <div class="text-center mt-1 text-[9px]">
+                                        <span id="press-corr-m" class="text-amber">0.0</span>°
+                                    </div>
                                  </div>
                             </div>
                         </div>
@@ -266,16 +264,16 @@
                     <!-- Row 2: РАСЧЕТЫ -->
                     <div class="flex gap-2 items-stretch justify-center w-full">
                         <div class="glass-card rounded-lg p-4 flex-1 flex flex-col">
-                            <h3 class="text-xs font-bold text-cyan-300 mb-2 uppercase tracking-wider">ДАННЫЕ РЕКТИФИКАЦИИ (расч/факт)</h3>
+                            <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">РАСЧЕТЫ (расч/тек)</h3>
                             
                             <!-- ГОЛОВЫ -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-green-200 font-bold text-xs">ГОЛОВЫ: <span id="mon-head-total" class="text-amber">--</span>/<span id="mon-head-done" class="text-green">--</span> мл</span>
+                                    <span class="text-gray-500 font-bold text-xs">ГОЛОВЫ: <span id="mon-head-total" class="text-amber">--</span>/<span id="mon-head-done" class="text-green">--</span> мл</span>
                                     <span class="text-cyan font-bold text-xs"><span id="mon-head-speed-calc">--</span>/<span id="mon-head-speed-real" class="text-green">--</span> мл/ч</span>
                                 </div>
                                 <div class="flex justify-between items-center mt-1">
-                                    <span class="text-[10px] text-gray-400">КОРРЕКЦИЯ:</span>
+                                    <span class="text-[10px] text-gray-400">Коррекция:</span>
                                     <div class="flex items-center gap-1">
                                         <button onclick="adjCfg('speedHeadCorr', -1)" class="w-5 h-5 bg-gray-700 hover:bg-gray-600 rounded text-[10px] font-bold">-</button>
                                         <span id="cfg-speedHeadCorr" class="text-xs font-bold w-8 text-center">100</span>
@@ -284,23 +282,26 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>МЕТОД: <span id="mon-head-method">--</span></span>
-                                    <span>ПОДЭТАП: <span id="mon-head-substage" class="text-amber">--</span></span>
+                                    <span>Метод: <span id="mon-head-method">--</span></span>
+                                    <span>Подэтап: <span id="mon-head-substage" class="text-amber">--</span></span>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>ОБЪЁМ ПОДЭТАПА: <span id="mon-head-vol-target">--</span>/<span id="mon-head-vol" class="text-green">--</span> мл</span>
-                                    <span>ВРЕМЯ: <span id="mon-head-remain" class="text-cyan">--:--</span></span>
+                                    <span>Объём подэтапа: <span id="mon-head-vol-target">--</span>/<span id="mon-head-vol" class="text-green">--</span> мл</span>
+                                    <span>Время: <span id="mon-head-remain" class="text-cyan">--:--</span></span>
                                 </div>
                             </div>
 
                             <!-- ТЕЛО -->
                             <div class="mb-2 border-b border-gray-700 pb-2">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-amber-200 font-bold text-xs">ТЕЛО: <span id="mon-body-total" class="text-amber">--</span>/<span id="mon-body-done" class="text-green">--</span> мл</span>
+                                    <span class="text-gray-500 font-bold text-xs">ТЕЛО</span>
                                     <span class="text-green font-bold text-xs"><span id="mon-body-speed-calc">--</span>/<span id="mon-body-speed-real" class="text-cyan">--</span> мл/ч</span>
                                 </div>
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>Отобрано: <span id="body-volume" class="text-green">--</span> мл</span>
+                                </div>
                                 <div class="flex justify-between items-center mt-1">
-                                    <span class="text-[10px] text-gray-400">КОРРЕКЦИЯ:</span>
+                                    <span class="text-[10px] text-gray-400">Коррекция:</span>
                                     <div class="flex items-center gap-1">
                                         <button onclick="adjCfg('speedBodyCorr', -1)" class="w-5 h-5 bg-gray-700 hover:bg-gray-600 rounded text-[10px] font-bold">-</button>
                                         <span id="cfg-speedBodyCorr" class="text-xs font-bold w-8 text-center">100</span>
@@ -309,11 +310,12 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>МЕТОД: <span id="mon-body-method">--</span></span>
+                                    <span>Метод: <span id="mon-body-method">--</span></span>
+                                    <span>Прогноз: <span id="mon-body-predict" class="text-cyan">--</span> мл</span>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>ЦИКЛ: <span id="mon-body-cycle">--</span></span>
-                                    <span>ОСТАЛОСЬ: <span id="mon-body-remain" class="text-cyan">--:--</span></span>
+                                    <span>Цикл: <span id="mon-body-cycle">--</span></span>
+                                    <span>Осталось: <span id="mon-body-remain" class="text-cyan">--:--</span></span>
                                 </div>
                             </div>
                             
@@ -351,29 +353,22 @@
                         </div>
                     </div>
                     <!-- Settings -->
-                     <!-- Settings -->
                     <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                         <h3 class="text-md font-semibold mb-3 text-blue-400 border-b border-gray-700 pb-2">Настройки</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                                <div>
+                        <div class="space-y-2">
                              <div class="setting-row"><label>PAЗГОН ДО (°C)</label><div class="setting-inputs"><button onclick="adjCfg('razgonTemp', -1)">-</button><span id="cfg-razgonTemp">78</span><button onclick="adjCfg('razgonTemp', 1)">+</button></div></div>
                              <div class="setting-row"><label>БАКСТОП (°C)</label><div class="setting-inputs"><button onclick="adjCfg('bakStopTemp', -1)">-</button><span id="cfg-bakStopTemp">99</span><button onclick="adjCfg('bakStopTemp', 1)">+</button></div></div>
                              <div class="setting-row"><label>СМЕНА ТАРЫ В КУБЕ (°C)</label><div class="setting-inputs"><button onclick="adjCfg('midterm', -1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm', 1)">+</button></div></div>
                              <div class="setting-row"><label>СМЕНА ТАРЫ В ОТБОРЕ (%)</label><div class="setting-inputs"><button onclick="adjCfg('midterm_abv', -1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv', 1)">+</button></div></div>
                              <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
-                        </div>     
-                                                <div>    
-                                                         <div class="setting-row"><label>РАЗГОН НА ВСЮ</label><div class="setting-inputs"><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-btn">NO</button></div></div>
+                             <div class="setting-row"><label>РАЗГОН НА ВСЮ</label><div class="setting-inputs"><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-btn">NO</button></div></div>
                              <div class="setting-row"><label>ИСП.КЛ.ОТБОРА</label><div class="setting-inputs"><button id="btn-valveuse" onclick="toggleCfg('valveuse')" class="bool-btn">NO</button></div></div>
                              <div class="setting-row"><label>ИСП. МЕШАЛКА </label><div class="setting-inputs"><button id="btn-mixerEnabled" onclick="toggleCfg('mixerEnabled')" class="bool-btn">NO</button></div></div>
                              <div class="setting-row"><label>МЕШАЛКА ВКЛ  (s)</label><div class="setting-inputs"><button onclick="adjCfg('mixerOnTime', -5)">-</button><span id="cfg-mixerOnTime">30</span><button onclick="adjCfg('mixerOnTime', 5)">+</button></div></div>
-                             
-                                                        <div class="setting-row"><label>МЕШАЛКА ВЫКЛ (s)</label><div class="setting-inputs"><button onclick="adjCfg('mixerOffTime', -5)">-</button><span id="cfg-mixerOffTime">1</span><button onclick="adjCfg('mixerOffTime', 5)">+</button></div></div>
+                             <div class="setting-row"><label>МЕШАЛКА ВЫКЛ (s)</label><div class="setting-inputs"><button onclick="adjCfg('mixerOffTime', -5)">-</button><span id="cfg-mixerOffTime">1</span><button onclick="adjCfg('mixerOffTime', 5)">+</button></div></div>
                         </div>
-                                                </div>
                         <button onclick="saveSettings('dist')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm">СОХРАНИТЬ</button>
-                    
-                     </div>
+                    </div>
                 </div>
 
                 <!-- RECTIFICATION PAGE -->
@@ -420,14 +415,13 @@
                                 <div class="setting-row"><label>ЦИКЛЫ ОТБОРА</label><div class="setting-inputs"><button onclick="adjCfg('cycleLim', -1)">-</button><span id="cfg-cycleLim">1</span><button onclick="adjCfg('cycleLim', 1)">+</button></div></div>
                                 <div class="setting-row"><label>ГИСТЕРЕЗИС</label><div class="setting-inputs"><button onclick="adjCfg('histeresis', -0.06)">-</button><span id="cfg-histeresis">0.24</span><button onclick="adjCfg('histeresis', 0.06)">+</button></div></div>
                                 <div class="setting-row"><label>ДЭЛЬТА </label><div class="setting-inputs"><button onclick="adjCfg('delta', -0.06)">-</button><span id="cfg-delta">0.12</span><button onclick="adjCfg('delta', 0.06)">+</button></div></div>
-                                
-                            </div>
-                             <div>
-                                <div class="setting-row"><label>КАЛИБРОВКА КЛ.</label><div class="setting-inputs"><button id="btn-calibration" onclick="toggleCfg('calibration')" class="bool-btn">NO</button></div></div>
-                                                                <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType_rect" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
+                                <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType_rect" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
                                 <div class="setting-row"><label>ИСП.КЛ.ГОЛОВ</label><div class="setting-inputs"><button id="btn-useHeadValve" onclick="toggleCfg('useHeadValve')" class="bool-btn">NO</button></div></div>
                                 <div class="setting-row"><label>ТИП.КЛ.ТЕЛО</label><div class="setting-inputs"><button id="btn-bodyValveNC" onclick="toggleCfg('bodyValveNC')" class="bool-btn">NO</button></div></div>
                                 <div class="setting-row"><label>МЕТОД ГОЛОВЫ</label><div class="setting-inputs"><button id="btn-headsTypeKSS" onclick="toggleCfg('headsTypeKSS')" class="bool-btn">ST</button></div></div>
+                            </div>
+                             <div>
+                                <div class="setting-row"><label>КАЛИБРОВКА КЛ.</label><div class="setting-inputs"><button id="btn-calibration" onclick="toggleCfg('calibration')" class="bool-btn">NO</button></div></div>
                             </div>
                         </div>
                         <button onclick="saveSettings('rect')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm">СОХРАНИТЬ</button>
@@ -563,8 +557,8 @@
                                       <label>РЕЖИМ</label>
                                       <button id="btn-cloudMode" onclick="toggleCloudMode()" class="bool-btn off">ВЫКЛ</button>
                                   </div>
-                                  <div class="setting-row"><label>CLOUD URL</label><input id="cfg-cloudUrl" type="text" class="bg-gray-700 text-white text-xs px-2 py-1 rounded w-48" placeholder="https://.........ru/api/api.php" /></div>
-                                  <div class="setting-row"><label>CLOUD KEY</label><input id="cfg-cloudApiKey" type="text" class="bg-gray-700 text-white text-xs px-2 py-1 rounded w-48" placeholder="SECRET_KEY" /></div>
+                                  <div class="setting-row"><label>CLOUD URL</label><input id="cfg-cloudUrl" type="text" class="bg-gray-700 text-white text-xs px-2 py-1 rounded w-48" placeholder="https://control.alcodist.ru/api/api.php" /></div>
+                                  <div class="setting-row"><label>CLOUD KEY</label><input id="cfg-cloudApiKey" type="text" class="bg-gray-700 text-white text-xs px-2 py-1 rounded w-48" placeholder="BUHLO_SECRET_KEY_2026" /></div>
                                   <p id="cloud-status" class="text-xs text-gray-500 mt-1"></p>
                               </div>
                           </div>
@@ -710,7 +704,7 @@
                 <div class="flex items-center justify-center gap-4 mb-4">
                     <button onclick="adjCalibVolume(-1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">-</button>
                     <div class="text-center">
-                        <span id="calib-volume" class="text-3xl font-bold text-white">0.0</span>
+                        <span id="calib-volume" class="text-3xl font-bold text-white">0</span>
                         <span class="text-gray-400 ml-1">мл</span>
                     </div>
                     <button onclick="adjCalibVolume(1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">+</button>
@@ -881,8 +875,8 @@
             if (banner && bannerText) {
                 banner.classList.remove('hidden');
                 if (cloudMode) {
-                    const age = cloudLastUpdate ? Math.floor((Date.now()/1000 - cloudLastUpdate)) : '?';
-                    bannerText.textContent = '☁️ ОБЛАКО — Подключено. Данные: ' + age + ' сек назад';
+                    const age = cloudLastUpdate ? Math.max(0, Math.floor((Date.now()/1000 - cloudLastUpdate))) : '?';
+                    bannerText.textContent = '☁️ ОБЛАЧНЫЙ РЕЖИМ — Подключено. Данные: ' + age + ' сек назад';
                     banner.className = 'bg-cyan-900 border border-cyan-500 rounded-lg p-2 mb-4 text-center';
                     bannerText.className = 'text-cyan-300 text-sm';
                 } else {
@@ -894,7 +888,7 @@
             
             if (status) {
                 if (cloudMode) {
-                    const age = cloudLastUpdate ? Math.floor((Date.now()/1000 - cloudLastUpdate)) : '?';
+                    const age = cloudLastUpdate ? Math.max(0, Math.floor((Date.now()/1000 - cloudLastUpdate))) : '?';
                     status.textContent = '☁️ ОБЛАКО: Подключено. Данные: ' + age + ' сек назад';
                     status.style.color = '#4ade80';
                 } else {
@@ -1093,7 +1087,8 @@
             // ====================================
             
             // Время процесса отображается только под диаграммой (center-time-val)
-            document.getElementById('pressure-value').textContent = Math.round(currentData.pressure || 0);
+            const pressureInfoEl = document.getElementById('pressure-value');
+            if (pressureInfoEl) pressureInfoEl.textContent = Math.round(currentData.pressure || 0);
             document.getElementById('power-display').textContent = currentData.power || 0;
             
             // === ШАПКА: Температура и Влажность ===
@@ -1319,8 +1314,6 @@
             const bodySpeedRealEl = document.getElementById('mon-body-speed-real');
             const bodyMethodEl = document.getElementById('mon-body-method');
             const bodyPredictEl = document.getElementById('mon-body-predict');
-            const bodyTotalEl = document.getElementById('mon-body-total');
-            const bodyDoneEl = document.getElementById('mon-body-done');
             const bodyCycleEl = document.getElementById('mon-body-cycle');
             const bodyRemainEl = document.getElementById('mon-body-remain');
 
@@ -1350,16 +1343,12 @@
                 let bodyVol = currentData.bodyVolDone || 0;
                 let tailsEst = asVol * 0.15; 
                 let predict = Math.round(asVol - headsVol - tailsEst);
-                if (bodyPredictEl) bodyPredictEl.textContent = predict > 0 ? predict : "--";
-                if (bodyTotalEl) bodyTotalEl.textContent = predict > 0 ? predict : "--";
-                if (bodyDoneEl) bodyDoneEl.textContent = Math.round(currentData.bodyVolDone || 0);
+                bodyPredictEl.textContent = predict > 0 ? predict : "--";
             } else {
                 bodySpeedCalcEl.textContent = "--";
                 bodySpeedRealEl.textContent = "--";
                 bodyMethodEl.textContent = "--";
-                if (bodyPredictEl) bodyPredictEl.textContent = "--";
-                if (bodyTotalEl) bodyTotalEl.textContent = "--";
-                if (bodyDoneEl) bodyDoneEl.textContent = "--";
+                bodyPredictEl.textContent = "--";
                 bodyCycleEl.textContent = "--";
                 bodyRemainEl.textContent = "--:--";
             }
@@ -2141,7 +2130,8 @@
             valve: '',           // 'heads', 'body_nc', 'body_no'
             step: 0,             // 1=dry, 2=capacity, 3=input, 4=result
             volume: 0,
-            timerInterval: null
+            timerInterval: null,
+            _lastInputStep: 0    // Флаг для одноразовой инициализации объёма на шаге 3
         };
         
         const valveNames = {
@@ -2154,6 +2144,7 @@
             calibWizard.valve = valve;
             calibWizard.step = 1;
             calibWizard.volume = 0;
+            calibWizard._lastInputStep = 0;
             
             // Обновить заголовок (с null check)
             const titleEl = document.getElementById('calib-wizard-title');
@@ -2197,9 +2188,11 @@
             
             // === ВАЖНО: Отменить тест на ESP32 ===
             try {
-                let cmdUrl = (cloudMode && cloudApiUrl) ? (getCloudCommandUrl() + encodeURIComponent('CALIB_CANCEL') + '&params={}') : API_COMMAND;
-                let cmdOpts = (cloudMode && cloudApiUrl) ? { method: 'POST', headers: { 'Content-Type': 'application/json' } } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_CANCEL' }) };
-                await fetch(cmdUrl, cmdOpts);
+                await fetch('/api/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cmd: 'CALIB_CANCEL' })
+                });
             } catch(e) {
                 console.warn('[Calib] Cancel error:', e);
             }
@@ -2207,6 +2200,7 @@
             // Сброс состояния
             calibWizard.step = 0;
             calibWizard.volume = 0;
+            calibWizard._lastInputStep = 0;
             const panel = document.getElementById('calib-wizard-panel');
             if (panel) panel.style.display = 'none';
             
@@ -2232,15 +2226,14 @@
             // valve: 1=heads, 2=body_nc, 3=body_no
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            let cmdUrl, cmdOpts;
-            if (cloudMode && cloudApiUrl) {
-                cmdUrl = getCloudCommandUrl() + encodeURIComponent('CALIB_START_DRY') + '&params=' + encodeURIComponent(JSON.stringify({cmd:'CALIB_START_DRY',valve:valveNum}));
-                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
-            } else {
-                cmdUrl = API_COMMAND;
-                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_START_DRY', valve: valveNum }) };
-            }
-            await fetch(cmdUrl, cmdOpts);
+            await fetch('/api/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    cmd: 'CALIB_START_DRY', 
+                    valve: valveNum 
+                })
+            });
         }
         
         async function startCalibCapacity() {
@@ -2253,23 +2246,22 @@
             // Отправить команду на ESP32 для измерения capacity (60 сек)
             const valveNum = calibWizard.valve === 'heads' ? 1 : 
                             (calibWizard.valve === 'body_nc' ? 2 : 3);
-            let cmdUrl, cmdOpts;
-            if (cloudMode && cloudApiUrl) {
-                cmdUrl = getCloudCommandUrl() + encodeURIComponent('CALIB_START_CAP') + '&params=' + encodeURIComponent(JSON.stringify({cmd:'CALIB_START_CAP',valve:valveNum}));
-                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
-            } else {
-                cmdUrl = API_COMMAND;
-                cmdOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'CALIB_START_CAP', valve: valveNum }) };
-            }
-            await fetch(cmdUrl, cmdOpts);
+            await fetch('/api/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    cmd: 'CALIB_START_CAP', 
+                    valve: valveNum 
+                })
+            });
         }
         
         function adjCalibVolume(delta) {
             calibWizard.volume += delta;
             if (calibWizard.volume < 0) calibWizard.volume = 0;
-            if (calibWizard.volume > 999) calibWizard.volume = 999;
+            if (calibWizard.volume > 9999) calibWizard.volume = 9999;
             const volEl = document.getElementById('calib-volume');
-            if (volEl) volEl.textContent = calibWizard.volume.toFixed(1);
+            if (volEl) volEl.textContent = Math.round(calibWizard.volume);
         }
         
         async function submitCalibVolume() {
@@ -2285,8 +2277,7 @@
             
             // Отправить на ESP32 через API settings
             try {
-                let saveUrl = (cloudMode && cloudApiUrl) ? (cloudApiUrl + '?settings=1') : '/api/settings';
-                const response = await fetch(saveUrl, {
+                const response = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ [field]: Math.round(capacity) })
@@ -2302,14 +2293,11 @@
                 
                 // Показать результат (с null check)
                 const resultEl = document.getElementById('calib-result-cap');
-                if (resultEl) resultEl.textContent = capacity.toFixed(1);
+                if (resultEl) resultEl.textContent = Math.round(capacity);
                 showCalibStep(4);
                 
                 // Обновить статус калибровки в интерфейсе
                 updateValveCalibrationStatus();
-                
-                // Автоматически закрыть мастер через 2 секунды
-                setTimeout(closeCalibWizard, 2000);
                 
             } catch(e) {
                 alert('Ошибка сохранения: ' + e);
@@ -2454,15 +2442,24 @@
                 // Показать результат если на шаге 4
                 if (cw.step === 4 && cw.capacity > 0) {
                     const resultEl = document.getElementById('calib-result-cap');
-                    if (resultEl) resultEl.textContent = cw.capacity.toFixed(1);
+                    if (resultEl) resultEl.textContent = Math.round(cw.capacity);
                 }
                 
                 // Синхронизировать локальное состояние
                 calibWizard.step = cw.step;
                 calibWizard.valve = { 1: 'heads', 2: 'body_nc', 3: 'body_no' }[cw.valve] || '';
-                // ВАЖНО: НЕ синхронизировать volume на шаге 3 (ввод объёма)
-                // Пользователь вводит объём локально, ESP32 не знает его
+                // При переходе на шаг 3 (ввод объёма) — инициализировать из текущего cap в настройках
+                if (cw.step === 3 && calibWizard._lastInputStep !== 3) {
+                    calibWizard._lastInputStep = 3;
+                    const cfg = currentData.cfg || {};
+                    if (calibWizard.valve === 'heads') calibWizard.volume = (cfg.valve_head_capacity || 0);
+                    else if (calibWizard.valve === 'body_nc') calibWizard.volume = (cfg.valve_body_capacity || 0);
+                    else if (calibWizard.valve === 'body_no') calibWizard.volume = (cfg.valve0_body_capacity || 0);
+                    const volEl = document.getElementById('calib-volume');
+                    if (volEl) volEl.textContent = Math.round(calibWizard.volume);
+                }
                 if (cw.step !== 3) {
+                    calibWizard._lastInputStep = 0;
                     calibWizard.volume = cw.volume;
                 }
             }

@@ -178,11 +178,9 @@ void AppNetwork::begin(int checkIntervalMinutes) {
         online = checkInternet();
         
         if (online) {
-            // Инициализируем Telegram
-            client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
-            if (tgToken.length() > 0) {
-                bot = new UniversalTelegramBot(tgToken, client);
-            }
+            // Telegram ОТКЛЮЧЁН — не инициализируем
+            // client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+            // if (tgToken.length() > 0) { bot = new UniversalTelegramBot(tgToken, client); }
             
             // NTP синхронизация (неблокирующе)
             syncNTP();
