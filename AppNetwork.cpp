@@ -890,62 +890,7 @@ bool AppNetwork::checkInternet() {
 // === TELEGRAM ОТКЛЮЧЁН ===
 
 void AppNetwork::sendMessage(const String& text) {
-    // Telegram disabled
-    // queueMessage(text);
-}
-
-void AppNetwork::queueMessage(const String& text) {
-    // Telegram disabled
-    (void)text; // unused
-    return;
-    /*
-    if (!online || !bot || tgToken.length() == 0) {
-        Serial.println("[TG] Offline or no token - message dropped");
-        return;
-    }
-    
-    if (tgQueueCount >= TG_QUEUE_SIZE) {
-        Serial.println("[TG] Queue FULL! Dropping oldest");
-        tgQueueTail = (tgQueueTail + 1) % TG_QUEUE_SIZE;
-        tgQueueCount--;
-    }
-    
-    tgQueue[tgQueueHead].text = text;
-    tgQueue[tgQueueHead].timestamp = millis();
-    tgQueueHead = (tgQueueHead + 1) % TG_QUEUE_SIZE;
-    tgQueueCount++;
-    
-    Serial.println("[TG] Queued: " + text + " (queue: " + String(tgQueueCount) + ")");
-    */  // end commented code
-}
-
-bool AppNetwork::isTelegramReady() {
-    return false; // Telegram disabled
-    /*
-    // if (!online || !bot) return false;
-    
-    unsigned long now = millis();
-    
-    if (tgConsecutiveFails > 0 && (now - lastTgFailTime) < TG_RETRY_DELAY) {
-        return false;
-    }
-    
-    if ((now - lastTgSendTime) < 500) {
-        return false;
-    }
-    
-    return true;
-    */  // end commented code
-}
-
-// Telegram disabled
-bool AppNetwork::sendTelegramNow(const String& text) {
-    return false;
-}
-
-void AppNetwork::processMessageQueue() {
-    // Telegram disabled
-    return;
+    // Telegram disabled - do nothing
 }
 
 bool AppNetwork::isOnline() {
