@@ -556,3 +556,26 @@ https://control.alcodist.ru/api/api.php
 
 ### Изменённые файлы
 - index.html: переработаны CSS media queries
+
+---
+
+## Изменения 31.03.2026
+
+### index.html — Блок ТЕЛО мониторинга
+- Добавлен расч/факт (--/-- мл) в заголовок ТЕЛО по аналогии с ГОЛОВЫ
+- Убраны дублирующие ОТОБРАНО (-- мл) и ПРОГНОЗ (-- мл)
+- Добавлен null-check для bodyPredictEl (исправление TypeError)
+
+### index.html — Уведомления TSA лимит
+- Добавлена проверка TSA >= tsaLimit в checkSafetyAlarm()
+- Звуковой сигнал + браузерное уведомление при превышении (один раз)
+- Флаг prevTsaAlarmState для защиты от спама
+
+### index.html — Мастер калибровки: поддержка облака
+- startCalibDryRun(), startCalibCapacity(), closeCalibWizard(), submitCalibVolume() — теперь работают через облако и локальный режим
+- Мастер автоматически закрывается через 2 сек после расчёта capacity
+
+### ProcessEngine.cpp — Исправление калибровки из Web
+- Перенёс обработку CALIB_START_DRY/CAP/CANCEL ДО проверки currentStage == VALVE_CAL
+- Причина: блок VALVE_CAL перехватывал все команды ранним return, калибровка не запускалась
+- Добавлен отладочный лог для NEXT_STAGE: выводит currentStage при получении команды
