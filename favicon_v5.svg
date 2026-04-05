@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c1c1c"/>
+      <stop offset="100%" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#e8c46a"/>
+      <stop offset="40%" stop-color="#c9a83e"/>
+      <stop offset="100%" stop-color="#7a6520"/>
+    </linearGradient>
+    <linearGradient id="brass2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c9a83e"/>
+      <stop offset="100%" stop-color="#6a5518"/>
+    </linearGradient>
+    <linearGradient id="redFlame" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#cc0000"/>
+      <stop offset="40%" stop-color="#ff4400"/>
+      <stop offset="80%" stop-color="#ff8800"/>
+      <stop offset="100%" stop-color="#ffcc00"/>
+    </linearGradient>
+    <filter id="fireGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg5)"/>
+
+  <!-- Subtle border -->
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#333" stroke-width="0.5"/>
+
+  <!-- Centered alembic still -->
+  <g transform="translate(32,32)">
+    <!-- Large copper pot -->
+    <ellipse cx="0" cy="6" rx="18" ry="14" fill="url(#brass)" stroke="#5a4510" stroke-width="0.8"/>
+
+    <!-- Liquid glow -->
+    <ellipse cx="0" cy="8" rx="14" ry="8" fill="#ffaa00" opacity="0.15"/>
+    <ellipse cx="-2" cy="10" rx="10" ry="6" fill="#ff8800" opacity="0.1"/>
+
+    <!-- Pot shine -->
+    <ellipse cx="-8" cy="0" rx="6" ry="9" fill="white" opacity="0.06"/>
+
+    <!-- Rim -->
+    <ellipse cx="0" cy="-6" rx="18" ry="5" fill="url(#brass2)" stroke="#5a4510" stroke-width="0.6"/>
+
+    <!-- Elegant tall neck -->
+    <path d="M8,-10 Q12,-20 14,-28" stroke="url(#brass)" stroke-width="7" fill="none" stroke-linecap="round"/>
+
+    <!-- Cap/top -->
+    <circle cx="14" cy="-30" r="4" fill="#b8952e" stroke="#5a4510" stroke-width="0.6"/>
+    <ellipse cx="14" cy="-30" rx="2.5" ry="1.5" fill="#ddc060" opacity="0.3"/>
+
+    <!-- Arm going right to condenser -->
+    <path d="M17,-28 Q24,-28 28,-22" stroke="url(#brass)" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+    <!-- Condenser coil (worm) -->
+    <path d="M28,-22 Q32,-18 30,-14 Q28,-10 32,-8 Q36,-6 34,-2 Q32,2 36,4" stroke="url(#brass2)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+    <!-- Output -->
+    <path d="M36,4 Q38,8 38,12" stroke="url(#brass)" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+    <!-- Drop -->
+    <ellipse cx="38" cy="15" rx="1.5" ry="2.2" fill="#ffd700" opacity="0.8"/>
+
+    <!-- Fire -->
+    <g filter="url(#fireGlow)">
+      <path d="M-10,18 Q-8,10 -5,6 Q-6,12 -3,8 Q0,2 3,8 Q6,12 5,6 Q8,10 10,18 Z" fill="url(#redFlame)" opacity="0.8"/>
+      <path d="M-4,18 Q-2,12 0,8 Q1,12 0,16 Z" fill="#ffee88" opacity="0.4"/>
+    </g>
+
+    <!-- Decorative elements -->
+    <circle cx="-14" cy="6" r="1.2" fill="#ffee88" opacity="0.35"/>
+    <circle cx="14" cy="6" r="1.2" fill="#ffee88" opacity="0.35"/>
+
+    <!-- Band -->
+    <path d="M-16,2 Q0,14 16,2" fill="none" stroke="#ffd700" stroke-width="0.4" opacity="0.3"/>
+
+    <!-- Steam -->
+    <path d="M14,-34 Q15,-38 14,-42" stroke="white" stroke-width="0.7" fill="none" opacity="0.2"/>
+    <path d="M16,-34 Q18,-38 17,-42" stroke="white" stroke-width="0.5" fill="none" opacity="0.15"/>
+  </g>
+</svg>

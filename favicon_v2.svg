@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a0a00"/>
+      <stop offset="100%" stop-color="#2d1810"/>
+    </linearGradient>
+    <linearGradient id="cop1" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#f0a050"/>
+      <stop offset="50%" stop-color="#c87533"/>
+      <stop offset="100%" stop-color="#7a4a1e"/>
+    </linearGradient>
+    <linearGradient id="fl1" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#ff2200"/>
+      <stop offset="50%" stop-color="#ff6600"/>
+      <stop offset="100%" stop-color="#ffee00"/>
+    </linearGradient>
+    <radialGradient id="gl1" cx="50%" cy="85%" r="45%">
+      <stop offset="0%" stop-color="#ff4400" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ff4400" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="12" fill="url(#bg1)"/>
+  <ellipse cx="32" cy="54" rx="24" ry="14" fill="url(#gl1)"/>
+
+  <!-- Flames -->
+  <path d="M24,56 Q26,48 29,42 Q28,47 30,44 Q32,37 34,42 Q36,47 35,44 Q37,48 39,56 Z" fill="url(#fl1)" opacity="0.85"/>
+  <path d="M28,56 Q30,50 32,45 Q33,50 32,54 Z" fill="#ffffaa" opacity="0.5"/>
+
+  <!-- Tripod legs -->
+  <line x1="18" y1="57" x2="24" y2="48" stroke="#8b6914" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="46" y1="57" x2="40" y2="48" stroke="#8b6914" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="32" y1="58" x2="32" y2="46" stroke="#8b6914" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Large alembic body -->
+  <ellipse cx="32" cy="38" rx="16" ry="12" fill="url(#cop1)" stroke="#5a3510" stroke-width="0.8"/>
+
+  <!-- Liquid -->
+  <ellipse cx="32" cy="40" rx="12" ry="7" fill="#cc8800" opacity="0.3"/>
+  <ellipse cx="32" cy="42" rx="10" ry="5" fill="#ffaa00" opacity="0.2"/>
+
+  <!-- Shine -->
+  <ellipse cx="26" cy="33" rx="6" ry="8" fill="white" opacity="0.07"/>
+
+  <!-- Wide neck curving right -->
+  <path d="M40,30 Q44,24 48,20" stroke="url(#cop1)" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+  <!-- Condenser bulb -->
+  <circle cx="50" cy="17" r="5" fill="#b86b2e" stroke="#5a3510" stroke-width="0.8"/>
+  <circle cx="50" cy="17" r="3" fill="#ddaa55" opacity="0.2"/>
+
+  <!-- Spout -->
+  <path d="M54,15 Q58,18 58,24" stroke="#c87533" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Drip -->
+  <ellipse cx="58" cy="27" rx="1.5" ry="2" fill="#ffd700" opacity="0.8"/>
+
+  <!-- Rivets -->
+  <circle cx="22" cy="38" r="1" fill="#ffd700" opacity="0.4"/>
+  <circle cx="42" cy="38" r="1" fill="#ffd700" opacity="0.4"/>
+
+  <!-- Band -->
+  <path d="M19,36 Q32,48 45,36" fill="none" stroke="#ffd700" stroke-width="0.6" opacity="0.3"/>
+
+  <!-- Steam -->
+  <path d="M49,12 Q50,8 49,4" stroke="white" stroke-width="0.7" fill="none" opacity="0.25"/>
+  <path d="M51,11 Q53,7 52,3" stroke="white" stroke-width="0.5" fill="none" opacity="0.15"/>
+</svg>
