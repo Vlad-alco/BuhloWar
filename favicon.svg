@@ -1,9 +1,77 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#111b27"/>
-  <rect x="22" y="12" width="20" height="32" rx="4" fill="#b45309" opacity="0.85"/>
-  <rect x="18" y="42" width="28" height="10" rx="3" fill="#92400e"/>
-  <circle cx="32" cy="22" r="3.5" fill="#f59e0b"/>
-  <circle cx="32" cy="22" r="6" fill="#f59e0b" opacity="0.25"/>
-  <line x1="32" y1="28" x2="32" y2="38" stroke="#fbbf24" stroke-width="1.5" opacity="0.5"/>
-  <rect x="26" y="8" width="12" height="6" rx="2" fill="#d97706" opacity="0.7"/>
+  <!-- Background -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a15"/>
+    </radialGradient>
+    <linearGradient id="copper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8913a"/>
+      <stop offset="40%" stop-color="#c87533"/>
+      <stop offset="100%" stop-color="#8b5e2b"/>
+    </linearGradient>
+    <linearGradient id="copperDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b86b2e"/>
+      <stop offset="100%" stop-color="#6b4226"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#ff4500"/>
+      <stop offset="35%" stop-color="#ff8c00"/>
+      <stop offset="70%" stop-color="#ffd700"/>
+      <stop offset="100%" stop-color="#ffffcc"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="80%" r="50%">
+      <stop offset="0%" stop-color="#ff6600" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#ff6600" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd700" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#cc7700" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- Warm glow from flame -->
+  <ellipse cx="28" cy="52" rx="22" ry="14" fill="url(#glow)"/>
+
+  <!-- Flame -->
+  <path d="M22,54 Q24,46 28,40 Q26,46 28,44 Q30,38 32,34 Q34,40 34,44 Q36,46 34,52 Z" fill="url(#flame)" opacity="0.9"/>
+  <path d="M26,54 Q27,48 29,44 Q30,48 29,52 Z" fill="#ffffcc" opacity="0.6"/>
+
+  <!-- Base/stand -->
+  <rect x="18" y="50" width="20" height="4" rx="1.5" fill="#555" stroke="#777" stroke-width="0.5"/>
+  <rect x="16" y="53" width="24" height="3" rx="1" fill="#444" stroke="#666" stroke-width="0.5"/>
+
+  <!-- Alembic body (belly) -->
+  <ellipse cx="28" cy="42" rx="13" ry="10" fill="url(#copper)" stroke="#6b4226" stroke-width="0.8"/>
+
+  <!-- Liquid inside -->
+  <ellipse cx="28" cy="44" rx="10" ry="6" fill="url(#liquid)"/>
+
+  <!-- Highlight on belly -->
+  <ellipse cx="23" cy="38" rx="5" ry="7" fill="white" opacity="0.08"/>
+
+  <!-- Neck (swan neck going up-right) -->
+  <path d="M34,35 Q36,28 38,22 Q40,16 42,14" stroke="url(#copper)" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+  <!-- Condenser (coil at top) -->
+  <path d="M42,14 Q48,12 50,16 Q52,20 48,22 Q44,24 42,20 Q40,16 44,14" fill="url(#copperDark)" stroke="#6b4226" stroke-width="0.8"/>
+
+  <!-- Spout/drip -->
+  <path d="M48,22 Q52,24 54,28" stroke="url(#copper)" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Drip drop -->
+  <circle cx="55" cy="31" r="1.5" fill="#ffd700" opacity="0.8"/>
+
+  <!-- Cap/lid on belly -->
+  <ellipse cx="28" cy="33" rx="6" ry="2.5" fill="#d4872e" stroke="#6b4226" stroke-width="0.5"/>
+
+  <!-- Decorative bands -->
+  <path d="M18,42 Q28,52 38,42" stroke="#ffd700" stroke-width="0.5" fill="none" opacity="0.4"/>
+  <ellipse cx="28" cy="36" rx="9" ry="1" fill="none" stroke="#ffd700" stroke-width="0.3" opacity="0.3"/>
+
+  <!-- Steam wisps -->
+  <path d="M42,12 Q43,9 42,6" stroke="white" stroke-width="0.8" fill="none" opacity="0.3"/>
+  <path d="M44,13 Q46,10 45,7" stroke="white" stroke-width="0.6" fill="none" opacity="0.2"/>
 </svg>
