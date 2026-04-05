@@ -1330,7 +1330,9 @@ void ProcessEngine::handleTelo() {
 
         // === ЛОГИРОВАНИЕ СТАРТА ТЕЛО ===
         bool isShpora = (cfg.cycleLim == 1 && cfg.bodyValveNC);
-        logger.log("TELO Start. Method: " + String(isShpora ? "SPORA" : "STANDARD"));
+        logger.log("TELO Start. Method: " + String(isShpora ? "SPORA" : "STANDARD")
+                 + " (cycleLim=" + String(cfg.cycleLim)
+                 + ", bodyValveNC=" + String(cfg.bodyValveNC ? "true" : "false") + ")");
         logger.log("  rtsarM: " + String(rtsarM, 2) + "C"
                  + "  adPressM: " + String(adPressM, 1) + "hPa"
                  + "  koff: " + String(koff, 2));
