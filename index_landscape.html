@@ -2146,12 +2146,10 @@
                 if(cw.isRunning){
                     if(cw.step===1){const dryBtn=document.getElementById('btn-calib-dry-start');const dryProg=document.getElementById('calib-dry-progress');const dryTime=document.getElementById('calib-dry-time');const dryBar=document.getElementById('calib-dry-bar');
                         if(dryBtn)dryBtn.style.display='none';if(dryProg)dryProg.style.display='';
-                        if(dryTime&&cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;dryTime.textContent=elapsed+' / '+cw.totalSec+' с';}
-                        if(dryBar&&cw.totalSec>0){dryBar.style.width=(elapsed/cw.totalSec*100)+'%';}
+                        if(cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;if(dryTime)dryTime.textContent=elapsed+' / '+cw.totalSec+' с';if(dryBar)dryBar.style.width=(elapsed/cw.totalSec*100)+'%';}
                     }else if(cw.step===2){const capBtn=document.getElementById('btn-calib-cap-start');const capProg=document.getElementById('calib-cap-progress');const capTime=document.getElementById('calib-cap-time');const capBar=document.getElementById('calib-cap-bar');
                         if(capBtn)capBtn.style.display='none';if(capProg)capProg.style.display='';
-                        if(capTime&&cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;capTime.textContent=elapsed+' / '+cw.totalSec+' с';}
-                        if(capBar&&cw.totalSec>0){capBar.style.width=(elapsed/cw.totalSec*100)+'%';}
+                        if(cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;if(capTime)capTime.textContent=elapsed+' / '+cw.totalSec+' с';if(capBar)capBar.style.width=(elapsed/cw.totalSec*100)+'%';}
                     }
                 }else{
                     if(cw.step===1){const dryBtn=document.getElementById('btn-calib-dry-start');const dryProg=document.getElementById('calib-dry-progress');if(dryBtn)dryBtn.style.display='';if(dryProg)dryProg.style.display='none';}
