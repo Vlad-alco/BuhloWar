@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1024, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BuhloWar HUD</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="./js/lucide.js"></script>
@@ -64,6 +64,8 @@
             z-index: 1;
             display: grid;
             grid-template-rows: 44px 1fr 36px;
+            grid-template-columns: 1fr;
+            width: 100%;
             height: 100vh;
             padding: 6px;
             gap: 6px;
@@ -154,7 +156,8 @@
 
         /* === MAIN AREA === */
         .hud-main {
-            flex: 1;
+            width: 100%;
+            min-width: 0;
             min-height: 0;
             overflow: hidden;
         }
@@ -180,7 +183,7 @@
         }
 
         /* === TEMPERATURES PANEL (left) === */
-        .temps-panel { grid-row: 1 / 3; }
+        .temps-panel { grid-row: 1 / 3; min-width: 0; }
         .temp-item {
             display: flex;
             align-items: center;
@@ -225,11 +228,14 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            grid-row: 1 / 3;
+            min-width: 0;
         }
         .gauge-wrapper {
             position: relative;
-            width: 280px;
-            height: 280px;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
         }
         #gaugeCanvas {
             width: 100%;
@@ -291,8 +297,17 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* === RIGHT COLUMN WRAPPER === */
+        .monitor-right-col {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+            overflow: hidden;
+        }
         /* === BAROMETER (right) === */
-        .baro-panel { grid-row: 1 / 2; }
+        .baro-panel { flex: 1; min-width: 0; }
         .baro-body {
             flex: 1;
             display: flex;
@@ -353,7 +368,7 @@
         }
 
         /* === SYSTEM INFO (right bottom) === */
-        .sys-panel { grid-row: 2 / 3; }
+        .sys-panel { flex: 0 0 auto; min-width: 0; }
         .sys-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -497,9 +512,26 @@
             height: 100%;
             overflow-y: auto;
             width: 100%;
+            min-width: 0;
         }
         .page-secondary.active { display: block; }
-        .page-monitoring { display: grid; grid-template-columns: 1fr 2.5fr 1fr; grid-template-rows: 1fr auto; gap: 6px; width: 100%; }
+        .page-monitoring {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) minmax(280px, 2.5fr) minmax(140px, 1fr);
+            grid-template-rows: 1fr 1fr auto;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+        }
+        /* Bottom calc row spans full width in row 3 */
+        .monitor-bottom-row {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            min-width: 0;
+        }
 
         .page-inner {
             padding: 12px;
@@ -679,7 +711,7 @@
 
                 <!-- CENTER: GAUGE -->
                 <div class="hud-panel gauge-panel">
-                    <div class="gauge-wrapper" style="width:min(100%,400px);height:min(100%,400px);aspect-ratio:1;">
+                    <div class="gauge-wrapper">
                         <canvas id="gaugeCanvas" width="400" height="400"></canvas>
                         <div class="gauge-center-info">
                             <div class="gauge-time" id="center-time-val">00:00</div>
@@ -694,6 +726,8 @@
                     </div>
                 </div>
 
+                <!-- RIGHT COLUMN: BAROMETER + SYSTEM -->
+                <div class="monitor-right-col">
                 <!-- RIGHT TOP: BAROMETER -->
                 <div class="hud-panel baro-panel">
                     <div class="hud-panel-title">Атмосфера</div>
@@ -741,9 +775,10 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- /monitor-right-col -->
 
                 <!-- BOTTOM: CALCULATIONS (3 columns spanning full width) -->
-                <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+                <div class="monitor-bottom-row">
                     <!-- HEADS -->
                     <div class="calc-panel">
                         <div class="calc-title heads">Головы</div>
