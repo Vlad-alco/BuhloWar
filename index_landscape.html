@@ -713,9 +713,18 @@
                     <i data-lucide="cpu" style="width:16px;height:16px;color:#fff;"></i>
                 </div>
                 <span class="hud-logo-text">BUHLOWAR</span>
-                <div class="ind-dot pulse" id="esp32-status" style="background:var(--neon-green);box-shadow:0 0 6px var(--neon-green);"></div>
-                <div id="internet-dot" class="ind-dot" style="background:var(--neon-red);box-shadow:0 0 6px var(--neon-red);" title="Нет интернета"></div>
-                <div id="network-mode-badge" class="net-badge w">W</div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div class="ind-dot pulse" id="esp32-status" style="background:var(--neon-green);box-shadow:0 0 6px var(--neon-green);"></div>
+                    <span style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">API</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div id="internet-dot" class="ind-dot" style="background:var(--neon-red);box-shadow:0 0 6px var(--neon-red);"></div>
+                    <span style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">INET</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div id="network-mode-badge" class="net-badge w">W</div>
+                    <span id="conn-mode-label" style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">LOK</span>
+                </div>
                 <span id="save-toast" class="save-toast">СОХРАНЕНО</span>
             </div>
             <div class="hud-status-group">
@@ -1396,7 +1405,7 @@
                 }
                 // Copy all data fields
                 ['tsa','tsar','aqua','tank','stage','time','process','str_bak','str_out','str_bak_valid','str_out_valid',
-                 'pressure','box_temp','humidity','power','network_mode','alarmTimerSec','rectMethodName','rectSubStage',
+                 'pressure','box_temp','humidity','power','network_mode','online','alarmTimerSec','rectMethodName','rectSubStage',
                  'rectTimeRemaining','rectVolumeTarget','bodyMethodName','bodySpeed','bodyCycle','headsSpeed','headsSpeedCalc',
                  'rtsarM','adPressM','headsTotalTarget','heaterStatus','useHeadValve','bodyValveNC','heaterOn','mixerOn',
                  'waterValveOpen','finishingRemainSec','stageTimeSec','headsVolDone','headsVolSub','bodyVolDone','headsVolTarget',
@@ -1432,9 +1441,14 @@
             const inetDot=document.getElementById('internet-dot');
             if(inetDot){const inet=currentData.online===true;if(inet){inetDot.style.background='var(--neon-green)';inetDot.style.boxShadow='0 0 6px var(--neon-green)';inetDot.title='Интернет есть';}else{inetDot.style.background='var(--neon-red)';inetDot.style.boxShadow='0 0 6px var(--neon-red)';inetDot.title='Нет интернета';}}
 
-            // Network badge
+            // Network badge + connection mode label
             const nb=document.getElementById('network-mode-badge');
-            if(nb){const m=cloudMode?'C':(currentData.network_mode||'X');nb.textContent=m;nb.className='net-badge '+(m==='W'?'w':(m==='A'?'a':(m==='C'?'c':'x')));}
+            const ml=document.getElementById('conn-mode-label');
+            if(nb){
+                const m=cloudMode?'C':(currentData.network_mode||'X');
+                nb.textContent=m;nb.className='net-badge '+(m==='W'?'w':(m==='A'?'a':(m==='C'?'c':'x')));
+                if(ml){if(cloudMode){ml.textContent='CLD';ml.style.color='var(--neon-blue)';}else{ml.textContent='LOK';ml.style.color='#5a6577';}}
+            }
 
             // Header indicators
             const setInd=(id,active)=>{const el=document.getElementById(id);if(el)el.className='hud-indicator'+(active?' active':'');const dot=document.getElementById(id.replace('ind-','dot-'));if(dot){dot.className='ind-dot'+(active?' pulse':'');dot.style.background=active?'var(--neon-green)':'#2a3040';dot.style.boxShadow=active?'0 0 6px var(--neon-green)':'none';}};
