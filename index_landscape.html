@@ -159,7 +159,7 @@
             width: 100%;
             min-width: 0;
             min-height: 0;
-            overflow: hidden;
+            overflow: auto;
         }
 
         /* === PANELS === */
@@ -512,16 +512,16 @@
             height: 100%;
             overflow-y: auto;
             width: 100%;
-            min-width: 0;
+            min-width: 540px;
         }
         .page-secondary.active { display: block; }
         .page-monitoring {
             display: grid;
-            grid-template-columns: minmax(180px, 1fr) minmax(280px, 2.5fr) minmax(140px, 1fr);
+            grid-template-columns: minmax(160px, 1fr) minmax(220px, 2.5fr) minmax(120px, 1fr);
             grid-template-rows: 1fr 1fr auto;
             gap: 6px;
             width: 100%;
-            min-width: 0;
+            min-width: 540px;
         }
         /* Bottom calc row spans full width in row 3 */
         .monitor-bottom-row {
@@ -530,7 +530,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 6px;
-            min-width: 0;
+            min-width: 400px;
         }
 
         .page-inner {
