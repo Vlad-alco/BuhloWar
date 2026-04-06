@@ -152,13 +152,11 @@
             color: var(--neon-blue);
         }
 
-        /* === MAIN GRID (monitoring dashboard) === */
+        /* === MAIN AREA === */
         .hud-main {
-            display: grid;
-            grid-template-columns: 1fr 2.5fr 1fr;
-            grid-template-rows: 1fr auto;
-            gap: 6px;
+            flex: 1;
             min-height: 0;
+            overflow: hidden;
         }
 
         /* === PANELS === */
