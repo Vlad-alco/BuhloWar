@@ -666,6 +666,16 @@
             gap: 6px;
         }
 
+        /* === ENGINEERING MENU === */
+        .eng-section { margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,140,0,0.1); }
+        .eng-section:first-child { margin-top:8px; border-top:none; }
+        .eng-section-title { font-size:9px; color:rgba(255,140,0,0.6); letter-spacing:0.15em; margin-bottom:6px; }
+        .eng-unit { font-size:8px; color:#3a4558; letter-spacing:0.05em; }
+        #eng-menu-panel .s-row label { font-size:10px; color:#6a7588; }
+        #eng-menu-panel .s-inputs span { font-size:13px; color:var(--neon-amber); font-weight:600; min-width:50px; }
+        #eng-menu-panel .s-inputs button { font-size:14px; color:#4a5568; background:none; border:1px solid rgba(255,255,255,0.08); width:28px; height:28px; border-radius:4px; cursor:pointer; font-family:inherit; }
+        #eng-menu-panel .s-inputs button:hover { border-color:rgba(255,140,0,0.3); color:var(--neon-amber); }
+
         /* === SCROLLBAR === */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -1141,6 +1151,14 @@
                             <button class="action-btn amber" onclick="testAlarm()">🔊 ТЕСТ ЗВУКА</button>
                         </div>
 
+                        <!-- Инженерное меню (wrench) -->
+                        <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,140,0,0.12);">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div class="calc-title" style="color:rgba(255,140,0,0.5);font-size:10px;">ИНЖЕНЕРНОЕ МЕНЮ</div>
+                                <button onclick="openEngMenu()" style="background:none;border:1px solid rgba(255,140,0,0.2);border-radius:4px;color:#4a5568;cursor:pointer;padding:4px 10px;font-size:13px;font-family:inherit;" title="Инженерное меню">&#9881;</button>
+                            </div>
+                        </div>
+
                         <!-- Cloud Mode Section -->
                         <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,240,255,0.12);">
                             <div class="calc-title" style="color:var(--neon-blue);">Облачный режим</div>
@@ -1326,6 +1344,64 @@
                 </div>
                 <p style="color:var(--neon-green);font-size:12px;text-align:center;margin-bottom:12px;">Сохранено!</p>
                 <button onclick="closeCalibWizard()" class="dialog-btn dialog-btn-gray" style="width:100%;">ЗАКРЫТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ENGINEERING MENU PANEL === -->
+    <div id="eng-menu-panel" class="dialog-panel">
+        <div class="dialog-backdrop"></div>
+        <div class="dialog-content" style="max-width:440px;max-height:85vh;overflow-y:auto;border-color:rgba(255,140,0,0.4);">
+            <h3 style="color:var(--neon-amber);">&#9881; ИНЖЕНЕРНОЕ МЕНЮ</h3>
+            <span class="dialog-close" onclick="closeEngMenu()">&#x2715;</span>
+
+            <!-- Confirmation message -->
+            <p id="eng-confirm-msg" style="color:var(--neon-amber);font-size:11px;margin-bottom:12px;display:none;">Вы уверены? Эти параметры влияют на процесс.</p>
+
+            <!-- Section 1: Базовые скорости -->
+            <div class="eng-section">
+                <div class="eng-section-title">СКОРОСТИ ЭКСТРАКЦИИ</div>
+                <div class="s-row"><label>ГОЛОВЫ <span class="eng-unit">мл/ч/кВт</span></label><div class="s-inputs"><button onclick="adjEng('speedGolovyBase',-5)">-</button><span id="eng-speedGolovyBase">50</span><button onclick="adjEng('speedGolovyBase',5)">+</button></div></div>
+                <div class="s-row"><label>ТЕЛО <span class="eng-unit">мл/ч/кВт</span></label><div class="s-inputs"><button onclick="adjEng('speedTeloBase',-25)">-</button><span id="eng-speedTeloBase">500</span><button onclick="adjEng('speedTeloBase',25)">+</button></div></div>
+                <div class="s-row"><label>ДО ОТБОРА <span class="eng-unit">мл/ч</span></label><div class="s-inputs"><button onclick="adjEng('distHeadsSpeed',-5)">-</button><span id="eng-distHeadsSpeed">50</span><button onclick="adjEng('distHeadsSpeed',5)">+</button></div></div>
+            </div>
+
+            <!-- Section 2: Шпора -->
+            <div class="eng-section">
+                <div class="eng-section-title">ПАРАМЕТРЫ ШПОРЫ</div>
+                <div class="s-row"><label>КОЭФФ. <span class="eng-unit">x.xx</span></label><div class="s-inputs"><button onclick="adjEng('shporaCorr',-0.01)">-</button><span id="eng-shporaCorr">1.13</span><button onclick="adjEng('shporaCorr',0.01)">+</button></div></div>
+                <div class="s-row"><label>СТАБИЛИЗАЦИЯ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('shporaStabMs',-10,-1000)">-</button><span id="eng-shporaStabMs">60</span><button onclick="adjEng('shporaStabMs',10,-1000)">+</button></div></div>
+                <div class="s-row"><label>МИН. ТЕЛО <span class="eng-unit">мл/ч</span></label><div class="s-inputs"><button onclick="adjEng('minBodySpeed',-50)">-</button><span id="eng-minBodySpeed">300</span><button onclick="adjEng('minBodySpeed',50)">+</button></div></div>
+            </div>
+
+            <!-- Section 3: Доли отбора -->
+            <div class="eng-section">
+                <div class="eng-section-title">ДОЛИ ОТБОРА</div>
+                <div class="s-row"><label>СТАНДАРТ <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareStd',-1,-100)">-</button><span id="eng-headsShareStd">10</span><button onclick="adjEng('headsShareStd',1,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС СПИТ <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssSpit',-0.5,-100)">-</button><span id="eng-headsShareKssSpit">2</span><button onclick="adjEng('headsShareKssSpit',0.5,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС СТАНД. <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssStd',-0.5,-100)">-</button><span id="eng-headsShareKssStd">3</span><button onclick="adjEng('headsShareKssStd',0.5,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС АКАТЕЛО <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssAkatelo',-1,-100)">-</button><span id="eng-headsShareKssAkatelo">15</span><button onclick="adjEng('headsShareKssAkatelo',1,-100)">+</button></div></div>
+            </div>
+
+            <!-- Section 4: Давление -->
+            <div class="eng-section">
+                <div class="eng-section-title">ДАВЛЕНИЕ</div>
+                <div class="s-row"><label>КОРРЕКЦИЯ <span class="eng-unit">°C/hPa</span></label><div class="s-inputs"><button onclick="adjEng('pressureCoeff',-0.001)">-</button><span id="eng-pressureCoeff">0.028</span><button onclick="adjEng('pressureCoeff',0.001)">+</button></div></div>
+            </div>
+
+            <!-- Section 5: Времена -->
+            <div class="eng-section">
+                <div class="eng-section-title">ВРЕМЕНА ПРОЦЕССОВ</div>
+                <div class="s-row"><label>ОХЛАЖДЕНИЕ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('coolingDurationSec',-30)">-</button><span id="eng-coolingDurationSec">300</span><button onclick="adjEng('coolingDurationSec',30)">+</button></div></div>
+                <div class="s-row"><label>БАКСТОП <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('bakstopDelaySec',-1)">-</button><span id="eng-bakstopDelaySec">5</span><button onclick="adjEng('bakstopDelaySec',1)">+</button></div></div>
+                <div class="s-row"><label>КАЛИБР. СУХОЙ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibDrySec',-5)">-</button><span id="eng-calibDrySec">10</span><button onclick="adjEng('calibDrySec',5)">+</button></div></div>
+                <div class="s-row"><label>КАЛИБР. CAPACITY <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibCapacitySec',-10)">-</button><span id="eng-calibCapacitySec">60</span><button onclick="adjEng('calibCapacitySec',10)">+</button></div></div>
+            </div>
+
+            <!-- Save -->
+            <div style="margin-top:16px;display:flex;gap:8px;">
+                <button onclick="saveEngMenu()" class="dialog-btn dialog-btn-green" style="flex:1;">СОХРАНИТЬ</button>
+                <button onclick="closeEngMenu()" class="dialog-btn dialog-btn-gray" style="flex:1;">ЗАКРЫТЬ</button>
             </div>
         </div>
     </div>
@@ -2167,6 +2243,98 @@
                 if(cw.step!==3){calibWizard._lastInputStep=0;calibWizard.volume=cw.volume;}
             }
         }
+    </script>
+    <script>
+    // === ENGINEERING MENU ===
+    let engConfirmed = false;
+    const engFields = ['speedGolovyBase','speedTeloBase','distHeadsSpeed','shporaCorr','shporaStabMs','minBodySpeed','headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo','pressureCoeff','coolingDurationSec','bakstopDelaySec','calibDrySec','calibCapacitySec'];
+    const engRanges = {
+        speedGolovyBase:[10,200], speedTeloBase:[100,2000], distHeadsSpeed:[10,200],
+        shporaCorr:[1.05,1.50], shporaStabMs:[10,300], minBodySpeed:[100,800],
+        headsShareStd:[5,20], headsShareKssSpit:[1,5], headsShareKssStd:[1,10], headsShareKssAkatelo:[5,30],
+        pressureCoeff:[0.020,0.040], coolingDurationSec:[60,600], bakstopDelaySec:[0,30],
+        calibDrySec:[5,30], calibCapacitySec:[30,120]
+    };
+    // Для полей "доли" храним в %. В API передаём /100.
+    const engPctFields = ['headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo'];
+    const engFloatFields = ['shporaCorr','pressureCoeff'];
+
+    function openEngMenu(){
+        engConfirmed = false;
+        const panel = document.getElementById('eng-menu-panel');
+        const msg = document.getElementById('eng-confirm-msg');
+        msg.style.display = 'block';
+        // Загружаем текущие значения из API в отображение
+        const eng = (currentData.cfg && currentData.cfg.eng) ? currentData.cfg.eng : {};
+        engFields.forEach(f => {
+            const el = document.getElementById('eng-' + f);
+            if(!el) return;
+            if(engPctFields.includes(f)){
+                // Храним в %, в API — доля (0.xx). Конвертируем: % = доля * 100
+                el.textContent = eng[f] !== undefined ? Math.round(eng[f] * 100) : el.textContent;
+            } else if(engFloatFields.includes(f)){
+                el.textContent = eng[f] !== undefined ? parseFloat(eng[f]).toFixed(3) : el.textContent;
+            } else {
+                el.textContent = eng[f] !== undefined ? eng[f] : el.textContent;
+            }
+        });
+        panel.style.display = 'flex';
+    }
+
+    function closeEngMenu(){
+        document.getElementById('eng-menu-panel').style.display = 'none';
+    }
+
+    function adjEng(field, delta, displayMul){
+        if(!engConfirmed){
+            engConfirmed = true;
+            document.getElementById('eng-confirm-msg').style.display = 'none';
+        }
+        const el = document.getElementById('eng-' + field);
+        if(!el) return;
+        const range = engRanges[field];
+        let val;
+        if(engPctFields.includes(field)){
+            val = parseInt(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], val)); }
+            el.textContent = val;
+        } else if(engFloatFields.includes(field)){
+            val = parseFloat(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], parseFloat(val.toFixed(3)))); }
+            el.textContent = val.toFixed(3);
+        } else {
+            val = parseInt(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], val)); }
+            el.textContent = val;
+        }
+    }
+
+    function saveEngMenu(){
+        if(!currentData.cfg) return;
+        const payload = {};
+        engFields.forEach(f => {
+            const el = document.getElementById('eng-' + f);
+            if(!el) return;
+            if(engPctFields.includes(f)){
+                // Конвертируем % → доля (0.xx)
+                payload[f] = parseInt(el.textContent) / 100;
+            } else if(engFloatFields.includes(f)){
+                payload[f] = parseFloat(el.textContent);
+            } else {
+                payload[f] = parseInt(el.textContent);
+            }
+        });
+        let url = '/api/settings';
+        if(cloudMode && cloudApiUrl) url = cloudApiUrl + '?settings=1';
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(r => r.text()).then(() => {
+            showSaveToast();
+            closeEngMenu();
+        }).catch(() => {});
+    }
     </script>
 </body>
 </html>

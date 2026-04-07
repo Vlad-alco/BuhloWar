@@ -824,6 +824,24 @@ void AppNetwork::handleApiSettings() {
     getString("cloudApiKey", cfg.cloudApiKey, sizeof(cfg.cloudApiKey));
     // ============================
 
+    // === ИНЖЕНЕРНОЕ МЕНЮ ===
+    cfg.speedGolovyBase = getInt("speedGolovyBase", cfg.speedGolovyBase);
+    cfg.speedTeloBase = getInt("speedTeloBase", cfg.speedTeloBase);
+    cfg.distHeadsSpeed = getInt("distHeadsSpeed", cfg.distHeadsSpeed);
+    cfg.shporaCorr = getFloat("shporaCorr", cfg.shporaCorr);
+    cfg.shporaStabMs = getInt("shporaStabMs", cfg.shporaStabMs);
+    cfg.minBodySpeed = getInt("minBodySpeed", cfg.minBodySpeed);
+    cfg.headsShareStd = getFloat("headsShareStd", cfg.headsShareStd);
+    cfg.headsShareKssSpit = getFloat("headsShareKssSpit", cfg.headsShareKssSpit);
+    cfg.headsShareKssStd = getFloat("headsShareKssStd", cfg.headsShareKssStd);
+    cfg.headsShareKssAkatelo = getFloat("headsShareKssAkatelo", cfg.headsShareKssAkatelo);
+    cfg.pressureCoeff = getFloat("pressureCoeff", cfg.pressureCoeff);
+    cfg.coolingDurationSec = getInt("coolingDurationSec", cfg.coolingDurationSec);
+    cfg.bakstopDelaySec = getInt("bakstopDelaySec", cfg.bakstopDelaySec);
+    cfg.calibDrySec = getInt("calibDrySec", cfg.calibDrySec);
+    cfg.calibCapacitySec = getInt("calibCapacitySec", cfg.calibCapacitySec);
+    // =========================
+
     Serial.println("[API] Saving config...");
     configManager->saveConfig();
     configManager->saveDistConfig();
@@ -871,7 +889,8 @@ String AppNetwork::parseLine(String line, String key) {
 
 void AppNetwork::syncNTP() {
     Serial.println("[NetMgr] Syncing NTP...");
-    configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+    int tzOffset = configManager ? configManager->getConfig().timezoneOffset : 3;
+    configTime(tzOffset * 3600, 0, "pool.ntp.org", "time.nist.gov");
     
     struct tm timeinfo;
     // Таймаут 2000 мс вместо дефолтного 5000 мс — не блокируем надолго
@@ -989,6 +1008,23 @@ String AppNetwork::buildCfgJson() {
     json += "\"speedBodyCorr\":" + String(cfg.speedBodyCorr) + ",";
     json += "\"cloudUrl\":\"" + String(cfg.cloudUrl) + "\",";
     json += "\"cloudApiKey\":\"" + String(cfg.cloudApiKey) + "\"";
+    json += ",\"eng\":{";
+    json += "\"speedGolovyBase\":" + String(cfg.speedGolovyBase) + ",";
+    json += "\"speedTeloBase\":" + String(cfg.speedTeloBase) + ",";
+    json += "\"distHeadsSpeed\":" + String(cfg.distHeadsSpeed) + ",";
+    json += "\"shporaCorr\":" + String(cfg.shporaCorr, 2) + ",";
+    json += "\"shporaStabMs\":" + String(cfg.shporaStabMs) + ",";
+    json += "\"minBodySpeed\":" + String(cfg.minBodySpeed) + ",";
+    json += "\"headsShareStd\":" + String(cfg.headsShareStd, 2) + ",";
+    json += "\"headsShareKssSpit\":" + String(cfg.headsShareKssSpit, 2) + ",";
+    json += "\"headsShareKssStd\":" + String(cfg.headsShareKssStd, 2) + ",";
+    json += "\"headsShareKssAkatelo\":" + String(cfg.headsShareKssAkatelo, 2) + ",";
+    json += "\"pressureCoeff\":" + String(cfg.pressureCoeff, 4) + ",";
+    json += "\"coolingDurationSec\":" + String(cfg.coolingDurationSec) + ",";
+    json += "\"bakstopDelaySec\":" + String(cfg.bakstopDelaySec) + ",";
+    json += "\"calibDrySec\":" + String(cfg.calibDrySec) + ",";
+    json += "\"calibCapacitySec\":" + String(cfg.calibCapacitySec);
+    json += "}";
     json += "}";
     
     return json;

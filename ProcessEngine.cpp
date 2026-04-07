@@ -2,8 +2,6 @@
 #include <math.h>
 #include "SDLogger.h" 
 // === КОНСТАНТЫ ===
-const float CORRELATION_COEFF = 1.13f; // Коэффициент снижения скорости для метода Шпора
-const unsigned long SHPORA_STABILIZATION_MS = 60000; // 60 секунд на стабилизацию колонны
 const float MAX_CYCLE_TIME_MS = 10000.0f; // Максимальное время цикла (мс)
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
@@ -382,16 +380,18 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
     // === КОМАНДЫ КАЛИБРОВКИ ИЗ WEB (работают в любой момент, ДО проверки VALVE_CAL) ===
     if (command == UiCommand::CALIB_START_DRY) {
         if (valveCalMenu) {
-            valveCalMenu->startCalibFromWeb(param, 10);  // 10 сек
-            Serial.printf("[WebCmd] Calib DRY: valve=%d, 10 sec\n", param);
+            SystemConfig& cfgCalib = configManager->getConfig();
+            valveCalMenu->startCalibFromWeb(param, cfgCalib.calibDrySec);
+            Serial.printf("[WebCmd] Calib DRY: valve=%d, %d sec\n", param, cfgCalib.calibDrySec);
         }
         return EngineResponse::OK;
     }
     
     if (command == UiCommand::CALIB_START_CAPACITY) {
         if (valveCalMenu) {
-            valveCalMenu->startCalibFromWeb(param, 60);  // 60 сек
-            Serial.printf("[WebCmd] Calib CAPACITY: valve=%d, 60 sec\n", param);
+            SystemConfig& cfgCalib2 = configManager->getConfig();
+            valveCalMenu->startCalibFromWeb(param, cfgCalib2.calibCapacitySec);
+            Serial.printf("[WebCmd] Calib CAPACITY: valve=%d, %d sec\n", param, cfgCalib2.calibCapacitySec);
         }
         return EngineResponse::OK;
     }
@@ -875,7 +875,7 @@ void ProcessEngine::handleDistBakstop() {
         previousStage = Stage::BAKSTOP;
     }
 
-    if (currentStatus.stageTimeSec >= 5) changeStage(Stage::FINISHING_WORK);
+    if (currentStatus.stageTimeSec >= configManager->getConfig().bakstopDelaySec) changeStage(Stage::FINISHING_WORK);
 }
 
 // ==================== RECT LOGIC ====================
@@ -916,7 +916,7 @@ void ProcessEngine::handleNasebya() {
             const SensorData& data = sensorAdapter->getData();
             
             // Пересчитываем поправку давления (актуальная на текущий момент)
-            float pCorr = (data.pressure - adPressM) * 0.0278;
+            float pCorr = (data.pressure - adPressM) * cfg.pressureCoeff;
             
             // Порог возврата: должна упасть ниже уставки Залёта (rtsarM + Histeresis)
             float threshold = rtsarM + cfg.histeresis + pCorr;
@@ -1001,8 +1001,8 @@ void ProcessEngine::handleGolovy() {
     
     // === ВАЖНО: Рассчитываем скорости ВСЕГДА ===
     koff = cfg.power / 1000.0f;
-    speedGolovy = koff * 50.0f;
-    speedTelo = koff * 500.0f;
+    speedGolovy = koff * (float)cfg.speedGolovyBase;
+    speedTelo = koff * (float)cfg.speedTeloBase;
     // ===============================================================
     
     if (currentGolovyStage != GolovyStage::IDLE) {
@@ -1095,7 +1095,7 @@ void ProcessEngine::handleGolovyOk() {
 
 // --- Standard ---
 void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
-    float headVol = cfg.asVolume * 0.1f; 
+    float headVol = cfg.asVolume * cfg.headsShareStd; 
     float vHeadMin = (headVol / speedGolovy) * 60.0f;
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
 
@@ -1145,7 +1145,7 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
 
 // --- KSS Spit ---
 void ProcessEngine::startKssSpit(SystemConfig& cfg) {
-    float headVol = cfg.asVolume * 0.02f;
+    float headVol = cfg.asVolume * cfg.headsShareKssSpit;
 float vHeadMin = 0;
 
 // Определяем актуальную пропускную способность в зависимости от конфига клапана
@@ -1192,7 +1192,7 @@ vHeadMin = headVol / cap;
 
 // --- KSS Standard ---
 void ProcessEngine::startKssStandard(SystemConfig& cfg) {
-    float headVol = cfg.asVolume * 0.03f;
+    float headVol = cfg.asVolume * cfg.headsShareKssStd;
     float vHeadMin = (headVol / speedGolovy) * 60.0f;
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
     
@@ -1235,7 +1235,7 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
 
 // --- KSS AkaTelo ---
 void ProcessEngine::startKssAkaTelo(SystemConfig& cfg) {
-    float headVol = cfg.asVolume * 0.15f;
+    float headVol = cfg.asVolume * cfg.headsShareKssAkatelo;
     float vHeadMin = (headVol / speedTelo) * 60.0f;
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
     
@@ -1367,7 +1367,7 @@ void ProcessEngine::handleTelo() {
     // ВАЖНО: data.pressure содержит последнее удачное значение, если BME отвалился.
     // Поэтому формула остается БЕЗ ИЗМЕНЕНИЙ. Она автоматически будет давать 
     // коррекцию ~0, так как (FrozenPressure - adPressM) будет величиной постоянной.
-    float pressureCorrection = (data.pressure - adPressM) * 0.0278;
+    float pressureCorrection = (data.pressure - adPressM) * cfg.pressureCoeff;
     
     // 3. Расчёт накопленного объёма тела
     unsigned long now = millis();
@@ -1390,9 +1390,9 @@ void ProcessEngine::handleTelo() {
         if (data.tsar.value >= (rtsarM + cfg.delta + pressureCorrection)) {
             
             // ПРОВЕРКА ТАЙМЕРА: Прошло ли достаточно времени с прошлого снижения?
-            if (millis() - lastShporaAdjustTime >= SHPORA_STABILIZATION_MS) {
-                bodyOpenCor /= CORRELATION_COEFF;
-                speedShpora /= CORRELATION_COEFF;
+            if (millis() - lastShporaAdjustTime >= cfg.shporaStabMs) {
+                bodyOpenCor /= cfg.shporaCorr;
+                speedShpora /= cfg.shporaCorr;
                 shporaReductionCount++;
                 
                 lastShporaAdjustTime = millis(); // Запоминаем время корректировки
@@ -1408,7 +1408,7 @@ void ProcessEngine::handleTelo() {
                 
                 logger.log("TELO: Delta breach! TSAR=" + String(data.tsar.value, 2) + "C > threshold=" + String(threshold, 2) + 
                            "C (rtsarM=" + String(rtsarM, 2) + " + delta=" + String(cfg.delta, 2) + " + corr=" + String(pressureCorrection, 2) + ")");
-                logger.log("TELO: Speed " + String(speedShpora * CORRELATION_COEFF, 1) + " -> " + String(speedShpora, 1) + 
+                logger.log("TELO: Speed " + String(speedShpora * cfg.shporaCorr, 1) + " -> " + String(speedShpora, 1) + 
                            " ml/h (reduction #" + String(shporaReductionCount) + ", time: " + String(hours) + "h " + String(mins) + "m)");
                 // ========================================================
             }
@@ -1425,9 +1425,9 @@ void ProcessEngine::handleTelo() {
         }
 
         // === ПРОВЕРКА МИНИМАЛЬНОЙ СКОРОСТИ ===
-        const float MIN_BODY_SPEED = 300.0f;
-        if (speedShpora < MIN_BODY_SPEED) {
-            logger.log("TELO: Min speed " + String(MIN_BODY_SPEED, 0) + " ml/h reached! Finishing.");
+        float minBodySpeed = (float)cfg.minBodySpeed;
+        if (speedShpora < minBodySpeed) {
+            logger.log("TELO: Min speed " + String(minBodySpeed, 0) + " ml/h reached! Finishing.");
             Serial.println("[TELO] Min speed reached! Finishing TELO.");
             finishTelo(cfg);
             return;
@@ -1496,7 +1496,7 @@ void ProcessEngine::handleTelo() {
     // ВАЖНО: Доотбор голов на RECT не зависит от мощности, всегда 50 мл/ч
     if (cfg.useHeadValve) {
         int openMs, closeMs;
-        float targetSpeed = 50.0f * (cfg.speedHeadCorr / 100.0f);  // Фиксированные 50 мл/ч
+        float targetSpeed = (float)cfg.distHeadsSpeed * (cfg.speedHeadCorr / 100.0f);
         calcValveTiming(targetSpeed, (float)cfg.valve_head_capacity, openMs, closeMs);
         outputManager->startHeadValveCycling(openMs, closeMs);
     }
@@ -1554,8 +1554,9 @@ void ProcessEngine::handleFinishingWork() {
         outputManager->closeBodyValve();    // ← закрываем клапан тела
         outputManager->openWaterValve();
         previousStage = Stage::FINISHING_WORK;
-        Serial.println("[Process] FINISHING_WORK: Start 5 min cooling");
-        logger.log("FINISHING: Start 5 min cooling");
+        SystemConfig& cfgFin = configManager->getConfig();
+        Serial.println("[Process] FINISHING_WORK: Start cooling " + String(cfgFin.coolingDurationSec) + "s");
+        logger.log("FINISHING: Start cooling " + String(cfgFin.coolingDurationSec) + "s");
     }
 
     // Таймер 5 минут (300 сек)
@@ -1563,9 +1564,10 @@ void ProcessEngine::handleFinishingWork() {
     unsigned long elapsedSec = (millis() - stageStartTime) / 1000;
      // === НОВОЕ: Расчет остатка времени для веб-интерфейса ===
     // Если прошло меньше 300 сек, вычисляем разницу. Иначе 0.
-    currentStatus.finishingRemainSec = (elapsedSec < 300) ? (300 - elapsedSec) : 0;
+    SystemConfig& cfgFin2 = configManager->getConfig();
+    currentStatus.finishingRemainSec = (elapsedSec < cfgFin2.coolingDurationSec) ? (cfgFin2.coolingDurationSec - elapsedSec) : 0;
     // ======================================================
-    if (elapsedSec >= 300) {
+    if (elapsedSec >= cfgFin2.coolingDurationSec) {
         
         outputManager->closeWaterValve();
         outputManager->powerOffBodyValve();
@@ -1847,15 +1849,15 @@ void ProcessEngine::updateRectWebInfo() {
             switch (currentGolovyStage) {
                 case GolovyStage::KSS_SPIT:
                     currentStatus.rectSubStage = "Spit";
-                    targetVol = asVol * 0.02f; // 2%
+                    targetVol = asVol * cfg.headsShareKssSpit; // KSS Spit
                     break;
                 case GolovyStage::KSS_STANDARD:
                     currentStatus.rectSubStage = "Standard";
-                    targetVol = asVol * 0.03f; // 3%
+                    targetVol = asVol * cfg.headsShareKssStd; // KSS Standard
                     break;
                 case GolovyStage::KSS_AKATELO:
                     currentStatus.rectSubStage = "AkaTelo";
-                    targetVol = asVol * 0.15f; // 15%
+                    targetVol = asVol * cfg.headsShareKssAkatelo; // KSS AkaTelo
                     break;
                 default:
                     currentStatus.rectSubStage = "Wait";
@@ -1864,7 +1866,7 @@ void ProcessEngine::updateRectWebInfo() {
         } else {
             // Standard Logic
             currentStatus.rectSubStage = "Main";
-            targetVol = asVol * 0.10f; // 10%
+            targetVol = asVol * cfg.headsShareStd; // Standard
         }
         
         currentStatus.rectVolumeTarget = (int)targetVol;

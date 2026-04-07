@@ -314,7 +314,7 @@ bool OutputManager::isEmergency() const { return emergencyState; }
 void OutputManager::update() {
     unsigned long currentTime = millis();
     if (safeShutdownActive) {
-        if (currentTime - safeShutdownStart >= SAFE_SHUTDOWN_DURATION) {
+        if (currentTime - safeShutdownStart >= safeShutdownDuration) {
             safeShutdownActive = false;
             closeWaterValve();
             Serial.println("[OutputManager] Safe shutdown complete");

@@ -68,7 +68,24 @@ enum EEPROMAddress {
   // === ОБЛАЧНОЕ ПОДКЛЮЧЕНИЕ ===
   ADDR_CLOUD_ENABLED = 228,   // cloudEnabled (bool)
   ADDR_CLOUD_URL = 230,       // cloudUrl (128 bytes)
-  ADDR_CLOUD_API_KEY = 358    // cloudApiKey (64 bytes)
+  ADDR_CLOUD_API_KEY = 358,    // cloudApiKey (64 bytes)
+
+  // === ИНЖЕНЕРНОЕ МЕНЮ ===
+  ADDR_ENG_SPEED_GOL_base = 422,     // speedGolovyBase (int) — default 50
+  ADDR_ENG_SPEED_TELO_base = 426,    // speedTeloBase (int) — default 500
+  ADDR_ENG_DIST_HEADS_SPEED = 430,   // distHeadsSpeed (int) — default 50
+  ADDR_ENG_SHPORA_CORR = 434,        // shporaCorr (float) — default 1.13
+  ADDR_ENG_SHPORA_STAB_MS = 438,     // shporaStabMs (int) — default 60000
+  ADDR_ENG_MIN_BODY_SPEED = 442,     // minBodySpeed (int) — default 300
+  ADDR_ENG_HEADS_SHARE_STD = 446,    // headsShareStd (float) — default 0.10
+  ADDR_ENG_HEADS_SHARE_KSS_SPIT = 450, // headsShareKssSpit (float) — default 0.02
+  ADDR_ENG_HEADS_SHARE_KSS_STD = 454,  // headsShareKssStd (float) — default 0.03
+  ADDR_ENG_HEADS_SHARE_KSS_AKATELO = 458, // headsShareKssAkatelo (float) — default 0.15
+  ADDR_ENG_PRESSURE_COEFF = 462,     // pressureCoeff (float) — default 0.028
+  ADDR_ENG_COOLING_SEC = 466,        // coolingDurationSec (int) — default 300
+  ADDR_ENG_BAKSTOP_DELAY = 470,      // bakstopDelaySec (int) — default 5
+  ADDR_ENG_CALIB_DRY_SEC = 474,      // calibDrySec (int) — default 10
+  ADDR_ENG_CALIB_CAP_SEC = 478       // calibCapacitySec (int) — default 60
 };
 
 // Структура для хранения всех переменных
@@ -134,7 +151,25 @@ struct SystemConfig {
   int speedHeadCorr = 100;      // Коррекция скорости голов (%), 10-200
   int speedBodyCorr = 100;      // Коррекция скорости тела (%), 10-200
   // ==========================================
-  
+
+  // === ИНЖЕНЕРНОЕ МЕНЮ ===
+  int speedGolovyBase = 50;          // Базовая скорость голов (мл/ч/кВт)
+  int speedTeloBase = 500;           // Базовая скорость тела (мл/ч/кВт)
+  int distHeadsSpeed = 50;           // Скорость доотбора голов в TELO (мл/ч)
+  float shporaCorr = 1.13f;          // Коэффициент снижения скорости Шпора
+  int shporaStabMs = 60000;          // Пауза стабилизации Шпора (мс)
+  int minBodySpeed = 300;            // Мин. скорость тела Шпора (мл/ч)
+  float headsShareStd = 0.10f;       // Доля голов (Стандарт)
+  float headsShareKssSpit = 0.02f;   // Доля КСС Спит
+  float headsShareKssStd = 0.03f;    // Доля КСС Стандарт
+  float headsShareKssAkatelo = 0.15f;// Доля КСС Акатело
+  float pressureCoeff = 0.028f;      // Коэффициент коррекции давления (°C/hPa)
+  int coolingDurationSec = 300;      // Время охлаждения при финишинге (сек)
+  int bakstopDelaySec = 5;           // Задержка перед FINISHING при BAKSTOP (сек)
+  int calibDrySec = 10;              // Время сухого теста калибровки (сек)
+  int calibCapacitySec = 60;         // Время теста capacity калибровки (сек)
+  // =========================
+
   // Служебные
   unsigned long localChangeTimestamp = 0;
   unsigned long webChangeTimestamp = 0;

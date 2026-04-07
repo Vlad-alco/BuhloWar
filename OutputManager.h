@@ -49,6 +49,7 @@ void setHeaterPowerOff();
     void startMixerCycling(int onTimeSec, int offTimeSec);
     
     void emergencyStop();
+    void setSafeShutdownDuration(unsigned long durationMs) { safeShutdownDuration = durationMs; }
     void safeShutdown();
     
     // Состояние
@@ -95,7 +96,7 @@ private:
     bool emergencyState = false;
     bool safeShutdownActive = false;
     unsigned long safeShutdownStart = 0;
-    const unsigned long SAFE_SHUTDOWN_DURATION = 300000; 
+    unsigned long safeShutdownDuration = 300000; // Default 5 min
 
     bool headValveCycling = false;
     bool bodyValveCycling = false;

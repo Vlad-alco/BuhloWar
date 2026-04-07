@@ -233,6 +233,24 @@ void ConfigManager::loadConfig() {
   readString(ADDR_CLOUD_API_KEY, currentConfig.cloudApiKey, sizeof(currentConfig.cloudApiKey));
   // =========================
 
+  // === ИНЖЕНЕРНОЕ МЕНЮ ===
+  currentConfig.speedGolovyBase = readInt(ADDR_ENG_SPEED_GOL_base, 50);
+  currentConfig.speedTeloBase = readInt(ADDR_ENG_SPEED_TELO_base, 500);
+  currentConfig.distHeadsSpeed = readInt(ADDR_ENG_DIST_HEADS_SPEED, 50);
+  currentConfig.shporaCorr = readFloat(ADDR_ENG_SHPORA_CORR, 1.13f);
+  currentConfig.shporaStabMs = readInt(ADDR_ENG_SHPORA_STAB_MS, 60000);
+  currentConfig.minBodySpeed = readInt(ADDR_ENG_MIN_BODY_SPEED, 300);
+  currentConfig.headsShareStd = readFloat(ADDR_ENG_HEADS_SHARE_STD, 0.10f);
+  currentConfig.headsShareKssSpit = readFloat(ADDR_ENG_HEADS_SHARE_KSS_SPIT, 0.02f);
+  currentConfig.headsShareKssStd = readFloat(ADDR_ENG_HEADS_SHARE_KSS_STD, 0.03f);
+  currentConfig.headsShareKssAkatelo = readFloat(ADDR_ENG_HEADS_SHARE_KSS_AKATELO, 0.15f);
+  currentConfig.pressureCoeff = readFloat(ADDR_ENG_PRESSURE_COEFF, 0.028f);
+  currentConfig.coolingDurationSec = readInt(ADDR_ENG_COOLING_SEC, 300);
+  currentConfig.bakstopDelaySec = readInt(ADDR_ENG_BAKSTOP_DELAY, 5);
+  currentConfig.calibDrySec = readInt(ADDR_ENG_CALIB_DRY_SEC, 10);
+  currentConfig.calibCapacitySec = readInt(ADDR_ENG_CALIB_CAP_SEC, 60);
+  // =========================
+
   loadSensorAddress(ADDR_TSA_ADDRESS, currentConfig.tsaAddress);
   loadSensorAddress(ADDR_AQUA_ADDRESS, currentConfig.aquaAddress);
   loadSensorAddress(ADDR_TSAR_ADDRESS, currentConfig.tsarAddress);
@@ -307,6 +325,24 @@ void ConfigManager::saveConfig() {
   writeBool(ADDR_CLOUD_ENABLED, currentConfig.cloudEnabled);
   writeString(ADDR_CLOUD_URL, currentConfig.cloudUrl, sizeof(currentConfig.cloudUrl));
   writeString(ADDR_CLOUD_API_KEY, currentConfig.cloudApiKey, sizeof(currentConfig.cloudApiKey));
+  // =========================
+
+  // === ИНЖЕНЕРНОЕ МЕНЮ ===
+  writeInt(ADDR_ENG_SPEED_GOL_base, currentConfig.speedGolovyBase);
+  writeInt(ADDR_ENG_SPEED_TELO_base, currentConfig.speedTeloBase);
+  writeInt(ADDR_ENG_DIST_HEADS_SPEED, currentConfig.distHeadsSpeed);
+  writeFloat(ADDR_ENG_SHPORA_CORR, currentConfig.shporaCorr);
+  writeInt(ADDR_ENG_SHPORA_STAB_MS, currentConfig.shporaStabMs);
+  writeInt(ADDR_ENG_MIN_BODY_SPEED, currentConfig.minBodySpeed);
+  writeFloat(ADDR_ENG_HEADS_SHARE_STD, currentConfig.headsShareStd);
+  writeFloat(ADDR_ENG_HEADS_SHARE_KSS_SPIT, currentConfig.headsShareKssSpit);
+  writeFloat(ADDR_ENG_HEADS_SHARE_KSS_STD, currentConfig.headsShareKssStd);
+  writeFloat(ADDR_ENG_HEADS_SHARE_KSS_AKATELO, currentConfig.headsShareKssAkatelo);
+  writeFloat(ADDR_ENG_PRESSURE_COEFF, currentConfig.pressureCoeff);
+  writeInt(ADDR_ENG_COOLING_SEC, currentConfig.coolingDurationSec);
+  writeInt(ADDR_ENG_BAKSTOP_DELAY, currentConfig.bakstopDelaySec);
+  writeInt(ADDR_ENG_CALIB_DRY_SEC, currentConfig.calibDrySec);
+  writeInt(ADDR_ENG_CALIB_CAP_SEC, currentConfig.calibCapacitySec);
   // =========================
 
   // Сохраняем адреса датчиков
