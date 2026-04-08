@@ -33,9 +33,9 @@ private:
     {"NASEB", 1, 30, 1, "min"},     // 1: nasebTime
     {"VKLAP", 1, 30, 1, "min"},     // 2: reklapTime
     {"BOX_TPR", 50, 70, 1, "C"},    // 3: boxMaxTemp
-    {"POWER", 100, 3500, 100, "W"}, // 4: power
+    {"POWER", 100, 7000, 100, "W"}, // 4: power
     {"AS_VOL", 1000, 10000, 100, "ml"}, // 5: asVolume
-    {"MINOPEN", 50, 500, 10, "ms"}, // 6: minOpenTime (НОВЫЙ)
+    {"MINOPEN", 50, 2000, 10, "ms"}, // 6: minOpenTime
     {"SP_H_COR", 10, 200, 1, "%"},  // 7: speedHeadCorr (НОВЫЙ)
     {"SP_B_COR", 10, 200, 1, "%"},  // 8: speedBodyCorr (НОВЫЙ)
     {"WIFI CHK", 1, 5, 1, "min"}    // 9: chekwifi
