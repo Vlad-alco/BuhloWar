@@ -1930,14 +1930,30 @@
             else{if(currentPage==='rectification'||currentPage==='monitoring')sendCommand('START_RECT');else sendCommand('START_DIST');}
         }
 
+        // Диапазоны для обычных настроек (общие с LCD): [min, max]
+        const cfgRanges = {
+            emergencyTime:[1,10],
+            nasebTime:[1,30], reklapTime:[1,30], boxMaxTemp:[50,70], power:[100,3500], asVolume:[1000,10000],
+            speedHeadCorr:[10,200], speedBodyCorr:[10,200], minOpenTime:[50,500], chekwifi:[1,5],
+            razgonTemp:[40,99], bakStopTemp:[50,99], midterm:[0,300], midterm_abv:[0,100],
+            mixerOnTime:[5,300], mixerOffTime:[1,120],
+            tsaLimit:[40,55], cycleLim:[1,99], histeresis:[0.06,1.00], delta:[0.06,1.00]
+        };
+        // Параметры с автосохранением при изменении
+        const cfgAutoSave = ['speedHeadCorr','speedBodyCorr','minOpenTime','emergencyTime','nasebTime','reklapTime','boxMaxTemp','power','asVolume','chekwifi'];
+
         function adjCfg(key,delta){
             if(!currentData.cfg)return;configDirty=true;
-            if(key==='histeresis'||key==='delta')currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(2));
-            else currentData.cfg[key]+=delta;
-            if(key==='speedHeadCorr'||key==='speedBodyCorr'){if(currentData.cfg[key]<0)currentData.cfg[key]=0;if(currentData.cfg[key]>200)currentData.cfg[key]=200;}
-            if(key==='minOpenTime'){if(currentData.cfg[key]<10)currentData.cfg[key]=10;if(currentData.cfg[key]>1000)currentData.cfg[key]=1000;}
+            const range = cfgRanges[key];
+            if(key==='histeresis'||key==='delta'){
+                currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(2));
+                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+            } else {
+                currentData.cfg[key]+=delta;
+                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+            }
             updateConfigDisplay();
-            if(key==='speedHeadCorr'||key==='speedBodyCorr'||key==='minOpenTime')autoSaveSetting(key,currentData.cfg[key]);
+            if(cfgAutoSave.includes(key))autoSaveSetting(key,currentData.cfg[key]);
         }
 
         function toggleCfg(key){

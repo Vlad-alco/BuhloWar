@@ -29,7 +29,7 @@ private:
   
   // Увеличен размер массива до 10 (добавлены MINOPEN, SP_H_COR, SP_B_COR)
   SettingsItem settingsItems[10] = {
-    {"VREAC", 1, 5, 1, "min"},      // 0: emergencyTime
+    {"VREAC", 1, 10, 1, "min"},     // 0: emergencyTime
     {"NASEB", 1, 30, 1, "min"},     // 1: nasebTime
     {"VKLAP", 1, 30, 1, "min"},     // 2: reklapTime
     {"BOX_TPR", 50, 70, 1, "C"},    // 3: boxMaxTemp
