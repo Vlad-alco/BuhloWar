@@ -19,253 +19,139 @@ body {
 
 .knob-container {
     position: relative;
-    width: 220px;
-    height: 220px;
+    width: 260px;
+    height: 260px;
 }
 
-/* SVG шкала и ручка */
 .knob-svg {
     width: 100%;
     height: 100%;
 }
 
-/* Стиль дуги фона */
-.arc-bg {
-    fill: none;
-    stroke: rgba(255,255,255,0.06);
-    stroke-width: 6;
-    stroke-linecap: round;
-}
-
-/* Активная дуга — заполненная часть */
-.arc-active {
-    fill: none;
-    stroke: url(#arcGradient);
-    stroke-width: 6;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Основные деления (каждые 1 кВт) */
-.tick-major {
-    stroke: rgba(255,255,255,0.5);
-    stroke-width: 2;
-    stroke-linecap: round;
-}
-
-/* Мелкие деления (каждые 100 Вт) */
-.tick-minor {
-    stroke: rgba(255,255,255,0.15);
-    stroke-width: 1;
-    stroke-linecap: round;
-}
-
-/* Подписи основных делений */
-.tick-label {
-    fill: rgba(255,255,255,0.45);
-    font-family: 'Courier New', monospace;
-    font-size: 10px;
-    text-anchor: middle;
-    dominant-baseline: middle;
-}
-
-/* Круг ручки */
-.knob-body {
-    fill: #141a24;
-    stroke: rgba(255,255,255,0.08);
-    stroke-width: 2;
-    filter: drop-shadow(0 0 8px rgba(0,240,255,0.08));
-}
-
-/* Внутренний круг ручки */
-.knob-inner {
-    fill: #0d1117;
-    stroke: rgba(255,255,255,0.05);
-    stroke-width: 1;
-}
-
-/* Маркер положения ручки */
-.knob-marker {
-    fill: #00f0ff;
-    filter: drop-shadow(0 0 4px rgba(0,240,255,0.8));
-    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    transform-origin: 110px 110px;
-}
-
-/* Свечение вокруг маркера */
-.knob-glow {
-    fill: rgba(0,240,255,0.15);
-    filter: blur(3px);
-    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    transform-origin: 110px 110px;
-}
-
-/* Цифровое значение */
-.knob-value {
-    fill: #00f0ff;
-    font-family: 'Courier New', monospace;
-    font-size: 22px;
-    font-weight: 700;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    filter: drop-shadow(0 0 6px rgba(0,240,255,0.5));
-}
-
-/* Подпись единицы */
-.knob-unit {
-    fill: rgba(0,240,255,0.5);
-    font-family: 'Courier New', monospace;
-    font-size: 9px;
-    font-weight: 400;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    letter-spacing: 0.15em;
-}
-
-/* Метка МОЩНОСТЬ */
-.knob-title {
-    fill: rgba(255,255,255,0.35);
-    font-family: 'Courier New', monospace;
-    font-size: 8px;
-    font-weight: 700;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    letter-spacing: 0.25em;
-}
-
-/* Панель обрамления */
-.panel-frame {
-    background: rgba(13,17,23,0.85);
-    border: 1px solid rgba(0,240,255,0.12);
-    border-radius: 8px;
-    backdrop-filter: blur(8px);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-}
-
-.panel-title {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.25em;
-    color: rgba(255,140,0,0.6);
-    text-transform: uppercase;
-}
-
-/* Кнопки тестирования */
-.test-controls {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.test-btn {
-    background: rgba(0,240,255,0.06);
-    border: 1px solid rgba(0,240,255,0.2);
-    border-radius: 4px;
-    color: rgba(0,240,255,0.7);
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    padding: 5px 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.test-btn:hover {
-    background: rgba(0,240,255,0.12);
-    border-color: rgba(0,240,255,0.4);
-    color: #00f0ff;
-}
-
-.test-btn.active {
-    background: rgba(0,240,255,0.15);
-    border-color: rgba(0,240,255,0.5);
-    color: #00f0ff;
-}
+/* Деления и подписи генерируются JS */
 </style>
 </head>
 <body>
 
-<div class="panel-frame">
-    <div class="panel-title">МОЩНОСТЬ</div>
+<div class="knob-container">
+    <svg class="knob-svg" viewBox="0 0 260 260" id="knobSvg">
+        <defs>
+            <!-- Металлический градиент для ручки -->
+            <radialGradient id="knobMetal" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" style="stop-color:#3a3f4a"/>
+                <stop offset="40%" style="stop-color:#2a2f38"/>
+                <stop offset="80%" style="stop-color:#1a1e26"/>
+                <stop offset="100%" style="stop-color:#14181f"/>
+            </radialGradient>
+            <!-- Блик на ручке -->
+            <radialGradient id="knobHighlight" cx="38%" cy="35%" r="40%">
+                <stop offset="0%" style="stop-color:rgba(255,255,255,0.12)"/>
+                <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+            </radialGradient>
+            <!-- Градиент скоса (facet) для 3D эффекта -->
+            <radialGradient id="knobEdge" cx="50%" cy="50%" r="50%">
+                <stop offset="85%" style="stop-color:rgba(255,255,255,0)"/>
+                <stop offset="95%" style="stop-color:rgba(255,255,255,0.04)"/>
+                <stop offset="100%" style="stop-color:rgba(0,0,0,0.3)"/>
+            </radialGradient>
+            <!-- Свечение под ручкой -->
+            <radialGradient id="baseGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" style="stop-color:rgba(0,240,255,0.06)"/>
+                <stop offset="100%" style="stop-color:rgba(0,240,255,0)"/>
+            </radialGradient>
+        </defs>
 
-    <div class="knob-container">
-        <svg class="knob-svg" viewBox="0 0 220 220" id="knobSvg">
-            <defs>
-                <!-- Градиент для активной дуги -->
-                <linearGradient id="arcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:rgba(0,240,255,0.3)"/>
-                    <stop offset="100%" style="stop-color:#00f0ff"/>
-                </linearGradient>
-            </defs>
+        <!-- Подложка с свечением -->
+        <circle cx="130" cy="130" r="120" fill="url(#baseGlow)"/>
 
-            <!-- Дуга фона (270°: от 135° до 405°) -->
-            <circle cx="110" cy="110" r="95" class="arc-bg"
-                stroke-dasharray="449.47" stroke-dashoffset="-112.37"
-                transform="rotate(135, 110, 110)"/>
+        <!-- Внешнее кольцо (кольцо шкалы) -->
+        <circle cx="130" cy="130" r="118" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
 
-            <!-- Активная дуга -->
-            <circle cx="110" cy="110" r="95" class="arc-active" id="arcActive"
-                stroke-dasharray="449.47" stroke-dashoffset="449.47"
-                transform="rotate(135, 110, 110)"/>
+        <!-- Деления и подписи генерируются JS (группа tickGroup) -->
+        <g id="tickGroup"></g>
 
-            <!-- Деления и подписи генерируются JS -->
+        <!-- Шайба ручки — тень -->
+        <circle cx="130" cy="132" r="55" fill="rgba(0,0,0,0.4)" filter="blur(4px)"/>
 
-            <!-- Свечение маркера -->
-            <circle cx="110" cy="30" r="6" class="knob-glow" id="knobGlow"/>
+        <!-- Шайба ручки — основное тело -->
+        <circle cx="130" cy="130" r="55" fill="url(#knobMetal)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
 
-            <!-- Маркер на ручке -->
-            <circle cx="110" cy="30" r="4" class="knob-marker" id="knobMarker"/>
+        <!-- Насечки на ручке (knurling) -->
+        <g id="knurlGroup" opacity="0.3"></g>
 
-            <!-- Тело ручки -->
-            <circle cx="110" cy="110" r="52" class="knob-body"/>
-            <circle cx="110" cy="110" r="44" class="knob-inner"/>
+        <!-- Блик на ручке -->
+        <circle cx="130" cy="130" r="55" fill="url(#knobHighlight)"/>
 
-            <!-- Значение в центре -->
-            <text x="110" y="105" class="knob-value" id="knobValueText">3000</text>
-            <text x="110" y="122" class="knob-unit">WATT</text>
+        <!-- Скос края ручки -->
+        <circle cx="130" cy="130" r="55" fill="url(#knobEdge)"/>
 
-            <!-- Подпись внизу -->
-            <text x="110" y="175" class="knob-title">МОЩНОСТЬ</text>
-        </svg>
-    </div>
+        <!-- Центральная втулка -->
+        <circle cx="130" cy="130" r="12" fill="#1a1e26" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <circle cx="130" cy="130" r="8" fill="#0d1015" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
 
-    <div class="test-controls">
-        <button class="test-btn" onclick="setPower(0)">0</button>
-        <button class="test-btn" onclick="setPower(500)">500</button>
-        <button class="test-btn" onclick="setPower(1000)">1kW</button>
-        <button class="test-btn" onclick="setPower(2000)">2kW</button>
-        <button class="test-btn" onclick="setPower(3000)">3kW</button>
-        <button class="test-btn" onclick="setPower(4000)">4kW</button>
-        <button class="test-btn" onclick="setPower(5000)">5kW</button>
-        <button class="test-btn" onclick="setPower(6000)">6kW</button>
-        <button class="test-btn" onclick="setPower(7000)">7kW</button>
-    </div>
+        <!-- Белая линия-указатель на ручке -->
+        <g id="indicatorGroup">
+            <line x1="130" y1="78" x2="130" y2="95" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="130" y1="78" x2="130" y2="95" stroke="rgba(0,240,255,0.4)" stroke-width="3.5" stroke-linecap="round" filter="blur(2px)"/>
+        </g>
+
+        <!-- Цифровое значение под ручкой -->
+        <text x="130" y="210" id="knobValueText" fill="#00f0ff"
+              font-family="'Courier New', monospace" font-size="20" font-weight="700"
+              text-anchor="middle" dominant-baseline="middle"
+              filter="drop-shadow(0 0 6px rgba(0,240,255,0.5))">3000</text>
+        <text x="130" y="226" fill="rgba(0,240,255,0.4)"
+              font-family="'Courier New', monospace" font-size="8" font-weight="400"
+              text-anchor="middle" dominant-baseline="middle"
+              letter-spacing="0.2em">WATT</text>
+    </svg>
 </div>
 
 <script>
     // === Настройки ===
-    const MIN_POWER = 100;       // минимальная мощность (W)
-    const MAX_POWER = 7000;      // максимальная мощность (W)
-    const STEP_MAJOR = 1000;     // крупные деления (каждые 1 кВт)
-    const STEP_MINOR = 100;      // мелкие деления (каждые 100 Вт)
-    const START_ANGLE = 135;     // начальный угол дуги (градусы, нижний левый)
-    const SWEEP_ANGLE = 270;     // полный sweep дуги (градусы)
-    const TICK_OUTER_R = 95;     // радиус внешних делений
-    const TICK_MAJOR_LEN = 10;   // длина крупного деления
-    const TICK_MINOR_LEN = 5;    // длина мелкого деления
-    const LABEL_R = 76;          // радиус подписей
+    const MIN_POWER = 100;
+    const MAX_POWER = 7000;
+    const STEP_MAJOR = 1000;     // крупные деления (1 кВт)
+    const STEP_MINOR = 100;      // мелкие деления (100 Вт)
+    const START_ANGLE = 135;     // начальный угол (нижний левый)
+    const SWEEP_ANGLE = 270;     // sweep дуги (градусы)
+    const TICK_OUTER_R = 115;    // радиус внешнего края делений
+    const TICK_MAJOR_LEN = 12;   // длина крупного деления
+    const TICK_MINOR_LEN = 6;    // длина мелкого деления
+    const LABEL_R = 100;         // радиус подписей (наружу от делений... нет, внутрь от них)
 
-    const CX = 110, CY = 110;   // центр SVG
-
+    const CX = 130, CY = 130;
     let currentPower = 3000;
+
+    // === Генерация насечек на ручке (knurling) ===
+    function createKnurling() {
+        const g = document.getElementById('knurlGroup');
+        const ns = 'http://www.w3.org/2000/svg';
+        const count = 60; // количество насечек
+        const innerR = 49, outerR = 54;
+
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * 360;
+            const rad = angle * Math.PI / 180;
+            const x1 = CX + innerR * Math.cos(rad);
+            const y1 = CY + innerR * Math.sin(rad);
+            const x2 = CX + outerR * Math.cos(rad);
+            const y2 = CY + outerR * Math.sin(rad);
+
+            const line = document.createElementNS(ns, 'line');
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', 'rgba(255,255,255,0.5)');
+            line.setAttribute('stroke-width', '0.5');
+            g.appendChild(line);
+        }
+    }
 
     // === Генерация делений и подписей ===
     function createTicks() {
-        const svg = document.getElementById('knobSvg');
+        const g = document.getElementById('tickGroup');
         const ns = 'http://www.w3.org/2000/svg';
         const totalSteps = (MAX_POWER - MIN_POWER) / STEP_MINOR;
 
@@ -278,83 +164,99 @@ body {
             const isMajor = (power % STEP_MAJOR === 0);
             const tickLen = isMajor ? TICK_MAJOR_LEN : TICK_MINOR_LEN;
 
-            const x1 = CX + (TICK_OUTER_R - tickLen) * Math.cos(rad);
-            const y1 = CY + (TICK_OUTER_R - tickLen) * Math.sin(rad);
-            const x2 = CX + TICK_OUTER_R * Math.cos(rad);
-            const y2 = CY + TICK_OUTER_R * Math.sin(rad);
+            // Деления: от внешнего края внутрь
+            const x1 = CX + TICK_OUTER_R * Math.cos(rad);
+            const y1 = CY + TICK_OUTER_R * Math.sin(rad);
+            const x2 = CX + (TICK_OUTER_R - tickLen) * Math.cos(rad);
+            const y2 = CY + (TICK_OUTER_R - tickLen) * Math.sin(rad);
 
             const line = document.createElementNS(ns, 'line');
             line.setAttribute('x1', x1);
             line.setAttribute('y1', y1);
             line.setAttribute('x2', x2);
             line.setAttribute('y2', y2);
-            line.setAttribute('class', isMajor ? 'tick-major' : 'tick-minor');
-            // Вставляем перед телом ручки
-            svg.insertBefore(line, document.querySelector('.knob-glow'));
+            line.setAttribute('stroke', isMajor ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.18)');
+            line.setAttribute('stroke-width', isMajor ? '1.8' : '0.8');
+            line.setAttribute('stroke-linecap', 'round');
+            g.appendChild(line);
 
-            // Подписи для крупных делений
+            // Подписи для крупных делений — значения НАРУЖУ
             if (isMajor) {
-                const lx = CX + LABEL_R * Math.cos(rad);
-                const ly = CY + LABEL_R * Math.sin(rad);
+                const labelR = TICK_OUTER_R + 14; // outside the ticks
+                const lx = CX + labelR * Math.cos(rad);
+                const ly = CY + labelR * Math.sin(rad);
+
                 const text = document.createElementNS(ns, 'text');
                 text.setAttribute('x', lx);
                 text.setAttribute('y', ly);
-                text.setAttribute('class', 'tick-label');
+                text.setAttribute('fill', 'rgba(255,255,255,0.55)');
+                text.setAttribute('font-family', "'Courier New', monospace");
+                text.setAttribute('font-size', '11');
+                text.setAttribute('font-weight', '600');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('dominant-baseline', 'middle');
+
+                // Поворачиваем текст чтобы читался снаружи (радиально)
+                // Для левой полусферы (+90..+270° от начального угла) переворачиваем
+                const textAngle = angle;
+                // Если текст в нижней-левой части (135-315° нативных), он будет вверх ногами
+                // Поэтому переворачиваем на 180° для лучшей читаемости
+                if (textAngle > 180 && textAngle < 360) {
+                    text.setAttribute('transform',
+                        'rotate(' + (textAngle - 180) + ', ' + lx + ', ' + ly + ')');
+                } else {
+                    text.setAttribute('transform',
+                        'rotate(' + textAngle + ', ' + lx + ', ' + ly + ')');
+                }
+
                 const label = power >= 1000 ? (power / 1000) + 'k' : power.toString();
                 text.textContent = label;
-                svg.insertBefore(text, document.querySelector('.knob-glow'));
+                g.appendChild(text);
             }
         }
     }
 
-    // === Обновление положения ручки и дуги ===
+    // === Обновление положения ручки ===
     function updateKnob(power) {
         const clamped = Math.max(MIN_POWER, Math.min(MAX_POWER, power));
         const frac = (clamped - MIN_POWER) / (MAX_POWER - MIN_POWER);
-        const angle = START_ANGLE + frac * SWEEP_ANGLE; // текущий угол маркера
+        const angle = START_ANGLE + frac * SWEEP_ANGLE;
 
-        // Активная дуга: полная длина = 2 * PI * 95 ≈ 596.9, но для 270° = 449.47
-        // stroke-dashoffset = fullLen * (1 - frac)
-        const fullArcLen = 2 * Math.PI * TICK_OUTER_R * (SWEEP_ANGLE / 360);
-        const offset = fullArcLen * (1 - frac);
+        // Поворот группы указателя (белая линия)
+        const indicator = document.getElementById('indicatorGroup');
+        // Указатель нарисован на 0° (верх), нужно повернуть на angle
+        // Но 0° в SVG = верх, а START_ANGLE=135° = нижний левый
+        // Указатель должен быть на angle от 0° по часовой стрелке от верха
+        indicator.style.transformOrigin = CX + 'px ' + CY + 'px';
+        indicator.style.transform = 'rotate(' + angle + 'deg)';
+        indicator.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
 
-        const arcEl = document.getElementById('arcActive');
-        arcEl.style.strokeDashoffset = offset;
-
-        // Поворот маркера: угол от начального положения (верх)
-        // Маркер на SVG стоит на 0° (верх, cy=30). Поворачиваем на angle
-        const markerAngle = angle - 90; // -90 т.к. 0° маркера = верх (12 часов)
-        const marker = document.getElementById('knobMarker');
-        const glow = document.getElementById('knobGlow');
-        marker.style.transform = 'rotate(' + markerAngle + 'deg)';
-        glow.style.transform = 'rotate(' + markerAngle + 'deg)';
-
-        // Текст значения
-        document.getElementById('knobValueText').textContent = clamped;
-
-        // Цвет значения: зелёный при норме, оранжевый при высоком
+        // Цвет значения
         const valEl = document.getElementById('knobValueText');
         if (clamped >= 6000) {
-            valEl.style.fill = '#ff6600';
-            valEl.style.filter = 'drop-shadow(0 0 6px rgba(255,102,0,0.5))';
+            valEl.setAttribute('fill', '#ff6600');
+            valEl.setAttribute('filter', 'drop-shadow(0 0 6px rgba(255,102,0,0.5))');
         } else {
-            valEl.style.fill = '#00f0ff';
-            valEl.style.filter = 'drop-shadow(0 0 6px rgba(0,240,255,0.5))';
+            valEl.setAttribute('fill', '#00f0ff');
+            valEl.setAttribute('filter', 'drop-shadow(0 0 6px rgba(0,240,255,0.5))');
         }
+
+        // Обновляем текст
+        valEl.textContent = clamped;
     }
 
-    // === Публичная функция установки мощности ===
+    // === Публичная функция ===
     function setPower(power) {
         currentPower = power;
         updateKnob(currentPower);
-
-        // Подсветка активной кнопки
-        document.querySelectorAll('.test-btn').forEach(b => b.classList.remove('active'));
     }
 
     // === Инициализация ===
+    createKnurling();
     createTicks();
     setPower(3000);
+
+    // Для ручного теста в консоли браузера: setPower(5000)
 </script>
 
 </body>
