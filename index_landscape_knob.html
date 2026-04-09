@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuhloWar HUD</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="./js/lucide.js"></script>
+    <style>
+        /* === RESET & BASE === */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #060a12;
+            color: #c0c8d8;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+        }
+
+        /* === HUD GLOW COLORS === */
+        :root {
+            --neon-blue: #00f0ff;
+            --neon-green: #00ff88;
+            --neon-amber: #ff8c00;
+            --neon-red: #ff3355;
+            --neon-purple: #a855f7;
+            --neon-dim-blue: rgba(0, 240, 255, 0.15);
+            --neon-dim-green: rgba(0, 255, 136, 0.15);
+            --neon-dim-amber: rgba(255, 140, 0, 0.15);
+            --neon-dim-purple: rgba(168, 85, 247, 0.15);
+            --panel-bg: rgba(10, 18, 32, 0.85);
+            --panel-border: rgba(0, 240, 255, 0.22);
+            --grid-line: rgba(0, 240, 255, 0.04);
+        }
+
+        /* === BACKGROUND GRID === */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(ellipse at 50% 50%, rgba(0, 240, 255, 0.03) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* === LAYOUT === */
+        .hud-container {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-rows: 44px 1fr 36px;
+            grid-template-columns: 1fr;
+            width: 100%;
+            height: 100vh;
+            padding: 6px;
+            gap: 6px;
+        }
+
+        /* === HEADER === */
+        .hud-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 0 16px;
+            backdrop-filter: blur(8px);
+            position: relative;
+            overflow: hidden;
+        }
+        .hud-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .hud-logo-icon {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+        }
+        .hud-logo-text {
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--neon-blue);
+            letter-spacing: 0.15em;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+        }
+        .hud-status-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .hud-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #5a6577;
+        }
+        .hud-indicator.active { color: var(--neon-green); }
+        .hud-indicator.active .ind-dot { background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
+        .ind-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #2a3040;
+            transition: all 0.3s;
+        }
+        .ind-dot.pulse { animation: pulse 2s infinite; }
+
+        /* === SAVE TOAST === */
+        .save-toast {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,255,136,0.15);
+            border: 1px solid rgba(0,255,136,0.4);
+            color: var(--neon-green);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            padding: 4px 16px;
+            border-radius: 4px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            text-shadow: 0 0 6px rgba(0,255,136,0.3);
+        }
+        .save-toast.show { opacity: 1; }
+        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+        .net-badge {
+            width: 22px; height: 22px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid;
+        }
+        .net-badge.w { background: rgba(0,255,136,0.12); color: var(--neon-green); border-color: rgba(0,255,136,0.3); }
+        .net-badge.a { background: rgba(255,140,0,0.12); color: var(--neon-amber); border-color: rgba(255,140,0,0.3); }
+        .net-badge.c { background: rgba(0,240,255,0.12); color: var(--neon-blue); border-color: rgba(0,240,255,0.3); }
+        .net-badge.x { background: rgba(90,101,119,0.12); color: #5a6577; border-color: rgba(90,101,119,0.3); }
+
+        .hud-header-btn {
+            width: 30px; height: 30px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 5px;
+            color: #5a6577;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .hud-header-btn:hover {
+            background: rgba(0,240,255,0.1);
+            border-color: rgba(0,240,255,0.3);
+            color: var(--neon-blue);
+        }
+
+        /* === MAIN AREA === */
+        .hud-main {
+            width: 100%;
+            min-width: 0;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        /* === PANELS === */
+        .hud-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .hud-panel-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--neon-blue);
+            padding: 8px 12px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* === TEMPERATURES PANEL (left) === */
+        .temps-panel { grid-row: 1 / 3; min-width: 0; }
+        .temp-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            transition: background 0.2s;
+        }
+        .temp-item:hover { background: rgba(255,255,255,0.02); }
+        .temp-label {
+            font-size: 10px;
+            color: #8a95a8;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+        .temp-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .temp-unit { font-size: 11px; color: #4a5568; margin-left: 2px; }
+        .temp-tsa { color: var(--neon-amber); text-shadow: 0 0 8px rgba(255,140,0,0.3); }
+        .temp-tsar { color: var(--neon-green); text-shadow: 0 0 8px rgba(0,255,136,0.3); }
+        .temp-tank { color: var(--neon-purple); text-shadow: 0 0 8px rgba(168,85,247,0.3); }
+        .temp-aqua { color: var(--neon-blue); text-shadow: 0 0 8px rgba(0,240,255,0.3); }
+        .temp-limit {
+            font-size: 9px;
+            color: #5a6577;
+            margin-top: 1px;
+        }
+        .temp-alarm {
+            color: var(--neon-red) !important;
+            text-shadow: 0 0 12px rgba(255,51,85,0.5) !important;
+            animation: alarm-pulse 1s infinite;
+        }
+        @keyframes alarm-pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+        /* === GAUGE CENTER === */
+        .gauge-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            grid-row: 1 / 3;
+            min-width: 0;
+        }
+        .gauge-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+        }
+        #gaugeCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        .gauge-center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .gauge-time {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 12px rgba(0,240,255,0.2);
+        }
+        .gauge-stage {
+            font-size: 11px;
+            color: var(--neon-blue);
+            letter-spacing: 0.15em;
+            margin-top: 2px;
+        }
+        .gauge-process {
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            margin-top: 4px;
+            padding: 2px 10px;
+            border-radius: 3px;
+            font-weight: 700;
+        }
+        .gauge-process.dist { background: var(--neon-dim-amber); color: var(--neon-amber); }
+        .gauge-process.rect { background: var(--neon-dim-blue); color: var(--neon-blue); }
+        .gauge-process.idle { background: rgba(90,101,119,0.15); color: #5a6577; }
+
+        .gauge-status-bar {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 10px;
+        }
+        .status-tag {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 10px;
+        }
+        .status-tag.normal { background: rgba(0,255,136,0.12); color: var(--neon-green); }
+        .status-tag.warn { background: rgba(255,140,0,0.12); color: var(--neon-amber); }
+        .status-tag.alarm { background: rgba(255,51,85,0.15); color: var(--neon-red); animation: alarm-pulse 1s infinite; }
+        .status-counter {
+            color: #5a6577;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* === RIGHT COLUMN WRAPPER === */
+        .monitor-right-col {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+            overflow: hidden;
+        }
+        /* === BAROMETER (right) === */
+        .baro-panel { flex: 1; min-width: 0; }
+        .baro-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+        }
+        .baro-tube-wrap {
+            width: 20px;
+            height: 100%;
+            max-height: 200px;
+            background: #0a0f1a;
+            border: 1px solid rgba(0,240,255,0.1);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        .baro-mercury {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, #005f6b, var(--neon-blue), #67e8f9);
+            transition: height 1.2s ease-out;
+            box-shadow: 0 0 12px rgba(0,240,255,0.4);
+            height: 0%;
+        }
+        .baro-tube-marks {
+            position: absolute;
+            top: 0; bottom: 0; right: 2px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2px 0;
+            pointer-events: none;
+        }
+        .baro-mark { width: 4px; height: 1px; background: #2a3548; }
+        .baro-mark.major { width: 8px; background: #3a4a60; }
+        .baro-values {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .baro-val {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--neon-blue);
+            text-shadow: 0 0 8px rgba(0,240,255,0.3);
+        }
+        .baro-unit { font-size: 8px; color: #3a4a60; letter-spacing: 0.1em; }
+        .baro-range { font-size: 9px; color: #2a3548; }
+        .baro-corr {
+            font-size: 12px;
+            color: var(--neon-amber);
+            font-weight: 600;
+        }
+
+        /* === SYSTEM INFO (right bottom) === */
+        .sys-panel { flex: 0 0 auto; min-width: 0; }
+        .sys-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            flex: 1;
+        }
+        .sys-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 4px;
+            background: rgba(255,255,255,0.01);
+        }
+        .sys-label {
+            font-size: 8px;
+            color: #6a7588;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .sys-val {
+            font-size: 16px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #8a95a8;
+        }
+        .sys-val.on { color: var(--neon-green); text-shadow: 0 0 6px rgba(0,255,136,0.3); }
+
+        /* === BOTTOM CALCULATIONS ROW === */
+        .calc-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .calc-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            backdrop-filter: blur(8px);
+        }
+        .calc-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--neon-blue);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .calc-title.heads { color: var(--neon-amber); }
+        .calc-title.body { color: var(--neon-green); }
+        .calc-title.refs { color: var(--neon-purple); }
+
+        .calc-row-data {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 2px 0;
+        }
+        .calc-row-data .label { color: #8a95a8; font-size: 10px; }
+        .calc-row-data .value { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .calc-row-data .value.amber { color: var(--neon-amber); }
+        .calc-row-data .value.green { color: var(--neon-green); }
+        .calc-row-data .value.blue { color: var(--neon-blue); }
+        .calc-row-data .value.purple { color: var(--neon-purple); }
+
+        .corr-btns {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .corr-btn {
+            width: 18px; height: 18px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 3px;
+            color: var(--neon-blue);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .corr-btn:hover { background: rgba(0,240,255,0.1); border-color: rgba(0,240,255,0.3); }
+
+        /* === BOTTOM NAV === */
+        .hud-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .nav-btn {
+            padding: 6px 18px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            color: #5a6577;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .nav-btn:hover {
+            background: rgba(0,240,255,0.08);
+            border-color: rgba(0,240,255,0.3);
+            color: var(--neon-blue);
+        }
+        .nav-btn.active {
+            background: rgba(0,240,255,0.1);
+            border-color: rgba(0,240,255,0.4);
+            color: var(--neon-blue);
+            box-shadow: 0 0 10px rgba(0,240,255,0.1);
+        }
+        .nav-btn.start {
+            background: rgba(0,255,136,0.1);
+            border-color: rgba(0,255,136,0.3);
+            color: var(--neon-green);
+        }
+        .nav-btn.start:hover {
+            background: rgba(0,255,136,0.2);
+            border-color: rgba(0,255,136,0.5);
+        }
+        .nav-btn.stop {
+            background: rgba(255,51,85,0.1);
+            border-color: rgba(255,51,85,0.3);
+            color: var(--neon-red);
+        }
+        .nav-btn.stop:hover {
+            background: rgba(255,51,85,0.2);
+            border-color: rgba(255,51,85,0.5);
+        }
+
+        /* === SECONDARY PAGES === */
+        .page-secondary {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            width: 100%;
+            min-width: 540px;
+        }
+        .page-secondary.active { display: block; }
+        .page-monitoring {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) minmax(220px, 2.5fr) minmax(120px, 1fr);
+            grid-template-rows: 1fr 1fr auto;
+            gap: 6px;
+            width: 100%;
+            min-width: 540px;
+        }
+        /* Bottom calc row spans full width in row 3 */
+        .monitor-bottom-row {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            min-width: 400px;
+        }
+
+        .page-inner {
+            padding: 12px;
+        }
+        .page-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--neon-blue);
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        /* Settings rows for secondary pages */
+        .s-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .s-row label {
+            font-size: 10px;
+            color: #a0a8b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+        .s-inputs {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .s-inputs button {
+            width: 22px; height: 22px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 3px;
+            color: var(--neon-blue);
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .s-inputs button:hover { background: rgba(0,240,255,0.1); }
+        .s-inputs span {
+            min-width: 40px;
+            text-align: center;
+            color: var(--neon-blue);
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .bool-toggle {
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid;
+            letter-spacing: 0.05em;
+        }
+        .bool-toggle.on { background: rgba(0,255,136,0.12); border-color: rgba(0,255,136,0.3); color: var(--neon-green); }
+        .bool-toggle.off { background: rgba(90,101,119,0.1); border-color: rgba(90,101,119,0.2); color: #5a6577; }
+
+        .save-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 12px;
+            background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.3);
+            border-radius: 5px;
+            color: var(--neon-blue);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .save-btn:hover { background: rgba(0,240,255,0.2); }
+
+        /* === ACTION BUTTONS (same size as save-btn, different colors) === */
+        .action-btn {
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            cursor: pointer;
+            font-family: inherit;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .action-btn.amber  { background: rgba(255,140,0,0.1);  border-color: rgba(255,140,0,0.3);  color: var(--neon-amber); }
+        .action-btn.amber:hover  { background: rgba(255,140,0,0.2); }
+        .action-btn.green  { background: rgba(0,255,136,0.1);  border-color: rgba(0,255,136,0.3);  color: var(--neon-green); }
+        .action-btn.green:hover  { background: rgba(0,255,136,0.2); }
+        .action-btn.blue   { background: rgba(0,240,255,0.1);  border-color: rgba(0,240,255,0.3);  color: var(--neon-blue); }
+        .action-btn.blue:hover   { background: rgba(0,240,255,0.2); }
+        .action-btn.purple { background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3); color: var(--neon-purple); }
+        .action-btn.purple:hover { background: rgba(168,85,247,0.2); }
+
+        .action-btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        /* === ENGINEERING MENU === */
+        .eng-section { margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,140,0,0.1); }
+        .eng-section:first-child { margin-top:8px; border-top:none; }
+        .eng-section-title { font-size:9px; color:rgba(255,140,0,0.6); letter-spacing:0.15em; margin-bottom:6px; }
+        .eng-unit { font-size:8px; color:#3a4558; letter-spacing:0.05em; }
+        #eng-menu-panel .s-row label { font-size:10px; color:#6a7588; }
+        #eng-menu-panel .s-inputs span { font-size:13px; color:var(--neon-amber); font-weight:600; min-width:50px; }
+        #eng-menu-panel .s-inputs button { font-size:14px; color:#4a5568; background:none; border:1px solid rgba(255,255,255,0.08); width:28px; height:28px; border-radius:4px; cursor:pointer; font-family:inherit; }
+        #eng-menu-panel .s-inputs button:hover { border-color:rgba(255,140,0,0.3); color:var(--neon-amber); }
+
+        /* === SCROLLBAR === */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.15); border-radius: 2px; }
+
+        /* === SCANLINE EFFECT === */
+        .scanline {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0,240,255,0.06), transparent);
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+            z-index: 9998;
+        }
+        @keyframes scanline { 0%{top:0;} 100%{top:100vh;} }
+
+        /* === DIALOG PANELS === */
+        .dialog-panel { position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;display:none;align-items:center;justify-content:center; }
+        .dialog-backdrop { position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px); }
+        .dialog-content { position:relative;z-index:1;background:var(--panel-bg);border:1px solid var(--neon-amber);padding:24px;border-radius:8px;width:90%;max-width:420px;box-shadow:0 0 40px rgba(255,140,0,0.1);text-align:center;backdrop-filter:blur(12px); }
+        .dialog-content h3 { font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;letter-spacing:0.1em; }
+        .dialog-content p { font-size:12px;color:#8a95a8;margin-bottom:16px;line-height:1.5; }
+        .dialog-content input[type="text"],.dialog-content input[type="number"] { width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:var(--neon-blue);font-size:14px;padding:10px;text-align:center;font-family:inherit;margin-bottom:12px; }
+        .dialog-content input:focus { outline:none;border-color:rgba(0,240,255,0.4); }
+        .dialog-btn { padding:10px 24px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid;font-family:inherit;letter-spacing:0.08em;transition:all 0.2s; }
+        .dialog-btn:hover { filter:brightness(1.2); }
+        .dialog-btn-green { background:rgba(0,255,136,0.12);border-color:rgba(0,255,136,0.4);color:var(--neon-green); }
+        .dialog-btn-red { background:rgba(255,51,85,0.12);border-color:rgba(255,51,85,0.4);color:var(--neon-red); }
+        .dialog-btn-gray { background:rgba(90,101,119,0.12);border-color:rgba(90,101,119,0.3);color:#5a6577; }
+        .dialog-btn-blue { background:rgba(0,240,255,0.12);border-color:rgba(0,240,255,0.4);color:var(--neon-blue); }
+        .dialog-btn-purple { background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.4);color:var(--neon-purple); }
+        .dialog-close { position:absolute;top:10px;right:14px;color:#4a5568;cursor:pointer;font-size:16px;transition:color 0.2s; }
+        .dialog-close:hover { color:#fff; }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    <div class="hud-container">
+
+        <!-- ===== HEADER ===== -->
+        <header class="hud-header">
+            <div class="hud-logo">
+                <div class="hud-logo-icon">
+                    <i data-lucide="cpu" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <span class="hud-logo-text">BUHLOWAR</span>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div class="ind-dot pulse" id="esp32-status" style="background:var(--neon-green);box-shadow:0 0 6px var(--neon-green);"></div>
+                    <span style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">API</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div id="internet-dot" class="ind-dot" style="background:var(--neon-red);box-shadow:0 0 6px var(--neon-red);"></div>
+                    <span style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">INET</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                    <div id="network-mode-badge" class="net-badge w">W</div>
+                    <span id="conn-mode-label" style="font-size:7px;color:#5a6577;letter-spacing:0.05em;">LOK</span>
+                </div>
+                <span id="save-toast" class="save-toast">СОХРАНЕНО</span>
+            </div>
+            <div class="hud-status-group">
+                <div class="hud-indicator" id="ind-heater"><div class="ind-dot" id="dot-heater"></div><span>НАГРЕВ</span></div>
+                <div class="hud-indicator" id="ind-mixer"><div class="ind-dot" id="dot-mixer"></div><span>МЕШАЛКА</span></div>
+                <div class="hud-indicator" id="ind-water"><div class="ind-dot" id="dot-water"></div><span>ВОДА</span></div>
+            </div>
+        </header>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <main class="hud-main" id="hud-main">
+
+            <!-- PAGE: MONITORING (default) -->
+            <div class="page-monitoring" id="page-monitoring">
+
+                <!-- LEFT: TEMPERATURES -->
+                <div class="hud-panel temps-panel">
+                    <div class="hud-panel-title" style="color:var(--neon-amber);">Температуры</div>
+                    <div class="temp-item">
+                        <div>
+                            <div class="temp-label">TSA</div>
+                            <div class="temp-limit" id="desc-tsa-hud">Лимит <span id="tsa-limit-val">92</span>°</div>
+                        </div>
+                        <div class="temp-value temp-tsa" id="val-tsa-hud">--<span class="temp-unit">°</span></div>
+                    </div>
+                    <div class="temp-item">
+                        <div>
+                            <div class="temp-label">ЦАРГА</div>
+                        </div>
+                        <div class="temp-value temp-tsar" id="val-tsar-hud">--<span class="temp-unit">°</span></div>
+                    </div>
+                    <div class="temp-item">
+                        <div>
+                            <div class="temp-label">БАК</div>
+                            <div class="temp-limit" id="desc-tank-hud">Стоп <span id="bak-stop-val">99</span>°</div>
+                        </div>
+                        <div class="temp-value temp-tank" id="val-tank-hud">--<span class="temp-unit">°</span></div>
+                    </div>
+                    <div class="temp-item">
+                        <div>
+                            <div class="temp-label">ВОДА</div>
+                        </div>
+                        <div class="temp-value temp-aqua" id="val-aqua-hud">--<span class="temp-unit">°</span></div>
+                    </div>
+                    <!-- Power Knob (потенциометр) -->
+                    <div id="power-knob-container"></div>
+                    <!-- Power / Box / Humidity -->
+                    <div style="margin-top:auto;border-top:1px solid rgba(255,255,255,0.03);padding:10px 12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span class="temp-label">МОЩН</span>
+                            <span style="color:var(--neon-green);font-weight:700;font-size:14px;" id="power-val-hud">3000W</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span class="temp-label">BOX C</span>
+                            <span style="color:var(--neon-amber);font-weight:600;font-size:12px;"><span id="box-temp-hud">--</span>/<span id="box-max-hud">60</span>°</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="temp-label">ВЛАЖН</span>
+                            <span style="color:var(--neon-blue);font-weight:600;font-size:12px;" id="humidity-hud">--%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTER: GAUGE -->
+                <div class="hud-panel gauge-panel">
+                    <div class="gauge-wrapper">
+                        <canvas id="gaugeCanvas" width="400" height="400"></canvas>
+                        <div class="gauge-center-info">
+                            <div class="gauge-time" id="center-time-val">00:00</div>
+                            <div class="gauge-stage" id="mon-stage">IDLE</div>
+                            <div class="gauge-process idle" id="mon-proc-badge">ОЖИДАНИЕ</div>
+                        </div>
+                    </div>
+                    <div class="gauge-status-bar">
+                        <div class="status-tag normal" id="mon-sys-status">НОРМА</div>
+                        <span class="status-counter" id="mon-counter">00:00</span>
+                        <span class="status-counter" id="mon-method" style="color:var(--neon-purple);"></span>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: BAROMETER + SYSTEM -->
+                <div class="monitor-right-col">
+                <!-- RIGHT TOP: BAROMETER -->
+                <div class="hud-panel baro-panel">
+                    <div class="hud-panel-title" style="color:var(--neon-blue);">Атмосфера</div>
+                    <div class="baro-body">
+                        <div style="text-align:center;">
+                            <div class="baro-range">790</div>
+                            <div class="baro-tube-wrap" style="height:160px;">
+                                <div class="baro-mercury" id="baro-mercury"></div>
+                                <div class="baro-tube-marks">
+                                    <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                    <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                    <div class="baro-mark major"></div><div class="baro-mark"></div><div class="baro-mark"></div>
+                                    <div class="baro-mark major"></div><div class="baro-mark"></div>
+                                </div>
+                            </div>
+                            <div class="baro-range">720</div>
+                        </div>
+                        <div class="baro-values">
+                            <div class="baro-val" id="press-val-hud">760</div>
+                            <div class="baro-unit">мм.рт.ст</div>
+                            <div class="baro-corr" id="press-corr-hud">+0.00°</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT BOTTOM: SYSTEM -->
+                <div class="hud-panel sys-panel">
+                    <div class="hud-panel-title" style="color:var(--neon-green);">Система</div>
+                    <div class="sys-grid">
+                        <div class="sys-item">
+                            <span class="sys-label">КРЕП.КУБ</span>
+                            <span class="sys-val" id="mon-abv-tank">--%</span>
+                        </div>
+                        <div class="sys-item">
+                            <span class="sys-label">ОТБОР</span>
+                            <span class="sys-val" id="mon-abv-out">--%</span>
+                        </div>
+                        <div class="sys-item">
+                            <span class="sys-label">REF TSAR</span>
+                            <span class="sys-val" id="mon-ref-tsar" style="color:var(--neon-amber);">--</span>
+                        </div>
+                        <div class="sys-item">
+                            <span class="sys-label">REF АД</span>
+                            <span class="sys-val" id="mon-ref-press" style="color:var(--neon-blue);">--</span>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /monitor-right-col -->
+
+                <!-- BOTTOM: CALCULATIONS (3 columns spanning full width) -->
+                <div class="monitor-bottom-row">
+                    <!-- HEADS -->
+                    <div class="calc-panel">
+                        <div class="calc-title heads">Головы</div>
+                        <div class="calc-row-data">
+                            <span class="label">ОБЪЁМ</span>
+                            <span class="value amber"><span id="mon-head-total">--</span>/<span id="mon-head-done" class="green">--</span> мл</span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">СКОРОСТЬ</span>
+                            <span class="value green"><span id="mon-head-speed-calc">--</span>/<span id="mon-head-speed-real">--</span> мл/ч</span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">МЕТОД / ПОДЭТ</span>
+                            <span class="value amber"><span id="mon-head-method">--</span> / <span id="mon-head-substage">--</span></span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">ПОДЭТ. ОБЪЁМ</span>
+                            <span class="value blue"><span id="mon-head-vol-target">--</span>/<span id="mon-head-vol" class="green">--</span> мл</span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">ОСТАТОК</span>
+                            <span class="value blue"><span id="mon-head-remain">--:--</span></span>
+                        </div>
+                    </div>
+                    <!-- BODY -->
+                    <div class="calc-panel">
+                        <div class="calc-title body">Тело</div>
+                        <div class="calc-row-data">
+                            <span class="label">ОБЪЁМ</span>
+                            <span class="value amber"><span id="mon-body-total">--</span>/<span id="mon-body-done" class="green">--</span> мл</span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">СКОРОСТЬ</span>
+                            <span class="value green"><span id="mon-body-speed-calc">--</span>/<span id="mon-body-speed-real">--</span> мл/ч</span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">МЕТОД / ЦИКЛ</span>
+                            <span class="value green"><span id="mon-body-method">--</span> / <span id="mon-body-cycle">--</span></span>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">ОСТАТОК</span>
+                            <span class="value blue"><span id="mon-body-remain">--:--</span></span>
+                        </div>
+                    </div>
+                    <!-- CORRECTIONS -->
+                    <div class="calc-panel">
+                        <div class="calc-title refs">Коррекция</div>
+                        <div class="calc-row-data">
+                            <span class="label">ГОЛОВЫ %</span>
+                            <div class="corr-btns">
+                                <button class="corr-btn" onclick="adjCfg('speedHeadCorr',-1)">-</button>
+                                <span class="value blue" id="cfg-speedHeadCorr">100</span>
+                                <button class="corr-btn" onclick="adjCfg('speedHeadCorr',1)">+</button>
+                            </div>
+                        </div>
+                        <div class="calc-row-data">
+                            <span class="label">ТЕЛО %</span>
+                            <div class="corr-btns">
+                                <button class="corr-btn" onclick="adjCfg('speedBodyCorr',-1)">-</button>
+                                <span class="value green" id="cfg-speedBodyCorr">100</span>
+                                <button class="corr-btn" onclick="adjCfg('speedBodyCorr',1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: DISTILLATION -->
+            <div class="page-secondary" id="page-distillation">
+                <div class="page-inner">
+                    <div class="page-title">Дистилляция</div>
+                    <div class="hud-panel" style="padding:14px;margin-bottom:10px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <div class="calc-row-data"><span class="label">ТСА</span><span class="value" style="color:var(--neon-amber);" id="dist-tsa">--</span></div>
+                                <div class="calc-row-data"><span class="label">ВОДА</span><span class="value" style="color:var(--neon-blue);" id="dist-aqua">--</span></div>
+                                <div class="calc-row-data"><span class="label">ЦАРГ</span><span class="value" style="color:var(--neon-green);" id="dist-tsar">--</span></div>
+                                <div class="calc-row-data"><span class="label">БАК</span><span class="value" style="color:var(--neon-purple);" id="dist-tank">--</span></div>
+                            </div>
+                            <div>
+                                <div class="calc-row-data"><span class="label">ЭТАП</span><span class="value amber" id="dist-stage">--</span></div>
+                                <div class="calc-row-data"><span class="label">КУБ %</span><span class="value green" id="dist-str-bak">--</span></div>
+                                <div class="calc-row-data"><span class="label">ОТБОР %</span><span class="value green" id="dist-str-out">--</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hud-panel" style="padding:14px;">
+                        <div class="calc-title" style="color:var(--neon-blue);">Настройки</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 16px;">
+                            <div>
+                                <div class="s-row"><label>РАЗГОН ДО</label><div class="s-inputs"><button onclick="adjCfg('razgonTemp',-1)">-</button><span id="cfg-razgonTemp">78</span><button onclick="adjCfg('razgonTemp',1)">+</button></div></div>
+                                <div class="s-row"><label>БАКСТОП</label><div class="s-inputs"><button onclick="adjCfg('bakStopTemp',-1)">-</button><span id="cfg-bakStopTemp">99</span><button onclick="adjCfg('bakStopTemp',1)">+</button></div></div>
+                                <div class="s-row"><label>СМЕНА ТАРЫ КУБ</label><div class="s-inputs"><button onclick="adjCfg('midterm',-1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm',1)">+</button></div></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>СМЕНА ТАРЫ ОТБОР</label><div class="s-inputs"><button onclick="adjCfg('midterm_abv',-1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv',1)">+</button></div></div>
+                                <div class="s-row"><label>ТИП НАГРЕВА</label><button id="btn-heaterType" onclick="toggleCfg('heaterType')" class="bool-toggle off">TEN</button></div>
+                                <div class="s-row"><label>РАЗГОН НА ВСЮ</label><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-toggle off">NO</button></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>ИСП.КЛ.ОТБОРА</label><button id="btn-valveuse" onclick="toggleCfg('valveuse')" class="bool-toggle off">NO</button></div>
+                                <div class="s-row"><label>МЕШАЛКА</label><button id="btn-mixerEnabled" onclick="toggleCfg('mixerEnabled')" class="bool-toggle off">NO</button></div>
+                                <div class="s-row"><label>МЕШАЛКА ВКЛ (s)</label><div class="s-inputs"><button onclick="adjCfg('mixerOnTime',-5)">-</button><span id="cfg-mixerOnTime">30</span><button onclick="adjCfg('mixerOnTime',5)">+</button></div></div>
+                                <div class="s-row"><label>МЕШАЛКА ВЫКЛ (s)</label><div class="s-inputs"><button onclick="adjCfg('mixerOffTime',-5)">-</button><span id="cfg-mixerOffTime">1</span><button onclick="adjCfg('mixerOffTime',5)">+</button></div></div>
+                            </div>
+                        <button class="save-btn" onclick="saveSettings('dist')">СОХРАНИТЬ</button>
+                    </div>
+                </div>
+            </div>
+            </div><!-- /page-distillation -->
+
+            <!-- PAGE: RECTIFICATION -->
+            <div class="page-secondary" id="page-rectification">
+                <div class="page-inner">
+                    <div class="page-title">Ректификация</div>
+                    <div class="hud-panel" style="padding:14px;margin-bottom:10px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <div class="calc-row-data"><span class="label">ТСА</span><span class="value" style="color:var(--neon-amber);" id="rect-tsa">--</span></div>
+                                <div class="calc-row-data"><span class="label">ВОДА</span><span class="value" style="color:var(--neon-blue);" id="rect-aqua">--</span></div>
+                                <div class="calc-row-data"><span class="label">ЦАРГ</span><span class="value" style="color:var(--neon-green);" id="rect-tsar">--</span></div>
+                                <div class="calc-row-data"><span class="label">БАК</span><span class="value" style="color:var(--neon-purple);" id="rect-tank">--</span></div>
+                            </div>
+                            <div>
+                                <div class="calc-row-data"><span class="label">ЭТАП</span><span class="value amber" id="rect-stage">--</span></div>
+                                <div id="rect-golovy-info" style="display:none;">
+                                    <div class="calc-row-data"><span class="label">МЕТОД</span><span class="value purple" id="rect-method">--</span></div>
+                                    <div class="calc-row-data"><span class="label">СТАДИЯ</span><span class="value" id="rect-substage" style="color:#8a95a8;">--</span></div>
+                                    <div class="calc-row-data"><span class="label">ОСТАТОК</span><span class="value green" id="rect-remain">--</span></div>
+                                    <div class="calc-row-data"><span class="label">ОБЪЁМ</span><span class="value blue" id="rect-vol">--</span></div>
+                                </div>
+                                <div id="rect-telo-info" style="display:none;">
+                                    <div class="calc-row-data"><span class="label">МЕТОД</span><span class="value purple" id="body-method">--</span></div>
+                                    <div class="calc-row-data"><span class="label">СКОРОСТЬ</span><span class="value green" id="body-speed">--</span></div>
+                                    <div class="calc-row-data"><span class="label">ЦИКЛ</span><span class="value" id="body-cycle" style="color:#8a95a8;">--</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hud-panel" style="padding:14px;">
+                        <div class="calc-title" style="color:var(--neon-blue);">Настройки</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 16px;">
+                            <div>
+                                <div class="s-row"><label>TSA ЛИМИТ</label><div class="s-inputs"><button onclick="adjCfg('tsaLimit',-1)">-</button><span id="cfg-tsaLimit">92</span><button onclick="adjCfg('tsaLimit',1)">+</button></div></div>
+                                <div class="s-row"><label>РАЗГОН ДО</label><div class="s-inputs"><button onclick="adjCfg('razgonTemp',-1)">-</button><span id="cfg-razgonTemp_rect">78</span><button onclick="adjCfg('razgonTemp',1)">+</button></div></div>
+                                <div class="s-row"><label>ЦИКЛЫ</label><div class="s-inputs"><button onclick="adjCfg('cycleLim',-1)">-</button><span id="cfg-cycleLim">1</span><button onclick="adjCfg('cycleLim',1)">+</button></div></div>
+                                <div class="s-row"><label>ГИСТЕРЕЗИС</label><div class="s-inputs"><button onclick="adjCfg('histeresis',-0.06)">-</button><span id="cfg-histeresis">0.24</span><button onclick="adjCfg('histeresis',0.06)">+</button></div></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>ДЕЛЬТА</label><div class="s-inputs"><button onclick="adjCfg('delta',-0.06)">-</button><span id="cfg-delta">0.12</span><button onclick="adjCfg('delta',0.06)">+</button></div></div>
+                                <div class="s-row"><label>ТИП НАГРЕВА</label><button id="btn-heaterType_rect" onclick="toggleCfg('heaterType')" class="bool-toggle off">TEN</button></div>
+                                <div class="s-row"><label>ИСП.КЛ.ГОЛОВ</label><button id="btn-useHeadValve" onclick="toggleCfg('useHeadValve')" class="bool-toggle off">NO</button></div>
+                                <div class="s-row"><label>ТИП.КЛ.ТЕЛО</label><button id="btn-bodyValveNC" onclick="toggleCfg('bodyValveNC')" class="bool-toggle off">NO</button></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>МЕТОД ГОЛОВ</label><button id="btn-headsTypeKSS" onclick="toggleCfg('headsTypeKSS')" class="bool-toggle off">ST</button></div>
+                                <div class="s-row"><label>КАЛИБРОВКА</label><button id="btn-calibration" onclick="toggleCfg('calibration')" class="bool-toggle off">NO</button></div>
+                            </div>
+                        </div>
+                        <button class="save-btn" onclick="saveSettings('rect')">СОХРАНИТЬ</button>
+                    </div>
+
+                    <!-- VALVE CALIBRATION BLOCK -->
+                    <div class="hud-panel" style="padding:14px;margin-top:10px;">
+                        <div class="calc-title" style="color:var(--neon-green);">Калибровка клапанов</div>
+                        <div class="s-row"><label>minOpenTime (мс)</label><div class="s-inputs"><button onclick="adjCfg('minOpenTime',-10)">-</button><span id="cfg-minOpenTime">100</span><button onclick="adjCfg('minOpenTime',10)">+</button></div></div>
+                        <p style="font-size:10px;color:#3a4a60;margin:4px 0 10px;">Минимальное время открытия клапана (для всех). По умолчанию: 100 мс</p>
+
+                        <!-- Valve HEADS -->
+                        <div style="background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.1);border-radius:4px;padding:10px;margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <span style="font-weight:700;color:var(--neon-blue);font-size:12px;">ГОЛОВЫ</span>
+                                <span id="valve-head-date" style="font-size:10px;color:#4a5568;">не калибровался</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <span style="font-size:10px;color:#4a5568;">Capacity:</span>
+                                    <span id="cfg-valve_head_capacity" style="color:#fff;font-weight:700;margin-left:4px;">--</span>
+                                    <span style="font-size:10px;color:#4a5568;margin-left:4px;">мл/мин</span>
+                                </div>
+                                <button onclick="startCalibration('heads')" style="padding:4px 12px;border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.3);color:var(--neon-blue);font-family:inherit;">Калибровать</button>
+                            </div>
+                        </div>
+
+                        <!-- Valve BODY NC -->
+                        <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:4px;padding:10px;margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <span style="font-weight:700;color:var(--neon-green);font-size:12px;">ТЕЛО NC (НЗ)</span>
+                                <span id="valve-body-nc-date" style="font-size:10px;color:#4a5568;">не калибровался</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <span style="font-size:10px;color:#4a5568;">Capacity:</span>
+                                    <span id="cfg-valve_body_capacity" style="color:#fff;font-weight:700;margin-left:4px;">--</span>
+                                    <span style="font-size:10px;color:#4a5568;margin-left:4px;">мл/мин</span>
+                                </div>
+                                <button onclick="startCalibration('body_nc')" style="padding:4px 12px;border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:var(--neon-green);font-family:inherit;">Калибровать</button>
+                            </div>
+                        </div>
+
+                        <!-- Valve BODY NO -->
+                        <div style="background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.1);border-radius:4px;padding:10px;margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <span style="font-weight:700;color:var(--neon-purple);font-size:12px;">ТЕЛО NO (НО)</span>
+                                <span id="valve-body-no-date" style="font-size:10px;color:#4a5568;">не калибровался</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <span style="font-size:10px;color:#4a5568;">Capacity:</span>
+                                    <span id="cfg-valve0_body_capacity" style="color:#fff;font-weight:700;margin-left:4px;">--</span>
+                                    <span style="font-size:10px;color:#4a5568;margin-left:4px;">мл/мин</span>
+                                </div>
+                                <button onclick="startCalibration('body_no')" style="padding:4px 12px;border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);color:var(--neon-purple);font-family:inherit;">Калибровать</button>
+                            </div>
+                        </div>
+
+                        <!-- VALVE_CAL indicator -->
+                        <div id="process-indicator" style="background:rgba(0,240,255,0.06);border:1px solid rgba(0,240,255,0.2);border-radius:4px;padding:10px;display:none;margin-top:10px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span style="color:var(--neon-blue);font-size:12px;">Этап калибровки:</span>
+                                <span style="color:#fff;font-weight:700;">VALVE CAL</span>
+                            </div>
+                            <p style="font-size:10px;color:#4a5568;margin-top:4px;">После калибровки нажмите "ЗАВЕРШИТЬ"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: SENSORS -->
+            <div class="page-secondary" id="page-sensors">
+                <div class="page-inner">
+                    <div class="page-title">Датчики</div>
+                    <p style="font-size:11px;color:#4a5568;margin-bottom:12px;">Нажмите датчик и нагрейте его на 5°C для автоопределения</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                        <button onclick="startSensorCalib('TSA')" class="hud-panel" style="padding:14px;cursor:pointer;text-align:center;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(255,140,0,0.4)'" onmouseout="this.style.borderColor='rgba(0,240,255,0.12)'">
+                            <div style="font-weight:700;color:var(--neon-amber);font-size:13px;">TSA</div>
+                            <div style="color:var(--neon-amber);font-size:16px;font-weight:700;margin:6px 0;" id="sensor-tsa-temp">--°C</div>
+                            <div style="font-size:10px;color:#4a5568;" id="sensor-tsa-status">--</div>
+                        </button>
+                        <button onclick="startSensorCalib('AQUA')" class="hud-panel" style="padding:14px;cursor:pointer;text-align:center;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,240,255,0.4)'" onmouseout="this.style.borderColor='rgba(0,240,255,0.12)'">
+                            <div style="font-weight:700;color:var(--neon-blue);font-size:13px;">AQUA</div>
+                            <div style="color:var(--neon-blue);font-size:16px;font-weight:700;margin:6px 0;" id="sensor-aqua-temp">--°C</div>
+                            <div style="font-size:10px;color:#4a5568;" id="sensor-aqua-status">--</div>
+                        </button>
+                        <button onclick="startSensorCalib('TSAR')" class="hud-panel" style="padding:14px;cursor:pointer;text-align:center;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.4)'" onmouseout="this.style.borderColor='rgba(0,240,255,0.12)'">
+                            <div style="font-weight:700;color:var(--neon-green);font-size:13px;">TSAR</div>
+                            <div style="color:var(--neon-green);font-size:16px;font-weight:700;margin:6px 0;" id="sensor-tsar-temp">--°C</div>
+                            <div style="font-size:10px;color:#4a5568;" id="sensor-tsar-status">--</div>
+                        </button>
+                        <button onclick="startSensorCalib('TANK')" class="hud-panel" style="padding:14px;cursor:pointer;text-align:center;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(168,85,247,0.4)'" onmouseout="this.style.borderColor='rgba(0,240,255,0.12)'">
+                            <div style="font-weight:700;color:var(--neon-purple);font-size:13px;">TANK</div>
+                            <div style="color:var(--neon-purple);font-size:16px;font-weight:700;margin:6px 0;" id="sensor-tank-temp">--°C</div>
+                            <div style="font-size:10px;color:#4a5568;" id="sensor-tank-status">--</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: SETTINGS -->
+            <div class="page-secondary" id="page-settings">
+                <div class="page-inner">
+                    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;">Настройки<button onclick="openEngMenu()" style="background:none;border:1px solid rgba(255,140,0,0.25);border-radius:4px;color:rgba(255,140,0,0.5);cursor:pointer;padding:3px 10px;font-size:13px;font-family:inherit;line-height:1;" title="Инженерное меню">&#9881;</button></div>
+                    <div class="hud-panel" style="padding:14px;">
+                        <div class="calc-title" style="color:var(--neon-blue);">Настройки</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 16px;">
+                            <div>
+                                <div class="s-row"><label>АВАРИЯ (min)</label><div class="s-inputs"><button onclick="adjCfg('emergencyTime',-1)">-</button><span id="cfg-emergencyTime">3</span><button onclick="adjCfg('emergencyTime',1)">+</button></div></div>
+                                <div class="s-row"><label>НАСЕБЯ (min)</label><div class="s-inputs"><button onclick="adjCfg('nasebTime',-1)">-</button><span id="cfg-nasebTime">10</span><button onclick="adjCfg('nasebTime',1)">+</button></div></div>
+                                <div class="s-row"><label>ПОВТ.НАСЕБЯ (min)</label><div class="s-inputs"><button onclick="adjCfg('reklapTime',-1)">-</button><span id="cfg-reklapTime">10</span><button onclick="adjCfg('reklapTime',1)">+</button></div></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>МАХ Т.СИСТ (C)</label><div class="s-inputs"><button onclick="adjCfg('boxMaxTemp',-1)">-</button><span id="cfg-boxMaxTemp">60</span><button onclick="adjCfg('boxMaxTemp',1)">+</button></div></div>
+                                <div class="s-row"><label>МОЩНОСТЬ (W)</label><div class="s-inputs"><button onclick="adjCfg('power',-100)">-</button><span id="cfg-power">3000</span><button onclick="adjCfg('power',100)">+</button></div></div>
+                                <div class="s-row"><label>КОЛ-ВО АС (ml)</label><div class="s-inputs"><button onclick="adjCfg('asVolume',-100)">-</button><span id="cfg-asVolume">1000</span><button onclick="adjCfg('asVolume',100)">+</button></div></div>
+                            </div>
+                            <div>
+                                <div class="s-row"><label>WIFI ЧЕК (min)</label><div class="s-inputs"><button onclick="adjCfg('chekwifi',-1)">-</button><span id="cfg-chekwifi">5</span><button onclick="adjCfg('chekwifi',1)">+</button></div></div>
+                            </div>
+                        </div>
+                        <!-- СОХРАНИТЬ + ТЕСТ ЗВУКА -->
+                        <div class="action-btn-grid" style="margin-top:12px;">
+                            <button class="action-btn blue" onclick="saveSettings('general')">СОХРАНИТЬ</button>
+                            <button class="action-btn amber" onclick="testAlarm()">🔊 ТЕСТ ЗВУКА</button>
+                        </div>
+
+
+                        <!-- Cloud Mode Section -->
+                        <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,240,255,0.12);">
+                            <div class="calc-title" style="color:var(--neon-blue);">Облачный режим</div>
+                            <div class="s-row"><label>РЕЖИМ</label><button id="btn-cloudMode" onclick="toggleCloudMode()" class="bool-toggle off">ВЫКЛ</button></div>
+                            <div class="s-row"><label>CLOUD URL</label><input id="cfg-cloudUrl" type="text" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:3px;color:var(--neon-blue);font-size:11px;padding:4px 8px;width:200px;font-family:inherit;" placeholder="https://..." /></div>
+                            <div class="s-row"><label>CLOUD KEY</label><input id="cfg-cloudApiKey" type="text" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:3px;color:var(--neon-blue);font-size:11px;padding:4px 8px;width:200px;font-family:inherit;" placeholder="BUHLO_SECRET_KEY" /></div>
+                            <p id="cloud-status" style="font-size:10px;color:#4a5568;margin-top:4px;"></p>
+                        </div>
+
+                        <!-- СОХР. ПРОФИЛЬ + ЗАГР. ПРОФИЛЬ -->
+                        <div class="action-btn-grid" style="margin-top:10px;">
+                            <button class="action-btn amber" onclick="showSaveProfilePanel()">СОХР. ПРОФИЛЬ</button>
+                            <button class="action-btn green" onclick="showLoadProfilePanel()">ЗАГР. ПРОФИЛЬ</button>
+                        </div>
+
+                        <!-- ИНСТРУКЦИЯ + ЛОГИ -->
+                        <div class="action-btn-grid" style="margin-top:6px;">
+                            <a href="/help.html" target="_blank" class="action-btn blue">ИНСТРУКЦИЯ</a>
+                            <button class="action-btn purple" onclick="cloudMode ? window.open(cloudApiUrl + '/?logs=1') : window.open('/api/logs')">ЛОГИ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ===== BOTTOM NAV ===== -->
+        <nav class="hud-nav">
+            <button class="nav-btn" id="nav-monitoring" onclick="showPage('monitoring')">Мониторинг</button>
+            <button class="nav-btn" id="nav-distillation" onclick="showPage('distillation')">Дистилляция</button>
+            <button class="nav-btn" id="nav-rectification" onclick="showPage('rectification')">Ректификация</button>
+            <button class="nav-btn" id="nav-sensors" onclick="showPage('sensors')">Датчики</button>
+            <button class="nav-btn" id="nav-settings" onclick="showPage('settings')">Настройки</button>
+            <button class="nav-btn start" id="main-action-btn" onclick="toggleCurrentProcess()">СТАРТ</button>
+        </nav>
+    </div>
+
+    <!-- === DIALOG PANELS === -->
+
+    <!-- Dialog Panel - universal -->
+    <div id="dialog-panel" class="dialog-panel">
+        <div class="dialog-backdrop" onclick="closeDialogPanel()"></div>
+        <div class="dialog-content">
+            <h3 id="dialog-title"></h3>
+            <p id="dialog-text"></p>
+            <div id="dialog-buttons" style="display:flex;justify-content:center;gap:12px;"></div>
+        </div>
+    </div>
+
+    <!-- Alert Panel - alarm -->
+    <div id="alert-panel" class="dialog-panel">
+        <div class="dialog-backdrop"></div>
+        <div class="dialog-content" style="border-color:var(--neon-amber);">
+            <h3 id="alert-title" style="color:var(--neon-amber);"></h3>
+            <p id="alert-text"></p>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
+                <button onclick="sendCommand('NEXT_STAGE');closeAlertPanel()" class="dialog-btn dialog-btn-green" style="width:100%;">ДАЛЕЕ</button>
+                <button onclick="closeAlertPanel()" class="dialog-btn dialog-btn-gray" style="width:100%;">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Profile Panel -->
+    <div id="save-profile-panel" class="dialog-panel">
+        <div class="dialog-backdrop" onclick="closeSaveProfilePanel()"></div>
+        <div class="dialog-content">
+            <h3>СОЗДАТЬ ПРОФИЛЬ</h3>
+            <p>Введите имя профиля:</p>
+            <input id="profile-name-input" type="text" maxlength="30" placeholder="Например: Дист Яблоко" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <button onclick="closeSaveProfilePanel()" class="dialog-btn dialog-btn-gray">ОТМЕНА</button>
+                <button onclick="saveProfile()" class="dialog-btn dialog-btn-purple">СОХРАНИТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Profile Panel -->
+    <div id="load-profile-panel" class="dialog-panel">
+        <div class="dialog-backdrop" onclick="closeLoadProfilePanel()"></div>
+        <div class="dialog-content">
+            <h3>ЗАГРУЗИТЬ ПРОФИЛЬ</h3>
+            <div id="profile-list" style="max-height:240px;overflow-y:auto;margin-bottom:12px;"></div>
+            <p id="profile-list-empty" style="display:none;color:#4a5568;font-size:11px;margin-bottom:12px;">Профили не найдены</p>
+            <button onclick="closeLoadProfilePanel()" class="dialog-btn dialog-btn-gray" style="width:100%;">ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
+    <!-- Calc Panel - valve calculation -->
+    <div id="calc-panel" class="dialog-panel">
+        <div class="dialog-backdrop" onclick="closeCalcPanel()"></div>
+        <div class="dialog-content">
+            <h3>РЕЗУЛЬТАТ ТЕСТА</h3>
+            <p id="calc-modal-subtitle" style="font-size:10px;color:#4a5568;margin-bottom:4px;"></p>
+            <p style="color:var(--neon-amber);font-size:10px;margin-bottom:12px;">Тайминги подбираются под скорость 50 головы и 500 тело мл/ч при 1 кВт.</p>
+            <div id="calc-input-block">
+                <p style="color:#8a95a8;font-size:12px;margin-bottom:8px;">Сколько мл набралось?</p>
+                <input id="calc-ml-input" type="number" min="0.1" step="0.1" placeholder="мл" />
+                <button onclick="submitCalcValve()" class="dialog-btn dialog-btn-blue" style="width:100%;">РАССЧИТАТЬ</button>
+            </div>
+            <div id="calc-result-block" style="display:none;">
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:12px;margin-bottom:12px;text-align:left;">
+                    <p style="color:#4a5568;font-size:11px;">Расход клапана:</p>
+                    <p style="color:#fff;font-size:18px;font-weight:700;"><span id="calc-capacity">--</span> мл/мин</p>
+                    <p style="color:#4a5568;font-size:11px;margin-top:8px;">Скорость отбора:</p>
+                    <p style="color:#fff;font-size:18px;font-weight:700;"><span id="calc-speed">--</span> мл/ч</p>
+                    <p style="color:#4a5568;font-size:11px;margin-top:4px;">Цель: <span id="calc-target">--</span> мл/ч</p>
+                    <p id="calc-verdict" style="font-weight:700;margin-top:8px;"></p>
+                    <p style="color:#3a4a60;font-size:10px;margin-top:8px;">Время открыт: <span id="calc-opened">--</span> сек из <span id="calc-total">--</span> сек</p>
+                </div>
+                <p style="color:var(--neon-green);font-size:11px;margin-bottom:8px;">Расход сохранён в настройки</p>
+                <button onclick="closeCalcPanel()" class="dialog-btn dialog-btn-gray" style="width:100%;">ЗАКРЫТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calibration Wizard Panel -->
+    <div id="calib-wizard-panel" class="dialog-panel">
+        <div class="dialog-backdrop"></div>
+        <div class="dialog-content" style="max-width:460px;">
+            <h3 id="calib-wizard-title">Калибровка клапана</h3>
+            <span class="dialog-close" onclick="closeCalibWizard()">&#x2715;</span>
+
+            <!-- Step 1: Dry Run -->
+            <div id="calib-step-1" class="calib-step">
+                <p style="color:#8a95a8;font-size:12px;margin-bottom:12px;">Шаг 1/2: Пролив системы</p>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:12px;margin-bottom:12px;">
+                    <p style="color:#8a95a8;">Подставьте ёмкость для слива и нажмите СТАРТ</p>
+                    <p style="color:#4a5568;font-size:10px;margin-top:4px;">Клапан откроется на 10 секунд</p>
+                </div>
+                <div id="calib-dry-progress" style="display:none;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:#8a95a8;margin-bottom:4px;">
+                        <span>Клапан открыт 100%</span>
+                        <span id="calib-dry-time">0 / 10 с</span>
+                    </div>
+                    <div style="width:100%;background:rgba(255,255,255,0.04);border-radius:4px;height:10px;">
+                        <div id="calib-dry-bar" style="background:var(--neon-blue);height:100%;border-radius:4px;transition:width 0.3s;width:0%;"></div>
+                    </div>
+                </div>
+                <button onclick="startCalibDryRun()" id="btn-calib-dry-start" class="dialog-btn dialog-btn-blue" style="width:100%;">СТАРТ</button>
+            </div>
+
+            <!-- Step 2: Capacity -->
+            <div id="calib-step-2" class="calib-step" style="display:none;">
+                <p style="color:#8a95a8;font-size:12px;margin-bottom:12px;">Шаг 2/2: Измерение capacity</p>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:12px;margin-bottom:12px;">
+                    <p style="color:#8a95a8;">Подставьте мерную ёмкость и нажмите СТАРТ</p>
+                    <p style="color:#4a5568;font-size:10px;margin-top:4px;">Клапан откроется на 60 секунд</p>
+                </div>
+                <div id="calib-cap-progress" style="display:none;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:#8a95a8;margin-bottom:4px;">
+                        <span>Клапан открыт 100%</span>
+                        <span id="calib-cap-time">0 / 60 с</span>
+                    </div>
+                    <div style="width:100%;background:rgba(255,255,255,0.04);border-radius:4px;height:10px;">
+                        <div id="calib-cap-bar" style="background:var(--neon-green);height:100%;border-radius:4px;transition:width 0.3s;width:0%;"></div>
+                    </div>
+                </div>
+                <button onclick="startCalibCapacity()" id="btn-calib-cap-start" class="dialog-btn dialog-btn-green" style="width:100%;">СТАРТ</button>
+            </div>
+
+            <!-- Step 3: Volume Input -->
+            <div id="calib-step-3" class="calib-step" style="display:none;">
+                <p style="color:#8a95a8;font-size:12px;margin-bottom:12px;">Введите измеренный объём:</p>
+                <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px;">
+                    <button onclick="adjCalibVolume(-1)" class="corr-btn" style="width:40px;height:40px;font-size:18px;">-</button>
+                    <div style="text-align:center;">
+                        <span id="calib-volume" style="font-size:28px;font-weight:700;color:#fff;">0</span>
+                        <span style="color:#4a5568;margin-left:4px;">мл</span>
+                    </div>
+                    <button onclick="adjCalibVolume(1)" class="corr-btn" style="width:40px;height:40px;font-size:18px;">+</button>
+                </div>
+                <p style="color:#4a5568;font-size:10px;text-align:center;margin-bottom:12px;">Шаг: 1 мл</p>
+                <button onclick="submitCalibVolume()" class="dialog-btn dialog-btn-blue" style="width:100%;">РАССЧИТАТЬ</button>
+            </div>
+
+            <!-- Step 4: Result -->
+            <div id="calib-step-4" class="calib-step" style="display:none;">
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);border-radius:6px;padding:16px;margin-bottom:12px;text-align:center;">
+                    <p style="color:#8a95a8;font-size:12px;">Capacity:</p>
+                    <p style="font-size:28px;font-weight:700;color:var(--neon-green);"><span id="calib-result-cap">--</span> <span style="font-size:14px;">мл/мин</span></p>
+                    <p style="color:#8a95a8;font-size:12px;margin-top:12px;">minOpenTime:</p>
+                    <p style="font-size:18px;font-weight:700;color:#fff;"><span id="calib-result-minopen">100</span> мс <span style="font-size:11px;color:#4a5568;">(default)</span></p>
+                </div>
+                <p style="color:var(--neon-green);font-size:12px;text-align:center;margin-bottom:12px;">Сохранено!</p>
+                <button onclick="closeCalibWizard()" class="dialog-btn dialog-btn-gray" style="width:100%;">ЗАКРЫТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ENGINEERING MENU PANEL === -->
+    <div id="eng-menu-panel" class="dialog-panel">
+        <div class="dialog-backdrop"></div>
+        <div class="dialog-content" style="max-width:440px;max-height:85vh;overflow-y:auto;border-color:rgba(255,140,0,0.4);">
+            <h3 style="color:var(--neon-amber);">&#9881; ИНЖЕНЕРНОЕ МЕНЮ</h3>
+            <span class="dialog-close" onclick="closeEngMenu()">&#x2715;</span>
+
+            <!-- Confirmation message -->
+            <p id="eng-confirm-msg" style="color:var(--neon-amber);font-size:11px;margin-bottom:12px;display:none;">Вы уверены? Эти параметры влияют на процесс.</p>
+
+            <!-- Section 1: Базовые скорости -->
+            <div class="eng-section">
+                <div class="eng-section-title">СКОРОСТИ ОТБОРА</div>
+                <div class="s-row"><label>ГОЛОВЫ <span class="eng-unit">мл/ч/кВт</span></label><div class="s-inputs"><button onclick="adjEng('speedGolovyBase',-5)">-</button><span id="eng-speedGolovyBase">50</span><button onclick="adjEng('speedGolovyBase',5)">+</button></div></div>
+                <div class="s-row"><label>ТЕЛО <span class="eng-unit">мл/ч/кВт</span></label><div class="s-inputs"><button onclick="adjEng('speedTeloBase',-25)">-</button><span id="eng-speedTeloBase">500</span><button onclick="adjEng('speedTeloBase',25)">+</button></div></div>
+                <div class="s-row"><label>ДООТБОР ГОЛОВЫ <span class="eng-unit">мл/ч</span></label><div class="s-inputs"><button onclick="adjEng('distHeadsSpeed',-5)">-</button><span id="eng-distHeadsSpeed">50</span><button onclick="adjEng('distHeadsSpeed',5)">+</button></div></div>
+            </div>
+
+            <!-- Section 2: Шпора -->
+            <div class="eng-section">
+                <div class="eng-section-title">ПАРАМЕТРЫ ШПОРЫ</div>
+                <div class="s-row"><label>КОЭФФ.СНИЖЕНИЯ ОТБОРА <span class="eng-unit">x.xx</span></label><div class="s-inputs"><button onclick="adjEng('shporaCorr',-0.01)">-</button><span id="eng-shporaCorr">1.13</span><button onclick="adjEng('shporaCorr',0.01)">+</button></div></div>
+                <div class="s-row"><label>СТАБИЛИЗАЦИЯ (до след.снижения) <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('shporaStabMs',-10)">-</button><span id="eng-shporaStabMs">60</span><button onclick="adjEng('shporaStabMs',10)">+</button></div></div>
+                <div class="s-row"><label>МИН.СКОРОСТЬ ТЕЛО <span class="eng-unit">мл/ч</span></label><div class="s-inputs"><button onclick="adjEng('minBodySpeed',-50)">-</button><span id="eng-minBodySpeed">300</span><button onclick="adjEng('minBodySpeed',50)">+</button></div></div>
+            </div>
+
+            <!-- Section 3: Доли отбора -->
+            <div class="eng-section">
+                <div class="eng-section-title">ДОЛИ ОТБОРА ГОЛОВ</div>
+                <div class="s-row"><label>СТАНДАРТ <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareStd',-1,-100)">-</button><span id="eng-headsShareStd">10</span><button onclick="adjEng('headsShareStd',1,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС СПИТ <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssSpit',-0.5,-100)">-</button><span id="eng-headsShareKssSpit">2</span><button onclick="adjEng('headsShareKssSpit',0.5,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС СТАНД. <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssStd',-0.5,-100)">-</button><span id="eng-headsShareKssStd">3</span><button onclick="adjEng('headsShareKssStd',0.5,-100)">+</button></div></div>
+                <div class="s-row"><label>КСС АКАТЕЛО <span class="eng-unit">%</span></label><div class="s-inputs"><button onclick="adjEng('headsShareKssAkatelo',-1,-100)">-</button><span id="eng-headsShareKssAkatelo">15</span><button onclick="adjEng('headsShareKssAkatelo',1,-100)">+</button></div></div>
+            </div>
+
+            <!-- Section 4: Давление -->
+            <div class="eng-section">
+                <div class="eng-section-title">ДАВЛЕНИЕ</div>
+                <div class="s-row"><label>КОЭФФ.КОРРЕКЦИИ ПО АД <span class="eng-unit">°C/hPa</span></label><div class="s-inputs"><button onclick="adjEng('pressureCoeff',-0.001)">-</button><span id="eng-pressureCoeff">0.028</span><button onclick="adjEng('pressureCoeff',0.001)">+</button></div></div>
+            </div>
+
+            <!-- Section 5: Времена -->
+            <div class="eng-section">
+                <div class="eng-section-title">ВРЕМЯ ЭТАПОВ</div>
+                <div class="s-row"><label>ОСТАНОВ ОХЛАЖДЕНИЯ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('coolingDurationSec',-30)">-</button><span id="eng-coolingDurationSec">300</span><button onclick="adjEng('coolingDurationSec',30)">+</button></div></div>
+                <div class="s-row"><label>БАКСТОП <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('bakstopDelaySec',-1)">-</button><span id="eng-bakstopDelaySec">5</span><button onclick="adjEng('bakstopDelaySec',1)">+</button></div></div>
+                <div class="s-row"><label>ПРОЛИВ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibDrySec',-5)">-</button><span id="eng-calibDrySec">10</span><button onclick="adjEng('calibDrySec',5)">+</button></div></div>
+                <div class="s-row"><label>КАЛИБР. CAPACITY <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibCapacitySec',-10)">-</button><span id="eng-calibCapacitySec">60</span><button onclick="adjEng('calibCapacitySec',10)">+</button></div></div>
+            </div>
+
+            <!-- Save -->
+            <div style="margin-top:16px;display:flex;gap:8px;">
+                <button onclick="saveEngMenu()" class="dialog-btn dialog-btn-green" style="flex:1;">СОХРАНИТЬ</button>
+                <button onclick="closeEngMenu()" class="dialog-btn dialog-btn-gray" style="flex:1;">ЗАКРЫТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  ALL JS LOGIC COPIED FROM index.html (trimmed for template)
+        //  In production: this would be a shared .js file
+        // ============================================================
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        const API_STATUS = '/api/status';
+        const API_COMMAND = '/api/command';
+        const SYNC_INTERVAL = 1000;
+
+        let cloudMode = false, cloudApiUrl = '', cloudApiKey = '', cloudLastUpdate = 0;
+        let currentData = {}; currentData.bodyVolDone = 0;
+        let currentPage = 'monitoring';
+        let configDirty = false, userClosedSetPwAs = false, lastStage = '', calibWizardShownForStage = false;
+        let syncInProgress = false, lastCommandTime = 0;
+        let calcModalType = '';
+        let calibWizard = { valve:'', step:0, volume:0, timerInterval:null, _lastInputStep:0 };
+        const valveNames = { 'heads':'ГОЛОВЫ', 'body_nc':'ТЕЛО NC (НЗ)', 'body_no':'ТЕЛО NO (НО)' };
+
+        // === CLOUD ===
+        function setCloudMode(e,u,k){cloudMode=e;cloudApiUrl=u||'';cloudApiKey=k||'';localStorage.setItem('cloudMode',e?'1':'0');localStorage.setItem('cloudApiUrl',cloudApiUrl);localStorage.setItem('cloudApiKey',cloudApiKey);}
+        function loadCloudSettings(){const e=localStorage.getItem('cloudMode')==='1';const u=localStorage.getItem('cloudApiUrl')||'';const k=localStorage.getItem('cloudApiKey')||'';setCloudMode(e,u,k);}
+        loadCloudSettings();
+        function getCloudStatusUrl(){return cloudApiUrl+'?status=1';}
+        function getCloudCommandUrl(){return cloudApiUrl+'?cmd=';}
+
+        function updateCloudModeUI(){
+            const btn=document.getElementById('btn-cloudMode');
+            const status=document.getElementById('cloud-status');
+            if(btn){btn.textContent=cloudMode?'ВКЛ':'ВЫКЛ';btn.className='bool-toggle '+(cloudMode?'on':'off');}
+            if(status){
+                if(cloudMode){const age=cloudLastUpdate?Math.max(0,Math.floor((Date.now()/1000-cloudLastUpdate))):'?';status.textContent='ОБЛАКО: Подключено. Данные: '+age+' сек назад';status.style.color='var(--neon-green)';}
+                else{status.textContent='ОБЛАКО: Локальный режим (ESP32)';status.style.color='#4a5568';}
+            }
+        }
+
+        function toggleCloudMode(){
+            const urlInput=document.getElementById('cfg-cloudUrl');
+            const keyInput=document.getElementById('cfg-cloudApiKey');
+            const url=urlInput?urlInput.value.trim():'';
+            const key=keyInput?keyInput.value.trim():'';
+            if(!cloudMode&&(!url||!key)){const s=document.getElementById('cloud-status');if(s)s.textContent='Введите URL и KEY';return;}
+            setCloudMode(!cloudMode,url,key);
+            updateCloudModeUI();
+        }
+
+        // === ALARM ===
+        let lastSafetyCode=0, prevSafetyCode=0, prevTsaAlarmState=false;
+        window.testAlarm=function(){window.playAlarmSound();};
+        window.playAlarmSound=function(){try{const a=new(window.AudioContext||window.webkitAudioContext)();if(a.state==='suspended')a.resume();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;o.type='square';g.gain.value=0.3;o.start();o.stop(a.currentTime+0.3);}catch(e){}};
+        function triggerAlarm(c,t){window.playAlarmSound();setTimeout(window.playAlarmSound,250);setTimeout(window.playAlarmSound,500);}
+        function checkSafetyAlarm(){const code=currentData.safety_code;prevSafetyCode=code||0;const tsaLimit=currentData.cfg?currentData.cfg.tsaLimit:92;const tsaNow=currentData.tsa||0;if(tsaNow>=tsaLimit&&!prevTsaAlarmState){prevTsaAlarmState=true;triggerAlarm(3,'TSA '+tsaNow.toFixed(1)+' >= '+tsaLimit);}else if(tsaNow<tsaLimit&&prevTsaAlarmState){prevTsaAlarmState=false;}}
+
+        // === SYNC ===
+        document.addEventListener('DOMContentLoaded',()=>{syncData();setInterval(syncData,SYNC_INTERVAL);updateCloudModeUI();});
+
+        async function syncData(){
+            if(syncInProgress)return;
+            syncInProgress=true;
+            try{
+                let newData;
+                if(cloudMode&&cloudApiUrl){
+                    const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
+                    const r=await fetch(getCloudStatusUrl(),{signal:c.signal});clearTimeout(t);
+                    if(!r.ok)throw new Error('Cloud error');
+                    const cr=await r.json();newData=cr.data||{};cloudLastUpdate=cr.last_update;
+                    currentData.online=cr.connected;currentData.network_mode=cr.connected?'C':'X';
+                }else{
+                    const c=new AbortController();const t=setTimeout(()=>c.abort(),5000);
+                    const r=await fetch(API_STATUS,{signal:c.signal});clearTimeout(t);
+                    if(!r.ok)throw new Error('Network error');newData=await r.json();
+                }
+                // Copy all data fields
+                ['tsa','tsar','aqua','tank','stage','time','process','str_bak','str_out','str_bak_valid','str_out_valid',
+                 'pressure','box_temp','humidity','power','network_mode','online','alarmTimerSec','rectMethodName','rectSubStage',
+                 'rectTimeRemaining','rectVolumeTarget','bodyMethodName','bodySpeed','bodyCycle','headsSpeed','headsSpeedCalc',
+                 'rtsarM','adPressM','headsTotalTarget','heaterStatus','useHeadValve','bodyValveNC','heaterOn','mixerOn',
+                 'waterValveOpen','finishingRemainSec','stageTimeSec','headsVolDone','headsVolSub','bodyVolDone','headsVolTarget',
+                 'safety_code','safety_text','safety_detail','headTest','bodyTest','webCalibStatus','testAwaitingInput','testAwaitingType']
+                .forEach(k=>{if(newData[k]!==undefined)currentData[k]=newData[k];});
+                currentData.safety_code=currentData.safety_code!==undefined?currentData.safety_code:(newData.safety||0);
+                currentData.safety_text=currentData.safety_text||(currentData.safety_code===0?'Норма':(currentData.safety_code===1?'ВНИМАНИЕ':'АВАРИЯ!'));
+                if(!currentData.cfg||!configDirty)currentData.cfg=newData.cfg;
+                // Sync calib wizard from ESP32
+                if(newData.calibWizard){currentData.calibWizard=newData.calibWizard;updateCalibWizardUI();}
+                updateUI();
+                checkModals();
+                updateTestUI();
+                updateValveButtons();
+                updateValveTypeLabel();
+                updateValveCalibrationStatus();
+                syncInProgress=false;
+            }catch(e){
+                if(e.name!=='AbortError'){syncInProgress=false;const el=document.getElementById('esp32-status');if(el){el.style.background='var(--neon-red)';el.style.boxShadow='0 0 6px var(--neon-red)';}}
+                else syncInProgress=false;
+            }
+        }
+
+        // === UPDATE UI ===
+        function updateUI(){
+            checkSafetyAlarm();
+
+            // ESP32 connection status (green = API responds)
+            const esp=document.getElementById('esp32-status');
+            if(esp){const on=currentData.online!==undefined;esp.style.background=on?'var(--neon-green)':'var(--neon-red)';esp.style.boxShadow=on?'0 0 6px var(--neon-green)':'0 0 6px var(--neon-red)';}
+
+            // Internet indicator (green = internet access, red = no internet)
+            const inetDot=document.getElementById('internet-dot');
+            if(inetDot){const inet=currentData.online===true;if(inet){inetDot.style.background='var(--neon-green)';inetDot.style.boxShadow='0 0 6px var(--neon-green)';inetDot.title='Интернет есть';}else{inetDot.style.background='var(--neon-red)';inetDot.style.boxShadow='0 0 6px var(--neon-red)';inetDot.title='Нет интернета';}}
+
+            // Network badge + connection mode label
+            const nb=document.getElementById('network-mode-badge');
+            const ml=document.getElementById('conn-mode-label');
+            if(nb){
+                const m=cloudMode?'C':(currentData.network_mode||'X');
+                nb.textContent=m;nb.className='net-badge '+(m==='W'?'w':(m==='A'?'a':(m==='C'?'c':'x')));
+                if(ml){if(cloudMode){ml.textContent='CLD';ml.style.color='var(--neon-blue)';}else{ml.textContent='LOK';ml.style.color='#5a6577';}}
+            }
+
+            // Header indicators
+            const setInd=(id,active)=>{const el=document.getElementById(id);if(el)el.className='hud-indicator'+(active?' active':'');const dot=document.getElementById(id.replace('ind-','dot-'));if(dot){dot.className='ind-dot'+(active?' pulse':'');dot.style.background=active?'var(--neon-green)':'#2a3040';dot.style.boxShadow=active?'0 0 6px var(--neon-green)':'none';}};
+            setInd('ind-heater',!!currentData.heaterOn);
+            setInd('ind-mixer',!!currentData.mixerOn);
+            setInd('ind-water',!!currentData.waterValveOpen);
+
+            // Main action button
+            const ab=document.getElementById('main-action-btn');
+            const isRun=(currentData.process==1||currentData.process==2);
+            const stage=currentData.stage||'';
+            if(stage==='VALVE_CAL'||stage==='SET_PW_AS'){ab.textContent='ДАЛЕЕ';ab.className='nav-btn start';ab.onclick=function(){sendCommand('NEXT_STAGE');};}
+            else{ab.textContent=isRun?'СТОП':'СТАРТ';ab.className='nav-btn '+(isRun?'stop':'start');ab.onclick=toggleCurrentProcess;}
+
+            // Auto-open calibration wizard on VALVE_CAL stage
+            if(stage==='VALVE_CAL'&&lastStage!=='VALVE_CAL'&&!calibWizardShownForStage&&typeof startCalibration==='function'){
+                const cw=currentData.calibWizard;
+                if(!cw||cw.step===0){const panel=document.getElementById('calib-wizard-panel');if(panel&&panel.style.display!=='flex'){startCalibration('heads');calibWizardShownForStage=true;}}
+            }
+            if(stage!=='VALVE_CAL')calibWizardShownForStage=false;
+
+            // Monitoring page
+            if(currentPage==='monitoring')updateMonitoringHUD();
+            if(currentPage==='distillation')updateDistPage();
+            if(currentPage==='rectification')updateRectPage();
+            updateConfigDisplay();
+            updateSensors();
+        }
+
+        // === MONITORING HUD ===
+        function updateMonitoringHUD(){
+            const stage=currentData.stage||'';
+            const cfg=currentData.cfg||{};
+            const tsaLimit=cfg.tsaLimit||92;
+            const boxMax=cfg.boxMaxTemp||60;
+
+            // Process badge
+            const pb=document.getElementById('mon-proc-badge');
+            if(pb){if(currentData.process==1){pb.textContent='DIST';pb.className='gauge-process dist';}else if(currentData.process==2){pb.textContent='RECT';pb.className='gauge-process rect';}else{pb.textContent='ОЖИДАНИЕ';pb.className='gauge-process idle';}}
+
+            // Stage
+            document.getElementById('mon-stage').textContent=stage||'IDLE';
+
+            // Method
+            const mel=document.getElementById('mon-method');
+            if(mel){if(currentData.process==2&&(stage=='TELO'||stage=='GOLOVY'||stage=='NASEBYA')){mel.textContent=currentData.bodyMethodName||'';mel.style.display='';}else mel.style.display='none';}
+
+            // Status + counter
+            let statusText='НОРМА',statusClass='normal',counterVal=currentData.stageTimeSec||0;
+            if(currentData.tsa>=tsaLimit){statusText='АВАРИЯ';statusClass='alarm';counterVal=currentData.alarmTimerSec||0;}
+            else if(currentData.box_temp>boxMax){statusText='ВНИМАНИЕ';statusClass='warn';}
+            if(stage==='NASEBYA'&&cfg){const t=(cfg.nasebTime||10)*60;counterVal=t-(currentData.stageTimeSec||0);if(counterVal<0)counterVal=0;}
+            else if(stage==='FINISHING_WORK'){counterVal=currentData.finishingRemainSec||0;}
+            const se=document.getElementById('mon-sys-status');if(se){se.textContent=statusText;se.className='status-tag '+statusClass;}
+            document.getElementById('mon-counter').textContent=formatTime(counterVal);
+            document.getElementById('center-time-val').textContent=formatTime(currentData.time||0);
+
+            // Temperatures
+            const setTemp=(id,val,alarm)=>{const el=document.getElementById(id);if(!el)return;const num=val&&val>-100?val.toFixed(1):'--';el.innerHTML=num+'<span class="temp-unit">°</span>';if(alarm)el.classList.add('temp-alarm');else el.classList.remove('temp-alarm');};
+            setTemp('val-tsa-hud',currentData.tsa,currentData.tsa>=tsaLimit);
+            setTemp('val-tsar-hud',currentData.tsar,false);
+            setTemp('val-tank-hud',currentData.tank,false);
+            setTemp('val-aqua-hud',currentData.aqua,false);
+            document.getElementById('tsa-limit-val').textContent=tsaLimit;
+            document.getElementById('bak-stop-val').textContent=cfg.bakStopTemp||'--';
+
+            // Power/Box/Humidity
+            document.getElementById('power-val-hud').textContent=(currentData.power||0)+'W';
+            document.getElementById('box-temp-hud').textContent=(currentData.box_temp||0).toFixed(0);
+            document.getElementById('box-max-hud').textContent=boxMax;
+            document.getElementById('humidity-hud').textContent=(currentData.humidity||0).toFixed(0)+'%';
+
+            // Barometer
+            document.getElementById('press-val-hud').textContent=Math.round(currentData.pressure||760);
+            let pc=((currentData.pressure||760)-760)*0.037;let pct=(pc>=0?'+':'')+pc.toFixed(2);
+            const pce=document.getElementById('press-corr-hud');pce.textContent=pct+'°';
+            if(!gaugeAnimating)updateBarometer(currentData.pressure||760);
+
+            // Calculations
+            updateCalculationsHUD();
+
+            // Gauge
+            drawGauge();
+        }
+
+        function updateCalculationsHUD(){
+            const stage=currentData.stage||'';
+            const cfg=currentData.cfg||{};
+            const isRect=currentData.process==2;
+
+            // HEADS
+            const hs=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+            if(stage=='GOLOVY'){
+                hs('mon-head-speed-calc',(currentData.headsSpeedCalc||0).toFixed(0));
+                hs('mon-head-speed-real',(currentData.headsSpeed||0).toFixed(0));
+                hs('mon-head-method',cfg.headsTypeKSS?'KSS':'ST');
+                hs('mon-head-substage',currentData.rectSubStage||'--');
+                hs('mon-head-vol-target',currentData.headsVolTarget||'--');
+                hs('mon-head-vol',(currentData.headsVolSub||0).toFixed(1));
+                hs('mon-head-total',currentData.headsTotalTarget||'--');
+                hs('mon-head-done',Math.round(currentData.headsVolDone||0));
+                hs('mon-head-remain',formatTime(currentData.rectTimeRemaining||0));
+            }else if(stage=='GOLOVY_OK'){
+                hs('mon-head-speed-calc','--');hs('mon-head-speed-real','--');
+                hs('mon-head-method',cfg.headsTypeKSS?'KSS':'ST');hs('mon-head-substage','ГОТОВО');
+                hs('mon-head-vol-target','--');hs('mon-head-vol','--');
+                hs('mon-head-total',currentData.headsTotalTarget||'--');hs('mon-head-done',Math.round(currentData.headsVolDone||0));
+                hs('mon-head-remain','--:--');
+            }else if(isRect&&stage=='TELO'){
+                hs('mon-head-speed-calc','--');hs('mon-head-speed-real','--');
+                hs('mon-head-method',cfg.headsTypeKSS?'KSS':'ST');hs('mon-head-substage','ОТОБРАНО');
+                hs('mon-head-vol-target','--');hs('mon-head-vol','--');
+                hs('mon-head-total',currentData.headsTotalTarget||'--');hs('mon-head-done',Math.round(currentData.headsVolDone||0));
+                hs('mon-head-remain','--:--');
+            }else{
+                hs('mon-head-speed-calc','--');hs('mon-head-speed-real','--');hs('mon-head-method','--');
+                hs('mon-head-substage','--');hs('mon-head-vol-target','--');hs('mon-head-vol','--');
+                hs('mon-head-total','--');hs('mon-head-done','--');hs('mon-head-remain','--:--');
+            }
+
+            // BODY
+            if(stage=='TELO'||stage=='NASEBYA'){
+                const pw=cfg.power||3000;const sc=(cfg.speedBodyCorr>=0&&cfg.speedBodyCorr<=200)?cfg.speedBodyCorr:100;
+                hs('mon-body-speed-calc',Math.round(500*(pw/1000)*(sc/100)));
+                hs('mon-body-speed-real',Math.round(currentData.bodySpeed||0));
+                hs('mon-body-method',currentData.bodyMethodName||'--');
+                let cv=currentData.bodyCycle||0;let cl=cfg.cycleLim||1;
+                if(currentData.bodyMethodName=='Шпора'||cv==0)hs('mon-body-cycle',stage=='NASEBYA'?'⏳':'--');
+                else hs('mon-body-cycle',cv+'/'+cl+(stage=='NASEBYA'?' ⏳':''));
+                hs('mon-body-remain',formatTime(currentData.rectTimeRemaining||0));
+                let asV=cfg.asVolume||0;let hV=currentData.headsVolDone||0;let bV=currentData.bodyVolDone||0;
+                let predict=Math.round(asV-hV-asV*0.15);
+                hs('mon-body-total',predict>0?predict:'--');hs('mon-body-done',Math.round(bV));
+            }else{
+                hs('mon-body-speed-calc','--');hs('mon-body-speed-real','--');hs('mon-body-method','--');
+                hs('mon-body-cycle','--');hs('mon-body-remain','--:--');hs('mon-body-total','--');hs('mon-body-done','--');
+            }
+
+            // ABV + REF
+            const sb=currentData.str_bak_valid===true;const so=currentData.str_out_valid===true;
+            hs('mon-abv-tank',sb?(currentData.str_bak||'--'):'--');hs('mon-abv-out',so?(currentData.str_out||'--'):'--');
+            const rt=currentData.rtsarM||0;const ap=currentData.adPressM||0;
+            hs('mon-ref-tsar',rt>0?rt.toFixed(2):'--');hs('mon-ref-press',ap>0?Math.round(ap*0.75):'--');
+        }
+
+        // === BAROMETER ===
+        function updateBarometer(p){const el=document.getElementById('baro-mercury');if(!el)return;let pct=((p-720)/(790-720))*100;pct=Math.max(0,Math.min(100,pct));el.style.height=pct+'%';}
+
+        // === GAUGE ===
+        const GS={minT:0,maxT:105,startA:0.75*Math.PI,endA:2.25*Math.PI,
+            rings:[{key:'aqua',color:'#00f0ff',bg:'rgba(0,240,255,0.08)'},{key:'tank',color:'#a855f7',bg:'rgba(168,85,247,0.08)'},{key:'tsar',color:'#00ff88',bg:'rgba(0,255,136,0.08)'},{key:'tsa',color:'#ff8c00',bg:'rgba(255,140,0,0.08)'}],
+            lw:12,rg:4,or:150};
+
+        // Gauge animation vars
+        let gaugeAnimating=false;
+        let gaugeAnimationId=null;
+        const ANIM_EXPAND_MS=800;
+        const ANIM_PAUSE_MS=300;
+        const ANIM_COLLAPSE_MS=600;
+        const ANIM_RING_DELAY=150;
+
+        function drawGauge(animTemps){
+            const cv=document.getElementById('gaugeCanvas');if(!cv)return;
+            const ctx=cv.getContext('2d');const cx=cv.width/2;const cy=cv.height/2;
+            ctx.clearRect(0,0,cv.width,cv.height);
+            const range=GS.maxT-GS.minT;const aRange=GS.endA-GS.startA;
+
+            // Outer glow (brighter)
+            ctx.save();ctx.translate(cx,cy);
+            ctx.beginPath();ctx.arc(0,0,GS.or+GS.lw+6,GS.startA,GS.endA);
+            ctx.strokeStyle='rgba(0,240,255,0.08)';ctx.lineWidth=14;ctx.stroke();
+            ctx.restore();
+
+            // Outer decorative ring
+            ctx.save();ctx.translate(cx,cy);
+            ctx.beginPath();ctx.arc(0,0,GS.or+GS.lw+13,GS.startA,GS.endA);
+            ctx.strokeStyle='rgba(0,240,255,0.12)';ctx.lineWidth=1;ctx.stroke();
+            ctx.restore();
+
+            // Scale ticks (brighter, every 1° step)
+            ctx.save();ctx.translate(cx,cy);
+            const tir=GS.or+GS.lw+4;
+            for(let t=0;t<=GS.maxT;t+=1){
+                const a=GS.startA+(t/range)*aRange;
+                const maj=(t%10===0);const mid=(t%5===0);const len=maj?12:(mid?8:3);
+                const r1=tir;const r2=tir+len;
+                ctx.beginPath();ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);
+                ctx.strokeStyle=maj?'#4a5a70':(mid?'#3a4a60':'#2a3548');ctx.lineWidth=maj?2:(mid?1.2:0.6);ctx.stroke();
+                // Labels at major ticks
+                if(maj){ctx.fillStyle='#5a6a80';ctx.font='bold 8px Consolas,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t.toString(),Math.cos(a)*(r2+7),Math.sin(a)*(r2+7));}
+            }
+            ctx.restore();
+
+            // Rings
+            const cfg=currentData.cfg||{};
+            const tsaLimit=cfg.tsaLimit||999;
+            for(let i=GS.rings.length-1;i>=0;i--){
+                const ring=GS.rings[i];
+                let temp=currentData[ring.key]||0;
+                // Override temp if animation values provided
+                if(animTemps&&animTemps[i]!==undefined)temp=animTemps[i];
+                const rcr=GS.or-(GS.lw+GS.rg)*(GS.rings.length-1-i);
+                const pct=Math.min(1,Math.max(0,(temp-GS.minT)/range));
+                const va=GS.startA+(pct*aRange);
+                let rc=ring.color,rb=ring.bg;
+                if(ring.key==='tsa'&&temp>=tsaLimit&&!animTemps){rc='#ff3355';rb='rgba(255,51,85,0.15)';}
+
+                // Background arc
+                ctx.beginPath();ctx.arc(cx,cy,rcr,GS.startA,GS.endA);
+                ctx.strokeStyle=rb;ctx.lineWidth=GS.lw;ctx.lineCap='butt';ctx.stroke();
+                // Value arc with glow
+                if(temp>GS.minT){
+                    ctx.save();ctx.shadowColor=rc;ctx.shadowBlur=8;
+                    ctx.beginPath();ctx.arc(cx,cy,rcr,GS.startA,va);
+                    ctx.strokeStyle=rc;ctx.lineWidth=GS.lw;ctx.lineCap='round';ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // === MARKERS: TSA on outer ring, СТОП and ТARA on tank ring (skip during animation) ===
+            if(!animTemps){
+                // Ring indices: 0=aqua(inner), 1=tank, 2=tsar, 3=tsa(outer)
+                const ringIdx={tsa:3,tank:1,tsar:2,aqua:0};
+                const markers=[
+                    {val:tsaLimit,      label:'TSA', color:'#ff3355', ringKey:'tsa',  show:tsaLimit>0&&tsaLimit<GS.maxT},
+                    {val:cfg.bakStopTemp,label:'СТОП',color:'#f97316',ringKey:'tank', show:cfg.bakStopTemp>0&&cfg.bakStopTemp<GS.maxT},
+                    {val:cfg.midterm,   label:'TARA',color:'#facc15',ringKey:'tank', show:cfg.midterm>0&&cfg.midterm<GS.maxT}
+                ];
+                markers.forEach(mk=>{
+                    if(!mk.show)return;
+                    const ri_idx=ringIdx[mk.ringKey];
+                    const rcr=GS.or-(GS.lw+GS.rg)*(GS.rings.length-1-ri_idx);
+                    const ri=rcr-GS.lw/2;const ro=rcr+GS.lw/2;
+                    const ma=GS.startA+(mk.val/range)*aRange;
+                    ctx.save();ctx.translate(cx,cy);
+                    // Line across this ring only
+                    ctx.beginPath();ctx.moveTo(Math.cos(ma)*ri,Math.sin(ma)*ri);ctx.lineTo(Math.cos(ma)*ro,Math.sin(ma)*ro);
+                    ctx.strokeStyle=mk.color;ctx.lineWidth=2;ctx.stroke();
+                    // Label in upper-right corner at top of tick
+                    ctx.fillStyle=mk.color;ctx.font='bold 7px Consolas,monospace';ctx.textAlign='right';
+                    ctx.fillText(mk.label,Math.cos(ma)*(ro+14),Math.sin(ma)*(ro+14)+3);
+                    ctx.restore();
+                });
+            }
+        }
+
+        // === GAUGE ANIMATION (expand -> pause -> collapse to real values) ===
+        function animateGaugeEntry(){
+            if(gaugeAnimating)return;
+            gaugeAnimating=true;
+            const rings=GS.rings;const maxT=GS.maxT;
+            let startTime=null;let phase=1;
+
+            function animate(timestamp){
+                if(!startTime)startTime=timestamp;
+                if(phase===1){
+                    // Expand: all rings fill to max
+                    let vals=[];
+                    for(let i=0;i<rings.length;i++){
+                        let delay=i*ANIM_RING_DELAY;
+                        let p=Math.max(0,Math.min(1,(timestamp-startTime-delay)/ANIM_EXPAND_MS));
+                        vals[i]=p*maxT;
+                    }
+                    drawGauge(vals);
+                    let overallP=Math.min(1,(timestamp-startTime)/ANIM_EXPAND_MS);
+                    if(overallP<1){gaugeAnimationId=requestAnimationFrame(animate);}
+                    else{phase=2;startTime=timestamp;gaugeAnimationId=requestAnimationFrame(animate);}
+                }else if(phase===2){
+                    // Pause at full
+                    if(timestamp-startTime<ANIM_PAUSE_MS){gaugeAnimationId=requestAnimationFrame(animate);}
+                    else{phase=3;startTime=timestamp;gaugeAnimationId=requestAnimationFrame(animate);}
+                }else if(phase===3){
+                    // Collapse: rings shrink from max to real values
+                    let progress=Math.min((timestamp-startTime)/ANIM_COLLAPSE_MS,1);
+                    let vals=[];
+                    for(let i=0;i<rings.length;i++){
+                        let real=currentData[rings[i].key]||0;
+                        vals[i]=maxT-(maxT-real)*progress;
+                    }
+                    drawGauge(vals);
+                    if(progress<1){gaugeAnimationId=requestAnimationFrame(animate);}
+                    else{gaugeAnimating=false;drawGauge();}
+                }
+            }
+            gaugeAnimationId=requestAnimationFrame(animate);
+        }
+
+        // === PAGES ===
+        function updateDistPage(){
+            const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+            s('dist-tsa',currentData.tsa?currentData.tsa.toFixed(2):'--');
+            s('dist-tsar',currentData.tsar?currentData.tsar.toFixed(2):'--');
+            s('dist-aqua',currentData.aqua?currentData.aqua.toFixed(2):'--');
+            s('dist-tank',currentData.tank?currentData.tank.toFixed(2):'--');
+            s('dist-stage',currentData.stage||'--');
+            s('dist-str-bak',currentData.str_bak_valid?(currentData.str_bak||'--'):'--');
+            s('dist-str-out',currentData.str_out_valid?(currentData.str_out||'--'):'--');
+        }
+        function updateRectPage(){
+            const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+            s('rect-tsa',currentData.tsa?currentData.tsa.toFixed(2):'--');
+            s('rect-tsar',currentData.tsar?currentData.tsar.toFixed(2):'--');
+            s('rect-aqua',currentData.aqua?currentData.aqua.toFixed(2):'--');
+            s('rect-tank',currentData.tank?currentData.tank.toFixed(2):'--');
+            s('rect-stage',currentData.stage||'--');
+
+            const stage=currentData.stage||'';
+            const cfg=currentData.cfg||{};
+            const golovyEl=document.getElementById('rect-golovy-info');
+            const teloEl=document.getElementById('rect-telo-info');
+            if(golovyEl)golovyEl.style.display='none';
+            if(teloEl)teloEl.style.display='none';
+
+            if(stage==='GOLOVY'||stage==='GOLOVY_OK'){
+                if(golovyEl)golovyEl.style.display='';
+                s('rect-method',currentData.rectMethodName||'--');
+                s('rect-substage',currentData.rectSubStage||'--');
+                let r=currentData.rectTimeRemaining||0;s('rect-remain',Math.floor(r/60)+':'+(r%60).toString().padStart(2,'0'));
+                s('rect-vol',currentData.rectVolumeTarget||'--');
+            }else if(stage==='TELO'||stage==='NASEBYA'){
+                if(teloEl)teloEl.style.display='';
+                s('body-method',currentData.bodyMethodName||'--');
+                s('body-speed',(currentData.bodySpeed||0).toFixed(1));
+                if(stage==='NASEBYA'&&currentData.bodyCycle>0){s('body-cycle',currentData.bodyCycle+'/'+(cfg.cycleLim||1)+' \u23F3');}
+                else if(currentData.bodyMethodName==='Шпора'||!currentData.bodyCycle){s('body-cycle',stage==='NASEBYA'?'\u23F3':'--');}
+                else{s('body-cycle',currentData.bodyCycle);}
+            }
+        }
+        function updateSensors(){
+            const s=(id,t,c)=>{const te=document.getElementById('sensor-'+id+'-temp');const se=document.getElementById('sensor-'+id+'-status');
+                if(te)te.textContent=(t&&t>-100)?t.toFixed(1)+'°C':'--°C';
+                if(se){se.textContent=c?'OK':'?';se.style.color=c?'var(--neon-green)':'#4a5568';}};
+            s('tsa',currentData.tsa,currentData.tsa&&currentData.tsa>-100);
+            s('aqua',currentData.aqua,currentData.aqua&&currentData.aqua>-100);
+            s('tsar',currentData.tsar,currentData.tsar&&currentData.tsar>-100);
+            s('tank',currentData.tank,currentData.tank&&currentData.tank>-100);
+        }
+
+        function updateConfigDisplay(){
+            if(!currentData.cfg)return;
+            const cfg=currentData.cfg;
+            const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+            const sb=(id,v,t,f)=>{const e=document.getElementById(id);if(e){e.textContent=v?t:f;e.className='bool-toggle '+(v?'on':'off');}};
+            sv('cfg-emergencyTime',cfg.emergencyTime);sv('cfg-nasebTime',cfg.nasebTime);sv('cfg-reklapTime',cfg.reklapTime);
+            sv('cfg-boxMaxTemp',cfg.boxMaxTemp);sv('cfg-power',cfg.power);sv('cfg-asVolume',cfg.asVolume);sv('cfg-chekwifi',cfg.chekwifi);
+            // Инициализация и обновление power knob
+            if(typeof PowerKnob!=='undefined'){if(!PowerKnob.initialized)PowerKnob.init('power-knob-container');PowerKnob.update(cfg.power);}
+            sv('cfg-razgonTemp',cfg.razgonTemp);sv('cfg-bakStopTemp',cfg.bakStopTemp);sv('cfg-midterm',cfg.midterm);sv('cfg-midterm_abv',cfg.midterm_abv);
+            sb('btn-heaterType',cfg.heaterType==1,'IND','TEN');sb('btn-fullPwr',cfg.fullPwr,'YES','NO');sb('btn-valveuse',cfg.valveuse,'YES','NO');
+            sb('btn-mixerEnabled',cfg.mixerEnabled,'YES','NO');
+            sv('cfg-mixerOnTime',cfg.mixerOnTime);sv('cfg-mixerOffTime',cfg.mixerOffTime);
+            sv('cfg-tsaLimit',cfg.tsaLimit||0);sv('cfg-razgonTemp_rect',cfg.razgonTemp||0);sv('cfg-cycleLim',cfg.cycleLim||0);
+            sv('cfg-histeresis',(cfg.histeresis||0).toFixed(2));sv('cfg-delta',(cfg.delta||0).toFixed(2));
+            sb('btn-heaterType_rect',cfg.heaterType==1,'IND','TEN');sb('btn-useHeadValve',cfg.useHeadValve,'YES','NO');
+            sb('btn-bodyValveNC',cfg.bodyValveNC,'NC','NO');sb('btn-headsTypeKSS',cfg.headsTypeKSS,'KSS','ST');
+            sb('btn-calibration',cfg.calibration,'YES','NO');
+            // Valve calibration fields
+            sv('cfg-valve_head_capacity',cfg.valve_head_capacity);
+            sv('cfg-valve_body_capacity',cfg.valve_body_capacity);
+            sv('cfg-valve0_body_capacity',cfg.valve0_body_capacity);
+            const minOpen=(cfg.minOpenTime>=50&&cfg.minOpenTime<=2000)?cfg.minOpenTime:100;
+            sv('cfg-minOpenTime',minOpen);if(cfg.minOpenTime!==minOpen)cfg.minOpenTime=minOpen;
+            const hc=(cfg.speedHeadCorr>=10&&cfg.speedHeadCorr<=200)?cfg.speedHeadCorr:100;
+            const bc=(cfg.speedBodyCorr>=10&&cfg.speedBodyCorr<=200)?cfg.speedBodyCorr:100;
+            sv('cfg-speedHeadCorr',hc);sv('cfg-speedBodyCorr',bc);
+            // Cloud settings
+            const cloudUrlInput=document.getElementById('cfg-cloudUrl');
+            const cloudKeyInput=document.getElementById('cfg-cloudApiKey');
+            if(cloudUrlInput)cloudUrlInput.value=cfg.cloudUrl||'';
+            if(cloudKeyInput)cloudKeyInput.value=cfg.cloudApiKey||'';
+            updateCloudModeUI();
+        }
+
+        // === NAVIGATION ===
+        function showPage(name){
+            currentPage=name;
+            document.querySelectorAll('.page-monitoring,.page-secondary').forEach(p=>{p.style.display='none';p.classList.remove('active');});
+            const target=document.getElementById('page-'+name);
+            if(target){
+                if(name==='monitoring'){target.style.display='grid';target.classList.add('active');}
+                else{target.style.display='block';target.classList.add('active');}
+            }
+            document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+            const navBtn=document.getElementById('nav-'+name);if(navBtn)navBtn.classList.add('active');
+            if(typeof lucide!=='undefined')lucide.createIcons();
+            updateCloudModeUI();
+            updateUI();
+            // Animate gauge when switching to monitoring
+            if(name==='monitoring'){
+                animateGaugeEntry();
+                const baro=document.getElementById('baro-mercury');
+                if(baro)baro.style.height='0%';
+                setTimeout(()=>updateBarometer(currentData.pressure||760),50);
+            }else{
+                gaugeAnimating=false;
+            }
+        }
+
+        // === COMMANDS ===
+        async function sendCommand(cmd){
+            const now=Date.now();if(now-lastCommandTime<800)return;lastCommandTime=now;
+            try{
+                if(cloudMode&&cloudApiUrl){await fetch(getCloudCommandUrl()+encodeURIComponent(cmd)+'&params={}',{method:'POST',headers:{'Content-Type':'application/json'}});}
+                else{await fetch(API_COMMAND,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:cmd})});}
+            }catch(e){}
+            syncInProgress=false;await syncData();
+        }
+
+        function toggleCurrentProcess(){
+            const isRun=(currentData.process==1||currentData.process==2);
+            if(isRun)sendCommand('STOP');
+            else{if(currentPage==='rectification'||currentPage==='monitoring')sendCommand('START_RECT');else sendCommand('START_DIST');}
+        }
+
+        // Диапазоны для обычных настроек (общие с LCD): [min, max]
+        const cfgRanges = {
+            emergencyTime:[1,10],
+            nasebTime:[1,30], reklapTime:[1,30], boxMaxTemp:[50,70], power:[100,7000], asVolume:[1000,10000],
+            speedHeadCorr:[10,200], speedBodyCorr:[10,200], minOpenTime:[50,2000], chekwifi:[1,5],
+            razgonTemp:[40,99], bakStopTemp:[50,99], midterm:[0,98], midterm_abv:[0,98],
+            mixerOnTime:[5,300], mixerOffTime:[1,120],
+            tsaLimit:[40,55], cycleLim:[1,5], histeresis:[0.06,1.00], delta:[0.06,1.00]
+        };
+        // Параметры с автосохранением при изменении
+        const cfgAutoSave = ['speedHeadCorr','speedBodyCorr','minOpenTime','emergencyTime','nasebTime','reklapTime','boxMaxTemp','power','asVolume','chekwifi'];
+
+        function adjCfg(key,delta){
+            if(!currentData.cfg)return;configDirty=true;
+            const range = cfgRanges[key];
+            if(key==='histeresis'||key==='delta'){
+                currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(2));
+                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+            } else {
+                currentData.cfg[key]+=delta;
+                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+            }
+            updateConfigDisplay();
+            if(cfgAutoSave.includes(key))autoSaveSetting(key,currentData.cfg[key]);
+        }
+
+        function toggleCfg(key){
+            if(!currentData.cfg)return;configDirty=true;
+            currentData.cfg[key]=(currentData.cfg[key]==1||currentData.cfg[key]===true)?0:1;
+            updateConfigDisplay();
+        }
+
+        function autoSaveSetting(key,value){
+            let url='/api/settings';if(cloudMode&&cloudApiUrl)url=cloudApiUrl+'?settings=1';
+            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:value})}).catch(()=>{});
+        }
+
+        function showSaveToast(){
+            const t=document.getElementById('save-toast');if(!t)return;
+            t.classList.add('show');
+            setTimeout(()=>{t.classList.remove('show');},2000);
+        }
+
+        function saveSettings(type){
+            if(!currentData.cfg)return;
+            let url='/api/settings';if(cloudMode&&cloudApiUrl)url=cloudApiUrl+'?settings=1';
+            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentData.cfg)})
+                .then(r=>r.text()).then(()=>{configDirty=false;showSaveToast();}).catch(()=>{});
+        }
+
+        function startSensorCalib(s){sendCommand('IDENTIFY_'+s);}
+
+        function formatTime(s){const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sec=s%60;return h>0?h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0'):m.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0');}
+
+        // === DIALOGS ===
+        function checkModals(){
+            if(typeof currentData==='undefined'||!currentData.stage)return;
+            const stage=currentData.stage;
+            const dPanel=document.getElementById('dialog-panel');
+            const aPanel=document.getElementById('alert-panel');
+            if(!dPanel||!aPanel)return;
+            aPanel.style.display='none';
+            if(currentData.process==0||stage==='IDLE')userClosedSetPwAs=false;
+            if(lastStage==='SET_PW_AS'&&stage!=='SET_PW_AS')userClosedSetPwAs=false;
+            lastStage=stage;
+
+            // Calibration status dialogs
+            if(currentData.webCalibStatus&&currentData.webCalibStatus>0){
+                const ws=currentData.webCalibStatus;
+                const sn=currentData.webCalibSensorName||'';
+                dPanel.style.display='flex';
+                if(ws==1){
+                    document.getElementById('dialog-title').textContent='КАЛИБРОВКА '+sn;
+                    document.getElementById('dialog-text').textContent='Грейте датчик '+sn+'...';
+                    document.getElementById('dialog-buttons').innerHTML='<button onclick="sendCommand(\'DIALOG_NO\');closeDialogPanel()" class="dialog-btn dialog-btn-red">ОТМЕНА</button>';
+                    return;
+                }else if(ws==2){
+                    document.getElementById('dialog-title').textContent='\u2713 ДАТЧИК НАЙДЕН';
+                    document.getElementById('dialog-text').textContent='Датчик '+sn+' определён. Адрес сохранён.';
+                    document.getElementById('dialog-buttons').innerHTML='<button onclick="sendCommand(\'DIALOG_YES\');closeDialogPanel()" class="dialog-btn dialog-btn-green">ОК</button>';
+                    return;
+                }else if(ws==3){
+                    document.getElementById('dialog-title').textContent='\u2717 НЕ НАЙДЕН';
+                    document.getElementById('dialog-text').textContent='Не удалось определить нагреваемый датчик '+sn+'.';
+                    document.getElementById('dialog-buttons').innerHTML='<button onclick="sendCommand(\'DIALOG_YES\');closeDialogPanel()" class="dialog-btn dialog-btn-gray">ОК</button>';
+                    return;
+                }
+            }
+
+            if(stage==='WATER_TEST'){
+                dPanel.style.display='flex';
+                document.getElementById('dialog-title').textContent='ТЕСТ ВОДЫ';
+                document.getElementById('dialog-text').textContent='Вода течет? Все герметично?';
+                document.getElementById('dialog-buttons').innerHTML='<button onclick="sendDialog(\'DIALOG_YES\')" class="dialog-btn dialog-btn-green">ДА</button><button onclick="sendDialog(\'DIALOG_NO\')" class="dialog-btn dialog-btn-red">НЕТ</button>';
+            }else if(stage==='REPLACEMENT'){
+                dPanel.style.display='flex';
+                document.getElementById('dialog-title').textContent='СМЕНА ПОСУДЫ';
+                document.getElementById('dialog-text').textContent='Замените тару и продолжите?';
+                document.getElementById('dialog-buttons').innerHTML='<button onclick="sendDialog(\'DIALOG_YES\')" class="dialog-btn dialog-btn-green">ДА</button><button onclick="sendDialog(\'DIALOG_NO\')" class="dialog-btn dialog-btn-red">НЕТ</button>';
+            }else if(stage==='GOLOVY_OK'){
+                dPanel.style.display='flex';
+                document.getElementById('dialog-title').textContent='ГОЛОВЫ';
+                document.getElementById('dialog-text').textContent='Головы отобраны. Перейти к телу?';
+                document.getElementById('dialog-buttons').innerHTML='<button onclick="sendDialog(\'DIALOG_YES\')" class="dialog-btn dialog-btn-green">ДА</button>';
+            }else if(stage==='SET_PW_AS'&&!userClosedSetPwAs){
+                dPanel.style.display='flex';
+                document.getElementById('dialog-title').textContent='НАСТРОЙКА ПАРАМЕТРОВ';
+                let p=currentData.cfg?currentData.cfg.power:'??';let v=currentData.cfg?currentData.cfg.asVolume:'??';
+                document.getElementById('dialog-text').innerHTML='<div style="text-align:left;"><p style="margin-bottom:6px;">Текущие настройки процесса:</p><p style="font-weight:700;color:#fff;">Мощность: <span style="color:var(--neon-amber);">'+p+' W</span></p><p style="font-weight:700;color:#fff;margin-bottom:6px;">Объём АС: <span style="color:var(--neon-amber);">'+v+' ml</span></p><p style="font-size:10px;color:#4a5568;margin-top:8px;">Если значения неверны, нажмите "ОТМЕНА", измените в Настройках и нажмите "ДАЛЕЕ" в шапке.</p></div>';
+                document.getElementById('dialog-buttons').innerHTML='<button onclick="closeSetPwAsPanel()" class="dialog-btn dialog-btn-gray">ОТМЕНА</button><button onclick="sendCommand(\'NEXT_STAGE\')" class="dialog-btn dialog-btn-green">ДАЛЕЕ</button>';
+            }else{dPanel.style.display='none';}
+        }
+
+        function closeDialogPanel(){document.getElementById('dialog-panel').style.display='none';}
+        function closeSetPwAsPanel(){document.getElementById('dialog-panel').style.display='none';userClosedSetPwAs=true;}
+        function closeAlertPanel(){document.getElementById('alert-panel').style.display='none';}
+        function sendDialog(resp){sendCommand(resp);closeDialogPanel();}
+        function confirmSensorCalib(save){sendCommand(save?'DIALOG_YES':'DIALOG_NO');closeDialogPanel();}
+        function cancelSensorCalib(){closeDialogPanel();}
+        function dismissCalibError(){sendCommand('DIALOG_NO');closeDialogPanel();}
+
+        // === VALVE ===
+        function runValveTest(type){sendCommand(type==='head'?'TEST_HEAD':'TEST_BODY');}
+        function stopValveTest(){sendCommand('STOP_TEST');}
+        function completeCalibration(){sendCommand('FINISH_CALIBRATION');}
+
+        function updateValveTypeLabel(){
+            if(currentData.cfg){const isNC=currentData.cfg.bodyValveNC;const label=document.getElementById('body-valve-type-label');if(label)label.textContent='(уст. '+(isNC?'НЗ':'НО')+')';}
+        }
+
+        function updateValveButtons(){
+            const stage=currentData.stage||'';
+            const isRectRunning=(currentData.process==2);
+            const completeBtn=document.getElementById('btn-complete-calibration');
+            if(completeBtn){if(stage==='VALVE_CAL'&&isRectRunning){completeBtn.disabled=false;completeBtn.style.opacity='1';}else{completeBtn.disabled=true;completeBtn.style.opacity='0.5';}}
+            const stopBtn=document.getElementById('btn-stop-test');
+            const isAnyTest=(currentData.headTest&&currentData.headTest.active)||(currentData.bodyTest&&currentData.bodyTest.active);
+            if(stopBtn){if(isAnyTest){stopBtn.disabled=false;stopBtn.style.opacity='1';}else{stopBtn.disabled=true;stopBtn.style.opacity='0.5';}}
+        }
+
+        function updateTestUI(){
+            const headProg=document.getElementById('head-test-progress');
+            if(headProg){
+                if(currentData.headTest&&currentData.headTest.active){
+                    headProg.style.display='';const rem=currentData.headTest.remainingSec;const tot=currentData.headTest.totalSec;
+                    const timeEl=document.getElementById('head-test-time');const barEl=document.getElementById('head-test-bar');
+                    if(timeEl)timeEl.textContent=(tot-rem)+' / '+tot+' с';if(barEl)barEl.style.width=((tot-rem)/tot*100)+'%';
+                }else{headProg.style.display='none';}
+            }
+            const bodyProg=document.getElementById('body-test-progress');
+            if(bodyProg){
+                if(currentData.bodyTest&&currentData.bodyTest.active){
+                    bodyProg.style.display='';const rem=currentData.bodyTest.remainingSec;const tot=currentData.bodyTest.totalSec;
+                    const timeEl=document.getElementById('body-test-time');const barEl=document.getElementById('body-test-bar');
+                    if(timeEl)timeEl.textContent=(tot-rem)+' / '+tot+' с';if(barEl)barEl.style.width=((tot-rem)/tot*100)+'%';
+                }else{bodyProg.style.display='none';}
+            }
+            if(currentData.testAwaitingInput&&document.getElementById('calc-panel').style.display!=='flex'){showCalcPanel(currentData.testAwaitingType);}
+        }
+
+        function updateValveCalibrationStatus(){
+            const cfg=currentData.cfg;if(!cfg)return;
+            const setVD=(id,cap)=>{const el=document.getElementById(id);if(el){if(cap>0){el.textContent='\u2713 '+cap+' мл/мин';el.style.color='var(--neon-green)';}else{el.textContent='не калибровался';el.style.color='#4a5568';}}};
+            setVD('valve-head-date',cfg.valve_head_capacity);
+            setVD('valve-body-nc-date',cfg.valve_body_capacity);
+            setVD('valve-body-no-date',cfg.valve0_body_capacity);
+        }
+
+        // === CALC PANEL ===
+        function showCalcPanel(type){
+            calcModalType=type;
+            const panel=document.getElementById('calc-panel');const sub=document.getElementById('calc-modal-subtitle');
+            const inputBlock=document.getElementById('calc-input-block');const resultBlock=document.getElementById('calc-result-block');
+            const labels={'head':'Клапан ГОЛОВ','body_nc':'Клапан ТЕЛА (НЗ)','body_no':'Клапан ТЕЛА (НО)'};
+            sub.textContent=labels[type]||type;
+            inputBlock.style.display='';resultBlock.style.display='none';
+            document.getElementById('calc-ml-input').value='';panel.style.display='flex';
+        }
+        function closeCalcPanel(){document.getElementById('calc-panel').style.display='none';}
+
+        async function submitCalcValve(){
+            const ml=parseFloat(document.getElementById('calc-ml-input').value);
+            if(!ml||ml<=0){alert('Введите количество мл');return;}
+            try{
+                const resp=await fetch('/api/calcvalve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:calcModalType,ml:ml})});
+                const data=await resp.json();
+                const target=calcModalType==='head'?50:500;const speed=data.speed;const diff=((speed-target)/target)*100;
+                document.getElementById('calc-capacity').textContent=data.capacity.toFixed(1);
+                document.getElementById('calc-speed').textContent=speed.toFixed(1);
+                document.getElementById('calc-target').textContent=target;
+                document.getElementById('calc-opened').textContent=data.openedSec;
+                document.getElementById('calc-total').textContent=currentData.cfg?currentData.cfg.active_test:'--';
+                const verdict=document.getElementById('calc-verdict');
+                if(Math.abs(diff)<=1){verdict.textContent='\u2713 Попадание в норму (\u00B11%)';verdict.style.color='var(--neon-green)';}
+                else if(speed<target){verdict.textContent='\u2191 Мало \u2014 увеличьте ОТКРЫТ ('+diff.toFixed(1)+'%)';verdict.style.color='var(--neon-amber)';}
+                else{verdict.textContent='\u2193 Много \u2014 уменьшите ОТКРЫТ (+'+diff.toFixed(1)+'%)';verdict.style.color='var(--neon-amber)';}
+                document.getElementById('calc-input-block').style.display='none';
+                document.getElementById('calc-result-block').style.display='';syncData();
+            }catch(e){alert('Ошибка расчёта: '+e);}
+        }
+
+        // === PROFILES ===
+        function showSaveProfilePanel(){document.getElementById('profile-name-input').value='';document.getElementById('save-profile-panel').style.display='flex';}
+        function closeSaveProfilePanel(){document.getElementById('save-profile-panel').style.display='none';}
+
+        async function saveProfile(){
+            const name=document.getElementById('profile-name-input').value.trim();
+            if(!name){alert('Введите имя профиля');return;}
+            try{const resp=await fetch('/api/saveprofile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})});
+                if(resp.ok){closeSaveProfilePanel();alert('Профиль "'+name+'" сохранён');}else{alert('Ошибка сохранения');}
+            }catch(e){alert('Ошибка: '+e);}
+        }
+
+        function showLoadProfilePanel(){
+            const listEl=document.getElementById('profile-list');const emptyEl=document.getElementById('profile-list-empty');
+            listEl.innerHTML='<p style="color:#8a95a8;font-size:11px;text-align:center;">Загрузка...</p>';
+            document.getElementById('load-profile-panel').style.display='flex';
+            try{fetch('/api/listprofiles').then(r=>r.json()).then(data=>{listEl.innerHTML='';const profiles=data.profiles||[];
+                if(profiles.length===0){emptyEl.style.display='';}else{emptyEl.style.display='none';
+                    profiles.forEach(p=>{const btn=document.createElement('button');btn.style.cssText='width:100%;padding:8px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8a95a8;text-align:left;font-family:inherit;margin-bottom:4px;';
+                    btn.textContent=p.name;btn.onclick=()=>loadProfile(p.file,p.name);listEl.appendChild(btn);});
+                }}).catch(()=>{listEl.innerHTML='<p style="color:var(--neon-red);font-size:11px;text-align:center;">Ошибка загрузки списка</p>';});
+            }catch(e){listEl.innerHTML='<p style="color:var(--neon-red);font-size:11px;text-align:center;">Ошибка загрузки списка</p>';}
+        }
+        function closeLoadProfilePanel(){document.getElementById('load-profile-panel').style.display='none';}
+
+        async function loadProfile(fileKey,name){
+            if(!confirm('Загрузить профиль "'+name+'"?\nТекущие настройки будут заменены.'))return;
+            try{const resp=await fetch('/api/loadprofile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:fileKey})});
+                if(resp.ok){closeLoadProfilePanel();alert('Профиль "'+name+'" загружен');syncData();}else{alert('Ошибка загрузки профиля');}
+            }catch(e){alert('Ошибка: '+e);}
+        }
+
+        // === CALIBRATION WIZARD ===
+        function startCalibration(valve){
+            calibWizard.valve=valve;calibWizard.step=1;calibWizard.volume=0;calibWizard._lastInputStep=0;
+            const titleEl=document.getElementById('calib-wizard-title');
+            if(titleEl)titleEl.textContent='Калибровка: '+(valveNames[valve]||'Клапан');
+            showCalibStep(1);const panel=document.getElementById('calib-wizard-panel');if(panel)panel.style.display='flex';
+        }
+
+        function showCalibStep(step){
+            if(!step||step<1||step>4)return;
+            document.querySelectorAll('.calib-step').forEach(el=>el.style.display='none');
+            const stepEl=document.getElementById('calib-step-'+step);
+            if(stepEl){stepEl.style.display='';calibWizard.step=step;}
+        }
+
+        async function closeCalibWizard(){
+            if(calibWizard.timerInterval){clearInterval(calibWizard.timerInterval);calibWizard.timerInterval=null;}
+            try{await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:'CALIB_CANCEL'})});}catch(e){}
+            calibWizard.step=0;calibWizard.volume=0;calibWizard._lastInputStep=0;
+            const panel=document.getElementById('calib-wizard-panel');if(panel)panel.style.display='none';
+            const dryBtn=document.getElementById('btn-calib-dry-start');const capBtn=document.getElementById('btn-calib-cap-start');
+            const dryProg=document.getElementById('calib-dry-progress');const capProg=document.getElementById('calib-cap-progress');
+            if(dryBtn)dryBtn.style.display='';if(capBtn)capBtn.style.display='';
+            if(dryProg)dryProg.style.display='none';if(capProg)capProg.style.display='none';
+        }
+
+        async function startCalibDryRun(){
+            const dryBtn=document.getElementById('btn-calib-dry-start');const dryProg=document.getElementById('calib-dry-progress');
+            if(dryBtn)dryBtn.style.display='none';if(dryProg)dryProg.style.display='';
+            const valveNum=calibWizard.valve==='heads'?1:(calibWizard.valve==='body_nc'?2:3);
+            await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:'CALIB_START_DRY',valve:valveNum})});
+        }
+
+        async function startCalibCapacity(){
+            const capBtn=document.getElementById('btn-calib-cap-start');const capProg=document.getElementById('calib-cap-progress');
+            if(capBtn)capBtn.style.display='none';if(capProg)capProg.style.display='';
+            const valveNum=calibWizard.valve==='heads'?1:(calibWizard.valve==='body_nc'?2:3);
+            await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:'CALIB_START_CAP',valve:valveNum})});
+        }
+
+        function adjCalibVolume(delta){
+            calibWizard.volume+=delta;if(calibWizard.volume<0)calibWizard.volume=0;if(calibWizard.volume>9999)calibWizard.volume=9999;
+            const volEl=document.getElementById('calib-volume');if(volEl)volEl.textContent=Math.round(calibWizard.volume);
+        }
+
+        async function submitCalibVolume(){
+            const capacity=calibWizard.volume;
+            const field=calibWizard.valve==='heads'?'valve_head_capacity':calibWizard.valve==='body_nc'?'valve_body_capacity':'valve0_body_capacity';
+            try{const response=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:Math.round(capacity)})});
+                if(!response.ok){alert('Ошибка сохранения: '+response.status);return;}
+                const resultEl=document.getElementById('calib-result-cap');if(resultEl)resultEl.textContent=Math.round(capacity);
+                showCalibStep(4);updateValveCalibrationStatus();
+            }catch(e){alert('Ошибка сохранения: '+e);}
+        }
+
+        function updateCalibWizardUI(){
+            const panel=document.getElementById('calib-wizard-panel');if(!panel)return;
+            if(calibWizard.step>0&&(!currentData.calibWizard||currentData.calibWizard.step===0)){if(panel.style.display!=='flex')panel.style.display='flex';return;}
+            if(!currentData.calibWizard)return;
+            const cw=currentData.calibWizard;
+            if(cw.step>0&&cw.step<=4){
+                if(panel.style.display!=='flex')panel.style.display='flex';
+                const vn={1:'ГОЛОВЫ',2:'ТЕЛО NC (НЗ)',3:'ТЕЛО NO (НО)'};const titleEl=document.getElementById('calib-wizard-title');
+                if(titleEl)titleEl.textContent='Калибровка: '+(vn[cw.valve]||'Клапан');
+                if(cw.step>=1&&cw.step<=4&&cw.step!==calibWizard.step)showCalibStep(cw.step);
+                if(cw.isRunning){
+                    if(cw.step===1){const dryBtn=document.getElementById('btn-calib-dry-start');const dryProg=document.getElementById('calib-dry-progress');const dryTime=document.getElementById('calib-dry-time');const dryBar=document.getElementById('calib-dry-bar');
+                        if(dryBtn)dryBtn.style.display='none';if(dryProg)dryProg.style.display='';
+                        if(cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;if(dryTime)dryTime.textContent=elapsed+' / '+cw.totalSec+' с';if(dryBar)dryBar.style.width=(elapsed/cw.totalSec*100)+'%';}
+                    }else if(cw.step===2){const capBtn=document.getElementById('btn-calib-cap-start');const capProg=document.getElementById('calib-cap-progress');const capTime=document.getElementById('calib-cap-time');const capBar=document.getElementById('calib-cap-bar');
+                        if(capBtn)capBtn.style.display='none';if(capProg)capProg.style.display='';
+                        if(cw.totalSec>0){const elapsed=cw.totalSec-cw.remainingSec;if(capTime)capTime.textContent=elapsed+' / '+cw.totalSec+' с';if(capBar)capBar.style.width=(elapsed/cw.totalSec*100)+'%';}
+                    }
+                }else{
+                    if(cw.step===1){const dryBtn=document.getElementById('btn-calib-dry-start');const dryProg=document.getElementById('calib-dry-progress');if(dryBtn)dryBtn.style.display='';if(dryProg)dryProg.style.display='none';}
+                    else if(cw.step===2){const capBtn=document.getElementById('btn-calib-cap-start');const capProg=document.getElementById('calib-cap-progress');if(capBtn)capBtn.style.display='';if(capProg)capProg.style.display='none';}
+                }
+                if(cw.step===4&&cw.capacity>0){const resultEl=document.getElementById('calib-result-cap');if(resultEl)resultEl.textContent=Math.round(cw.capacity);}
+                calibWizard.step=cw.step;calibWizard.valve={1:'heads',2:'body_nc',3:'body_no'}[cw.valve]||'';
+                if(cw.step===3&&calibWizard._lastInputStep!==3){
+                    calibWizard._lastInputStep=3;const cfg=currentData.cfg||{};
+                    if(calibWizard.valve==='heads')calibWizard.volume=(cfg.valve_head_capacity||0);
+                    else if(calibWizard.valve==='body_nc')calibWizard.volume=(cfg.valve_body_capacity||0);
+                    else if(calibWizard.valve==='body_no')calibWizard.volume=(cfg.valve0_body_capacity||0);
+                    const volEl=document.getElementById('calib-volume');if(volEl)volEl.textContent=Math.round(calibWizard.volume);
+                }
+                if(cw.step!==3){calibWizard._lastInputStep=0;calibWizard.volume=cw.volume;}
+            }
+        }
+    </script>
+    <script>
+    // === ENGINEERING MENU ===
+    let engConfirmed = false;
+    const engFields = ['speedGolovyBase','speedTeloBase','distHeadsSpeed','shporaCorr','shporaStabMs','minBodySpeed','headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo','pressureCoeff','coolingDurationSec','bakstopDelaySec','calibDrySec','calibCapacitySec'];
+    const engRanges = {
+        speedGolovyBase:[10,200], speedTeloBase:[100,2000], distHeadsSpeed:[10,200],
+        shporaCorr:[1.05,1.50], shporaStabMs:[10,300], minBodySpeed:[100,800],
+        headsShareStd:[5,20], headsShareKssSpit:[1,5], headsShareKssStd:[1,10], headsShareKssAkatelo:[5,30],
+        pressureCoeff:[0.020,0.040], coolingDurationSec:[60,600], bakstopDelaySec:[0,30],
+        calibDrySec:[5,30], calibCapacitySec:[30,120]
+    };
+    // Для полей "доли" храним в %. В API передаём /100.
+    const engPctFields = ['headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo'];
+    const engFloatFields = ['shporaCorr','pressureCoeff'];
+    // Поля хранящиеся в мс в C++, но отображаемые в секундах в UI
+    const engMsFields = ['shporaStabMs'];
+
+    function openEngMenu(){
+        engConfirmed = false;
+        const panel = document.getElementById('eng-menu-panel');
+        const msg = document.getElementById('eng-confirm-msg');
+        msg.style.display = 'block';
+        // Загружаем текущие значения из API в отображение
+        const eng = (currentData.cfg && currentData.cfg.eng) ? currentData.cfg.eng : {};
+        engFields.forEach(f => {
+            const el = document.getElementById('eng-' + f);
+            if(!el) return;
+            if(engPctFields.includes(f)){
+                // Храним в %, в API — доля (0.xx). Конвертируем: % = доля * 100
+                el.textContent = eng[f] !== undefined ? Math.round(eng[f] * 100) : el.textContent;
+            } else if(engFloatFields.includes(f)){
+                el.textContent = eng[f] !== undefined ? parseFloat(eng[f]).toFixed(3) : el.textContent;
+            } else if(engMsFields.includes(f)){
+                // C++ хранит в мс, отображаем в секундах
+                el.textContent = eng[f] !== undefined ? Math.round(eng[f] / 1000) : el.textContent;
+            } else {
+                el.textContent = eng[f] !== undefined ? eng[f] : el.textContent;
+            }
+        });
+        panel.style.display = 'flex';
+    }
+
+    function closeEngMenu(){
+        document.getElementById('eng-menu-panel').style.display = 'none';
+    }
+
+    function adjEng(field, delta, displayMul){
+        if(!engConfirmed){
+            engConfirmed = true;
+            document.getElementById('eng-confirm-msg').style.display = 'none';
+        }
+        const el = document.getElementById('eng-' + field);
+        if(!el) return;
+        const range = engRanges[field];
+        let val;
+        if(engPctFields.includes(field)){
+            val = parseInt(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], val)); }
+            el.textContent = val;
+        } else if(engFloatFields.includes(field)){
+            val = parseFloat(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], parseFloat(val.toFixed(3)))); }
+            el.textContent = val.toFixed(3);
+        } else {
+            val = parseInt(el.textContent) + delta;
+            if(range) { val = Math.max(range[0], Math.min(range[1], val)); }
+            el.textContent = val;
+        }
+    }
+
+    function saveEngMenu(){
+        if(!currentData.cfg) return;
+        const payload = {};
+        engFields.forEach(f => {
+            const el = document.getElementById('eng-' + f);
+            if(!el) return;
+            if(engPctFields.includes(f)){
+                // Конвертируем % → доля (0.xx)
+                payload[f] = parseInt(el.textContent) / 100;
+            } else if(engFloatFields.includes(f)){
+                payload[f] = parseFloat(el.textContent);
+            } else if(engMsFields.includes(f)){
+                // UI в секундах, C++ ожидает мс
+                payload[f] = parseInt(el.textContent) * 1000;
+            } else {
+                payload[f] = parseInt(el.textContent);
+            }
+        });
+        let url = '/api/settings';
+        if(cloudMode && cloudApiUrl) url = cloudApiUrl + '?settings=1';
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(r => r.text()).then(() => {
+            showSaveToast();
+            closeEngMenu();
+        }).catch(() => {});
+    }
+    </script>
+    <script src="./power_knob.js"></script>
+</body>
+</html>
