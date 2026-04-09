@@ -1687,17 +1687,17 @@
             ctx.clearRect(0,0,cv.width,cv.height);
             const range=GS.maxT-GS.minT;const aRange=GS.endA-GS.startA;
 
-            // Scale ticks (brighter, every 1° step)
+            // Scale ticks (inward from outer edge, like PowerKnob)
             ctx.save();ctx.translate(cx,cy);
-            const tir=GS.or+GS.lw+4;
+            const tir=GS.or+GS.lw+8;
             for(let t=0;t<=GS.maxT;t+=1){
                 const a=GS.startA+(t/range)*aRange;
-                const maj=(t%10===0);const mid=(t%5===0);const len=maj?12:(mid?8:3);
-                const r1=tir;const r2=tir+len;
+                const maj=(t%10===0);const mid=(t%5===0);const len=maj?12:(mid?12:6);
+                const r1=tir;const r2=tir-len;
                 ctx.beginPath();ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);
-                ctx.strokeStyle=maj?'#ff8c00':(mid?'#00d0e0':'#00f0ff');ctx.lineWidth=maj?2:(mid?1.2:0.8);ctx.stroke();
-                // Labels at major ticks
-                if(maj){ctx.fillStyle='#ff8c00';ctx.font='bold 9px Consolas,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t.toString(),Math.cos(a)*(r2+7),Math.sin(a)*(r2+7));}
+                ctx.strokeStyle=maj?'#ff8c00':'#00f0ff';ctx.lineWidth=maj?2:(mid?1.2:0.8);ctx.stroke();
+                // Labels at major ticks (outside)
+                if(maj){ctx.fillStyle='#ff8c00';ctx.font='bold 9px Consolas,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t.toString(),Math.cos(a)*(r1+7),Math.sin(a)*(r1+7));}
             }
             ctx.restore();
 
