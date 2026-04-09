@@ -1687,12 +1687,6 @@
             ctx.clearRect(0,0,cv.width,cv.height);
             const range=GS.maxT-GS.minT;const aRange=GS.endA-GS.startA;
 
-            // Outer decorative ring
-            ctx.save();ctx.translate(cx,cy);
-            ctx.beginPath();ctx.arc(0,0,GS.or+GS.lw+13,GS.startA,GS.endA);
-            ctx.strokeStyle='rgba(0,240,255,0.12)';ctx.lineWidth=1;ctx.stroke();
-            ctx.restore();
-
             // Scale ticks (brighter, every 1° step)
             ctx.save();ctx.translate(cx,cy);
             const tir=GS.or+GS.lw+4;
