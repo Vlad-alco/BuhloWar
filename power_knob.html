@@ -146,8 +146,8 @@ body {
         const zeroLine = document.createElementNS(ns, 'line');
         zeroLine.setAttribute('x1', z1x); zeroLine.setAttribute('y1', z1y);
         zeroLine.setAttribute('x2', z2x); zeroLine.setAttribute('y2', z2y);
-        zeroLine.setAttribute('stroke', 'rgba(255,140,0,0.7)');
-        zeroLine.setAttribute('stroke-width', '1.8');
+        zeroLine.setAttribute('stroke', '#ff8c00');
+        zeroLine.setAttribute('stroke-width', '2');
         zeroLine.setAttribute('stroke-linecap', 'round');
         g.appendChild(zeroLine);
         // Подпись "0" снаружи
@@ -155,7 +155,7 @@ body {
         const zly = CY + LABEL_R * Math.sin(zeroRad);
         const zeroText = document.createElementNS(ns, 'text');
         zeroText.setAttribute('x', zlx); zeroText.setAttribute('y', zly);
-        zeroText.setAttribute('fill', 'rgba(255,140,0,0.6)');
+        zeroText.setAttribute('fill', '#ff8c00');
         zeroText.setAttribute('font-family', "'Courier New', monospace");
         zeroText.setAttribute('font-size', '9');
         zeroText.setAttribute('font-weight', '600');
@@ -189,9 +189,9 @@ body {
             line.setAttribute('y1', y1);
             line.setAttribute('x2', x2);
             line.setAttribute('y2', y2);
-            // Цвет: мелкие — голубые, тысячные — оранжевые
-            line.setAttribute('stroke', isMajor ? 'rgba(255,140,0,0.7)' : 'rgba(0,200,255,0.35)');
-            line.setAttribute('stroke-width', isMajor ? '1.8' : '0.7');
+            // Цвет: мелкие — cyan, тысячные — amber (как в index_landscape.html)
+            line.setAttribute('stroke', isMajor ? '#ff8c00' : '#00f0ff');
+            line.setAttribute('stroke-width', isMajor ? '2' : '0.8');
             line.setAttribute('stroke-linecap', 'round');
             g.appendChild(line);
 
@@ -203,7 +203,7 @@ body {
                 const text = document.createElementNS(ns, 'text');
                 text.setAttribute('x', lx);
                 text.setAttribute('y', ly);
-                text.setAttribute('fill', 'rgba(255,140,0,0.6)');
+                text.setAttribute('fill', '#ff8c00');
                 text.setAttribute('font-family', "'Courier New', monospace");
                 text.setAttribute('font-size', '9');
                 text.setAttribute('font-weight', '600');
@@ -218,7 +218,7 @@ body {
                     text.setAttribute('transform', 'rotate(' + textAngle + ', ' + lx + ', ' + ly + ')');
                 }
 
-                text.textContent = power.toString();
+                text.textContent = (power / 1000).toString();
                 g.appendChild(text);
             }
         }
