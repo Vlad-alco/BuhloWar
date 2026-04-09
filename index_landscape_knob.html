@@ -1748,8 +1748,12 @@
                 // Ring indices: 0=aqua(inner), 1=tank, 2=tsar, 3=tsa(outer)
                 const ringIdx={tsa:3,tank:1,tsar:2,aqua:0};
                 // ТЕЛО end threshold: rtsarM + histeresis + pressureCorrection (real-time)
+                // ESP32 sends pressure in mmHg (×0.75), but adPressM in raw hPa — convert to same units
                 const rtsarM=currentData.rtsarM||0;
-                const teloEnd=rtsarM>0.1?(rtsarM+(cfg.histeresis||0.24)+((currentData.pressure||760)-(currentData.adPressM||760))*(cfg.pressureCoeff||0.028)):0;
+                const adPressMmHg=(currentData.adPressM||0)*0.75;
+                const pressDiffMmHg=(currentData.pressure||760)-adPressMmHg;
+                // pressureCoeff is per hPa; convert mmHg diff to hPa: /0.75
+                const teloEnd=rtsarM>0.1?(rtsarM+(cfg.histeresis||0.24)+(pressDiffMmHg/0.75)*(cfg.pressureCoeff||0.028)):0;
                 const markers=[
                     {val:tsaLimit,      label:'TSA',      color:'#ff3355', ringKey:'tsa',  show:tsaLimit>0&&tsaLimit<GS.maxT},
                     {val:cfg.bakStopTemp,label:'СТОП',     color:'#f97316', ringKey:'tank', show:cfg.bakStopTemp>0&&cfg.bakStopTemp<GS.maxT},
