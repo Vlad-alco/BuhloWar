@@ -1416,6 +1416,8 @@
         let currentData = {}; currentData.bodyVolDone = 0;
         let currentPage = 'monitoring';
         let configDirty = false, userClosedSetPwAs = false, lastStage = '', calibWizardShownForStage = false;
+        // Preserve final volumes after finish (cleared on new process start)
+        let preservedHeadsVolDone = 0, preservedBodyVolDone = 0, preservedHeadsTotalTarget = 0, preservedAsVolume = 0;
         let syncInProgress = false, lastCommandTime = 0;
         let calcModalType = '';
         let calibWizard = { valve:'', step:0, volume:0, timerInterval:null, _lastInputStep:0 };
@@ -1482,6 +1484,13 @@
                  'waterValveOpen','finishingRemainSec','stageTimeSec','headsVolDone','headsVolSub','bodyVolDone','headsVolTarget',
                  'safety_code','safety_text','safety_detail','headTest','bodyTest','webCalibStatus','testAwaitingInput','testAwaitingType']
                 .forEach(k=>{if(newData[k]!==undefined)currentData[k]=newData[k];});
+                // Preserve volumes: save when available, clear on new process (stage becomes NAGREV or empty with no prior data)
+                const st=newData.stage||'';
+                if(currentData.headsVolDone>0)preservedHeadsVolDone=currentData.headsVolDone;
+                if(currentData.bodyVolDone>0)preservedBodyVolDone=currentData.bodyVolDone;
+                if(currentData.headsTotalTarget>0)preservedHeadsTotalTarget=currentData.headsTotalTarget;
+                if(currentData.cfg?.asVolume>0)preservedAsVolume=currentData.cfg.asVolume;
+                if(st==='NAGREV'||st==='NAGREV_DEFL'){preservedHeadsVolDone=0;preservedBodyVolDone=0;preservedHeadsTotalTarget=0;preservedAsVolume=0;}
                 currentData.safety_code=currentData.safety_code!==undefined?currentData.safety_code:(newData.safety||0);
                 currentData.safety_text=currentData.safety_text||(currentData.safety_code===0?'Норма':(currentData.safety_code===1?'ВНИМАНИЕ':'АВАРИЯ!'));
                 if(!currentData.cfg||!configDirty)currentData.cfg=newData.cfg;
@@ -1637,7 +1646,10 @@
             }else{
                 hs('mon-head-speed-calc','--');hs('mon-head-speed-real','--');hs('mon-head-method','--');
                 hs('mon-head-substage','--');hs('mon-head-vol-target','--');hs('mon-head-vol','--');
-                hs('mon-head-total','--');hs('mon-head-done','--');hs('mon-head-remain','--:--');
+                // Preserve total/done after finish — only clear on new process
+                if(preservedHeadsVolDone>0){hs('mon-head-total',preservedHeadsTotalTarget||'--');hs('mon-head-done',Math.round(preservedHeadsVolDone));}
+                else{hs('mon-head-total','--');hs('mon-head-done','--');}
+                hs('mon-head-remain','--:--');
             }
 
             // BODY
@@ -1655,7 +1667,10 @@
                 hs('mon-body-total',predict>0?predict:'--');hs('mon-body-done',Math.round(bV));
             }else{
                 hs('mon-body-speed-calc','--');hs('mon-body-speed-real','--');hs('mon-body-method','--');
-                hs('mon-body-cycle','--');hs('mon-body-remain','--:--');hs('mon-body-total','--');hs('mon-body-done','--');
+                hs('mon-body-cycle','--');hs('mon-body-remain','--:--');
+                // Preserve total/done after finish — only clear on new process
+                if(preservedBodyVolDone>0){let pAsV=preservedAsVolume||0;let pHV=preservedHeadsVolDone||0;let pPredict=Math.round(pAsV-pHV-pAsV*0.15);hs('mon-body-total',pPredict>0?pPredict:'--');hs('mon-body-done',Math.round(preservedBodyVolDone));}
+                else{hs('mon-body-total','--');hs('mon-body-done','--');}
             }
 
             // ABV + REF
