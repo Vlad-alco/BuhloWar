@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Барометр - Тест</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0f1a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            padding: 20px;
+        }
+        
+        .baro-container {
+            background: rgba(10,15,26,0.95);
+            border: 1px solid rgba(0,240,255,0.15);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .baro-title {
+            font-size: 10px;
+            color: #00f0ff;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(0,240,255,0.3);
+        }
+        .baro-canvas-wrap {
+            width: 160px;
+            height: 120px;
+            position: relative;
+        }
+        .baro-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .baro-value {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        .baro-val-num {
+            font-size: 24px;
+            font-weight: 700;
+            color: #00f0ff;
+            text-shadow: 0 0 10px rgba(0,240,255,0.4);
+            font-variant-numeric: tabular-nums;
+        }
+        .baro-val-unit {
+            font-size: 8px;
+            color: #3a4a60;
+            letter-spacing: 0.1em;
+        }
+        .baro-corr {
+            font-size: 12px;
+            color: #ff8c00;
+            font-weight: 600;
+            text-shadow: 0 0 6px rgba(255,140,0,0.3);
+        }
+        
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(10,15,26,0.95);
+            border: 1px solid rgba(0,240,255,0.15);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-row label {
+            font-size: 11px;
+            color: #6a7588;
+            width: 80px;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            accent-color: #00f0ff;
+        }
+        .control-row span {
+            font-size: 12px;
+            color: #00f0ff;
+            width: 50px;
+            text-align: right;
+        }
+        button {
+            background: linear-gradient(135deg, #005f6b, #003d47);
+            border: 1px solid rgba(0,240,255,0.3);
+            color: #00f0ff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #007a8a, #005f6b);
+            box-shadow: 0 0 12px rgba(0,240,255,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="baro-container">
+        <div class="baro-title">Атмосфера</div>
+        <div class="baro-canvas-wrap">
+            <canvas id="baroCanvas" width="160" height="120"></canvas>
+            <div class="baro-value">
+                <div class="baro-val-num" id="pressVal">760</div>
+                <div class="baro-val-unit">мм.рт.ст</div>
+            </div>
+        </div>
+        <div class="baro-corr" id="pressCorr">+0.00°</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-row">
+            <label>Давление:</label>
+            <input type="range" id="pressureSlider" min="720" max="790" value="760">
+            <span id="pressureSpan">760</span>
+        </div>
+        <div class="control-row">
+            <label>Эталон (adPressM):</label>
+            <input type="range" id="refSlider" min="720" max="790" value="760">
+            <span id="refSpan">760</span>
+        </div>
+        <div class="control-row">
+            <label>Коэфф. °C/гПа:</label>
+            <input type="range" id="coeffSlider" min="20" max="40" value="28">
+            <span id="coeffSpan">0.028</span>
+        </div>
+        <button onclick="animatePressure()">Анимация</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('baroCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Pressure range
+        const PRESS_MIN = 720;
+        const PRESS_MAX = 790;
+        const PRESS_NORM = 760; // "нормальное" давление
+        
+        // Current values
+        let currentPressure = 760;
+        let targetPressure = 760;
+        let adPressM = 760;
+        let pressureCoeff = 0.028;
+        
+        // Animation
+        let animating = false;
+        
+        function drawBarometer(pressure) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h - 10; // center at bottom
+            const radius = Math.min(w, h) - 20;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            // Arc parameters: 180° arc (from left to right, bottom half)
+            const startAngle = Math.PI; // 180° (left)
+            const endAngle = 0; // 0° (right)
+            const arcRange = Math.PI; // 180 degrees
+            
+            // Background arc
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.strokeStyle = 'rgba(0,240,255,0.08)';
+            ctx.lineWidth = 12;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            // Pressure zones gradient
+            // Low (720-745): red/amber, Normal (745-775): green, High (775-790): cyan
+            const gradient = ctx.createLinearGradient(cx - radius, cy, cx + radius, cy);
+            gradient.addColorStop(0, '#ef4444');    // low pressure - red
+            gradient.addColorStop(0.3, '#f59e0b');  // low-normal - amber
+            gradient.addColorStop(0.5, '#10b981');  // normal - green
+            gradient.addColorStop(0.7, '#22d3ee');  // normal-high - cyan
+            gradient.addColorStop(1, '#00f0ff');    // high pressure - bright cyan
+            
+            // Filled arc (pressure indicator)
+            const pressNorm = (pressure - PRESS_MIN) / (PRESS_MAX - PRESS_MIN);
+            const filledAngle = startAngle - (pressNorm * arcRange);
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, filledAngle, true); // counter-clockwise
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            // Scale marks
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            for (let p = PRESS_MIN; p <= PRESS_MAX; p += 5) {
+                const norm = (p - PRESS_MIN) / (PRESS_MAX - PRESS_MIN);
+                const angle = startAngle - (norm * arcRange);
+                const isMajor = (p % 10 === 0);
+                
+                const innerR = radius - (isMajor ? 20 : 16);
+                const outerR = radius - 8;
+                
+                ctx.beginPath();
+                ctx.moveTo(cx + innerR * Math.cos(angle), cy + innerR * Math.sin(angle));
+                ctx.lineTo(cx + outerR * Math.cos(angle), cy + outerR * Math.sin(angle));
+                ctx.stroke();
+                
+                // Labels for major marks
+                if (isMajor && p !== PRESS_MIN && p !== PRESS_MAX) {
+                    const labelR = radius - 28;
+                    const lx = cx + labelR * Math.cos(angle);
+                    const ly = cy + labelR * Math.sin(angle);
+                    ctx.fillStyle = '#4a5568';
+                    ctx.font = '7px Consolas, monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(p.toString(), lx, ly);
+                }
+            }
+            
+            // Needle
+            const needleAngle = startAngle - (pressNorm * arcRange);
+            const needleLen = radius - 16;
+            
+            // Needle shadow
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(needleAngle);
+            
+            // Needle body
+            ctx.beginPath();
+            ctx.moveTo(0, -2);
+            ctx.lineTo(needleLen, 0);
+            ctx.lineTo(0, 2);
+            ctx.closePath();
+            ctx.fillStyle = '#00f0ff';
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            
+            // Needle center dot
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#00f0ff';
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // "760" mark (normal pressure indicator)
+            const normAngle = startAngle - ((PRESS_NORM - PRESS_MIN) / (PRESS_MAX - PRESS_MIN) * arcRange);
+            ctx.beginPath();
+            ctx.arc(cx + (radius + 4) * Math.cos(normAngle), cy + (radius + 4) * Math.sin(normAngle), 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981';
+            ctx.fill();
+        }
+        
+        function updateDisplay() {
+            // Draw barometer
+            drawBarometer(currentPressure);
+            
+            // Update value display
+            document.getElementById('pressVal').textContent = Math.round(currentPressure);
+            
+            // Calculate correction
+            const pressDiffMmHg = currentPressure - adPressM;
+            const pressCorr = (pressDiffMmHg / 0.75) * pressureCoeff;
+            const sign = pressCorr >= 0 ? '+' : '';
+            document.getElementById('pressCorr').textContent = sign + pressCorr.toFixed(2) + '°';
+        }
+        
+        function animate() {
+            if (animating) {
+                const diff = targetPressure - currentPressure;
+                if (Math.abs(diff) > 0.1) {
+                    currentPressure += diff * 0.08;
+                    updateDisplay();
+                    requestAnimationFrame(animate);
+                } else {
+                    currentPressure = targetPressure;
+                    updateDisplay();
+                    animating = false;
+                }
+            }
+        }
+        
+        function animatePressure() {
+            // Random target
+            targetPressure = PRESS_MIN + Math.random() * (PRESS_MAX - PRESS_MIN);
+            animating = true;
+            animate();
+        }
+        
+        // Slider handlers
+        document.getElementById('pressureSlider').addEventListener('input', function() {
+            currentPressure = parseFloat(this.value);
+            targetPressure = currentPressure;
+            document.getElementById('pressureSpan').textContent = this.value;
+            updateDisplay();
+        });
+        
+        document.getElementById('refSlider').addEventListener('input', function() {
+            adPressM = parseFloat(this.value);
+            document.getElementById('refSpan').textContent = this.value;
+            updateDisplay();
+        });
+        
+        document.getElementById('coeffSlider').addEventListener('input', function() {
+            pressureCoeff = parseFloat(this.value) / 1000;
+            document.getElementById('coeffSpan').textContent = pressureCoeff.toFixed(3);
+            updateDisplay();
+        });
+        
+        // Initial draw
+        updateDisplay();
+    </script>
+</body>
+</html>
