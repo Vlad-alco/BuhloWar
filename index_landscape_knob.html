@@ -1910,9 +1910,10 @@
                 hystVal=baseVal+hyst;
             }
 
-            // Dynamic range: base-0.2 .. hyst+0.2
-            const rangeMin=baseVal-0.20;
-            const rangeMax=hystVal+0.20;
+            // Dynamic range: rounded to 0.1°C for stable scale (no flicker)
+            // ±0.5°C margin gives stability when tsar fluctuates ±0.05°C before TELO
+            const rangeMin=Math.floor((baseVal-0.50)*10)/10;
+            const rangeMax=Math.ceil((hystVal+0.50)*10)/10;
             const rangeW=rangeMax-rangeMin;
 
             // Bar geometry (centered horizontally)
