@@ -490,6 +490,9 @@ void AppNetwork::handleApiStatus() {
     json += "\"pressure\":" + String(sensors.pressure * 0.75) + ",";
     json += "\"box_temp\":" + String(sensors.boxTemp) + ",";
     json += "\"humidity\":" + String(sensors.humidity, 1) + ",";
+    // DEBUG: BME status
+    Serial.print("[API] bmeStatus="); Serial.print((int)sensors.bmeStatus); 
+    Serial.print(" OK="); Serial.println(sensors.bmeStatus == SensorStatus::OK ? "YES" : "NO");
     json += "\"bmeWorking\":" + String(sensors.bmeStatus == SensorStatus::OK ? "true" : "false") + ",";
     
     // --- Калибровка датчиков ---
@@ -591,6 +594,7 @@ String AppNetwork::buildTelemetryJson() {
     json += "\"pressure\":" + String(sensors.pressure * 0.75) + ",";
     json += "\"box_temp\":" + String(sensors.boxTemp) + ",";
     json += "\"humidity\":" + String(sensors.humidity, 1) + ",";
+    json += "\"bmeWorking\":" + String(sensors.bmeStatus == SensorStatus::OK ? "true" : "false") + ",";
     json += "\"alarmTimerSec\":" + String(status.alarmTimerSec) + ",";
     json += "\"stageTimeSec\":" + String(status.stageTimeSec) + ",";
     json += "\"finishingRemainSec\":" + String(status.finishingRemainSec) + ",";
