@@ -490,6 +490,7 @@ void AppNetwork::handleApiStatus() {
     json += "\"pressure\":" + String(sensors.pressure * 0.75) + ",";
     json += "\"box_temp\":" + String(sensors.boxTemp) + ",";
     json += "\"humidity\":" + String(sensors.humidity, 1) + ",";
+    json += "\"bmeWorking\":" + String(sensors.bmeStatus == SensorStatus::OK ? "true" : "false") + ",";
     
     // --- Калибровка датчиков ---
     json += "\"webCalibStatus\":" + String(status.webCalibStatus) + ",";

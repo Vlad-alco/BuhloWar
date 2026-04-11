@@ -161,6 +161,18 @@
         .net-badge.c { background: rgba(0,240,255,0.12); color: var(--neon-blue); border-color: rgba(0,240,255,0.3); }
         .net-badge.x { background: rgba(90,101,119,0.12); color: #5a6577; border-color: rgba(90,101,119,0.3); }
 
+        .bme-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border: 1px solid;
+        }
+        .bme-badge.bme-ok { background: rgba(0,240,255,0.12); color: var(--neon-blue); border-color: rgba(0,240,255,0.3); }
+        .bme-badge.bme-err { background: rgba(255,51,85,0.12); color: var(--neon-red); border-color: rgba(255,51,85,0.3); }
+
         .hud-header-btn {
             width: 30px; height: 30px;
             background: rgba(255,255,255,0.04);
@@ -931,6 +943,7 @@
                             <div class="baro-val" id="press-val-hud">760</div>
                             <div class="baro-unit">мм.рт.ст</div>
                             <div class="baro-corr" id="press-corr-hud">+0.00°</div>
+                            <div id="bme-status-badge" class="bme-badge bme-ok" style="margin-top:6px;">BME +</div>
                         </div>
                     </div>
                 </div>
@@ -1703,6 +1716,18 @@
             let pc=((currentData.pressure||760)-760)*0.037;let pct=(pc>=0?'+':'')+pc.toFixed(2);
             const pce=document.getElementById('press-corr-hud');pce.textContent=pct+'°';
             if(!gaugeAnimating)updateBarometer(currentData.pressure||760);
+
+            // BME status
+            const bmeBadge=document.getElementById('bme-status-badge');
+            if(bmeBadge){
+                if(currentData.bmeWorking){
+                    bmeBadge.textContent='BME +';
+                    bmeBadge.className='bme-badge bme-ok';
+                }else{
+                    bmeBadge.textContent='BME -';
+                    bmeBadge.className='bme-badge bme-err';
+                }
+            }
 
             // Calculations
             updateCalculationsHUD();

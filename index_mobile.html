@@ -111,6 +111,18 @@
         .net-mode-w { background-color: rgba(74, 222, 128, 0.2); color: var(--green); border: 1px solid #14532d; }
         .net-mode-a { background-color: rgba(245, 158, 11, 0.2); color: var(--amber); border: 1px solid #92400e; }
         .net-mode-x { background-color: rgba(107, 114, 128, 0.2); color: var(--text-dim); border: 1px solid var(--border); }
+
+        /* BME status badge */
+        .bme-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border: 1px solid;
+        }
+        .bme-badge.bme-ok { background-color: rgba(34, 211, 238, 0.15); color: var(--cyan); border-color: rgba(34, 211, 238, 0.3); }
+        .bme-badge.bme-err { background-color: rgba(248, 113, 113, 0.15); color: var(--red); border-color: rgba(248, 113, 113, 0.3); }
     </style>
 </head>
 <body class="min-h-screen bg-gray-900 text-gray-200">
@@ -139,6 +151,8 @@
                             <i data-lucide="refresh-ccw-dot" class="w-6 h-6" id="icon-mixer-hdr" title="Мешалка"></i>
                             <i data-lucide="droplets" class="w-6 h-6" id="icon-water-hdr" title="Вода"></i>
                         </div>
+                        <!-- BME status indicator -->
+                        <div id="bme-status-badge" class="bme-badge bme-ok ml-1">BME +</div>
                     </div>
                 </div>
             </header>
@@ -1234,6 +1248,18 @@
             pressCorrEl.style.color = "var(--amber)";
             
             if (!gaugeAnimating) updateBarometer(currentData.pressure || 760);
+
+            // BME status
+            const bmeBadge = document.getElementById('bme-status-badge');
+            if (bmeBadge) {
+                if (currentData.bmeWorking) {
+                    bmeBadge.textContent = 'BME +';
+                    bmeBadge.className = 'bme-badge bme-ok ml-1';
+                } else {
+                    bmeBadge.textContent = 'BME -';
+                    bmeBadge.className = 'bme-badge bme-err ml-1';
+                }
+            }
 
             document.getElementById('val-tsa-m').textContent = currentData.tsa ? currentData.tsa.toFixed(1) : '--';
             document.getElementById('val-tsar-m').textContent = currentData.tsar ? currentData.tsar.toFixed(1) : '--';
