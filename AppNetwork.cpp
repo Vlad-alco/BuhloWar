@@ -145,19 +145,28 @@ void AppNetwork::begin(int checkIntervalMinutes) {
         startWebServerEarly();
     }
     
-    // 4. Пробуем подключиться к WiFi (с коротким таймаутом)
+    // 4. Пробуем подключиться к WiFi (с повторными попытками)
     Serial.println("[NetMgr] Trying to connect to WiFi...");
     
-    // === ВАЖНО: Не блокируем надолго! ===
-    // Пробуем только один раз с коротким таймаутом
-    WiFi.begin(ssid1.c_str(), pass1.c_str());
-    
-    int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries < 20) {  // 2 сек максимум
-        delay(100);
-        if (server && systemReady) server->handleClient();  // Не обрабатываем до полной инициализации
-        yield();
-        tries++;
+    // === Увеличенный таймаут для холодного старта ===
+    // При Power On WiFi радио требует больше времени на инициализацию
+    // 3 попытки по 3 сек = до 9 сек максимум (вместо 2 сек)
+    bool connected = false;
+    for (int attempt = 0; attempt < 3 && !connected; attempt++) {
+        Serial.printf("[NetMgr] WiFi connect attempt %d/3\n", attempt + 1);
+        WiFi.begin(ssid1.c_str(), pass1.c_str());
+        
+        int tries = 0;
+        while (WiFi.status() != WL_CONNECTED && tries < 30) {  // 3 сек на попытку
+            delay(100);
+            if (server && systemReady) server->handleClient();
+            yield();
+            tries++;
+        }
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            connected = true;
+        }
     }
     
     if (WiFi.status() == WL_CONNECTED) {
