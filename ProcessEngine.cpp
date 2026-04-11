@@ -819,6 +819,11 @@ void ProcessEngine::handleWaiting() {
 
 // ==================== DIST LOGIC ====================
 
+// Статические переменные для Midterm (смена тары)
+static bool distBmeReferenceCaptured = false;
+static bool distBmeWasAvailable = true;
+static float distMidtermPressureMmHg = 760.0f; // Замороженное давление для Midterm
+
 void ProcessEngine::handleDistOtbor() {
     currentStatus.stageName = "OTBOR";
     const SensorData& data = sensorAdapter->getData();
@@ -827,6 +832,35 @@ void ProcessEngine::handleDistOtbor() {
     if (previousStage != Stage::OTBOR) {
         logger.log("OTBOR: start. TANK: " + String(data.tank.value, 1) + "C");
         previousStage = Stage::OTBOR;
+        
+        // === ЗАХВАТ РЕФЕРЕНСА ДАВЛЕНИЯ ДЛЯ MIDTERM ===
+        if (currentStatus.bmeAvailable) {
+            distMidtermPressureMmHg = data.pressure * 0.75006f; // гПа -> мм рт.ст.
+            distBmeReferenceCaptured = true;
+            distBmeWasAvailable = true;
+            logger.log("OTBOR: BME reference captured for Midterm. Pressure: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+        } else {
+            distMidtermPressureMmHg = 760.0f;
+            distBmeReferenceCaptured = false;
+            distBmeWasAvailable = false;
+            logger.log("WARNING: BME280 not available at OTBOR start! Midterm correction DISABLED.");
+        }
+        // =============================================
+    }
+    
+    // Мониторинг BME во время OTBOR
+    if (distBmeReferenceCaptured) {
+        if (distBmeWasAvailable && !currentStatus.bmeAvailable) {
+            // BME пропал - замораживаем давление
+            distMidtermPressureMmHg = data.pressure * 0.75006f;
+            logger.log("OTBOR: BME lost! Midterm pressure frozen at: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+        }
+        else if (!distBmeWasAvailable && currentStatus.bmeAvailable) {
+            // BME восстановился - обновляем давление
+            distMidtermPressureMmHg = data.pressure * 0.75006f;
+            logger.log("OTBOR: BME restored. Midterm pressure updated to: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+        }
+        distBmeWasAvailable = currentStatus.bmeAvailable;
     }
 
     if (cfg.mixerEnabled) {
@@ -838,9 +872,8 @@ void ProcessEngine::handleDistOtbor() {
         if (data.tank.value >= cfg.midterm) { 
             
             // === УЧЕТ ДАВЛЕНИЯ ===
-            float pressure_mmHg = data.getPressureMmHg(); // С fallback на 760 при неработающем BME
-            // Приводим текущую температуру бака к "нормальному" давлению
-            float tankCorrected = data.tank.value + (760.0 - pressure_mmHg) * 0.037;
+            // Используем захваченное/замороженное давление
+            float tankCorrected = data.tank.value + (760.0 - distMidtermPressureMmHg) * 0.037;
 
             // Сравниваем приведенную температуру с уставкой
             if (tankCorrected >= cfg.midterm) {
@@ -1303,6 +1336,8 @@ void ProcessEngine::handleTelo() {
 
     // Статическая переменная для отслеживания предыдущего состояния BME
     static bool bmeWasAvailable = true;
+    // Флаг: был ли захвачен референс давления при старте ТЕЛО
+    static bool bmeReferenceCaptured = false;
     // Статические для логирования только при изменении
     static int lastOpenMs = -1;
     static int lastCloseMs = -1;
@@ -1312,17 +1347,20 @@ void ProcessEngine::handleTelo() {
         koff = cfg.power / 1000.0f; 
         rtsarM = data.tsar.value;
         
-        // === ИЗМЕНЕНО: Безопасный захват давления ===
-        // Если BME жив - берем текущее. Если нет - берем что есть (последнее известное или 0)
-        adPressM = data.pressure; 
-        
-        // Логируем состояние датчика при старте этапа
-        if (!currentStatus.bmeAvailable) {
-            logger.log("WARNING: BME280 not available at TELO start! Pressure correction disabled.");
-            Serial.println("[TELO] BME missing! Using frozen pressure values.");
-            bmeWasAvailable = false; // Запоминаем, что его нет
+        // === ЛОГИКА ЗАХВАТА РЕФЕРЕНСА ДАВЛЕНИЯ ===
+        if (currentStatus.bmeAvailable) {
+            // BME работает - захватываем реальное давление
+            adPressM = data.pressure;
+            bmeReferenceCaptured = true;
+            bmeWasAvailable = true;
+            logger.log("TELO: BME reference captured. adPressM: " + String(adPressM, 1) + " hPa");
         } else {
-            bmeWasAvailable = true; // Сбрасываем флаг
+            // BME НЕ работает - коррекция отключена на весь этап, давление = 760 мм рт.ст. (1013.25 гПа)
+            adPressM = 1013.25f; // 760 мм рт.ст. в гПа
+            bmeReferenceCaptured = false;
+            bmeWasAvailable = false;
+            logger.log("WARNING: BME280 not available at TELO start! Pressure correction DISABLED for entire stage.");
+            Serial.println("[TELO] BME missing! Correction disabled, using 760 mmHg.");
         }
         // ==========================================
         
@@ -1339,7 +1377,7 @@ void ProcessEngine::handleTelo() {
                  + ", bodyValveNC=" + String(cfg.bodyValveNC ? "true" : "false") + ")");
         logger.log("  rtsarM: " + String(rtsarM, 2) + "C"
                  + "  adPressM: " + String(adPressM, 1) + "hPa"
-                 + "  koff: " + String(koff, 2));
+                 + "  bmeReferenceCaptured: " + String(bmeReferenceCaptured ? "YES" : "NO"));
         logger.log("  bodyOpenCor: " + String(bodyOpenCor, 1) + "s"
                  + "  Initial Speed: " + String(speedShpora, 1) + "ml/h");
         // ==============================
@@ -1348,26 +1386,29 @@ void ProcessEngine::handleTelo() {
     }
 
     // 2. Расчет поправки давления
-    // === НОВОЕ: Мониторинг потери BME в процессе ===
-    // Если только что потеряли датчик (был true, стал false)
-    if (bmeWasAvailable && !currentStatus.bmeAvailable) {
-        logger.log("ERROR: BME280 connection lost during TELO! Using last known pressure.");
-        Serial.println("[TELO] BME LOST! Pressure frozen at: " + String(data.pressure) + " hPa");
+    float pressureCorrection = 0.0f;
+    
+    if (bmeReferenceCaptured) {
+        // Референс был захвачен - работаем с коррекцией
+        
+        // Мониторинг потери/восстановления BME
+        if (bmeWasAvailable && !currentStatus.bmeAvailable) {
+            // BME пропал - используем последние данные
+            logger.log("ERROR: BME280 connection lost during TELO! Using frozen pressure: " + String(data.pressure) + " hPa");
+            Serial.println("[TELO] BME LOST! Pressure frozen at: " + String(data.pressure) + " hPa");
+        }
+        else if (!bmeWasAvailable && currentStatus.bmeAvailable) {
+            // BME восстановился - обновляем референс и восстанавливаем динамическую коррекцию
+            adPressM = data.pressure;
+            logger.log("INFO: BME280 restored. Dynamic correction resumed. New adPressM: " + String(adPressM, 1) + " hPa");
+            Serial.println("[TELO] BME Restored. Dynamic correction resumed.");
+        }
+        bmeWasAvailable = currentStatus.bmeAvailable;
+        
+        // Расчёт коррекции (при потере BME data.pressure = замороженное значение)
+        pressureCorrection = (data.pressure - adPressM) * cfg.pressureCoeff;
     }
-    // Если датчик вернулся (был false, стал true)
-    else if (!bmeWasAvailable && currentStatus.bmeAvailable) {
-        logger.log("INFO: BME280 connection restored.");
-        Serial.println("[TELO] BME Restored.");
-    }
-    // Обновляем состояние
-    bmeWasAvailable = currentStatus.bmeAvailable;
-    // ==============================================
-
-    // 2. Расчет поправки давления
-    // ВАЖНО: data.pressure содержит последнее удачное значение, если BME отвалился.
-    // Поэтому формула остается БЕЗ ИЗМЕНЕНИЙ. Она автоматически будет давать 
-    // коррекцию ~0, так как (FrozenPressure - adPressM) будет величиной постоянной.
-    float pressureCorrection = (data.pressure - adPressM) * cfg.pressureCoeff;
+    // Иначе: референс НЕ был захвачен -> коррекция = 0 на весь этап
     
     // 3. Расчёт накопленного объёма тела
     unsigned long now = millis();
