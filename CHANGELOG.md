@@ -15,8 +15,13 @@
 2. **index_landscape_knob.html**: маркер **BME +** (cyan) / **BME -** (red) под шкалой давления в блоке АТМОСФЕРА
 3. **index_mobile.html**: маркер **BME +** (cyan) / **BME -** (red) в шапке после иконок НАГРЕВ/МЕШАЛКА/ВОДА
 
+**Исправление (баг-фикс)**:
+- Поле `bmeWorking` было добавлено только в `handleApiStatus()`, но отсутствовало в `buildTelemetryJson()` (для облачного режима)
+- Добавлено поле `bmeWorking` в `buildTelemetryJson()` — теперь статус BME корректно показывается в обоих режимах
+- Добавлен debug вывод в Serial Monitor для диагностики
+
 **Изменённые файлы**:
-- `AppNetwork.cpp`: добавлено поле bmeWorking в JSON
+- `AppNetwork.cpp`: добавлено поле bmeWorking в handleApiStatus() и buildTelemetryJson()
 - `index_landscape_knob.html`: CSS .bme-badge, HTML badge, JS обновление статуса
 - `index_mobile.html`: CSS .bme-badge, HTML badge, JS обновление статуса
 

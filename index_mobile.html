@@ -987,7 +987,6 @@
                     
                     if (!response.ok) throw new Error('Network error');
                     newData = await response.json();
-                    console.log('[API] bmeWorking:', newData.bmeWorking, 'pressure:', newData.pressure);
                 }
                 
                 currentData.tsa = newData.tsa;
