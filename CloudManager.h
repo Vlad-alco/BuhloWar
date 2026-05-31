@@ -288,8 +288,23 @@ private:
 
         Serial.println("[Cloud] Task started on core " + String(xPortGetCoreID()));
 
+        // === Отладочный мониторинг стека (каждые 60 сек) ===
+        unsigned long lastStackCheck = 0;
+
         while (_running) {
             unsigned long now = millis();
+
+            // === Мониторинг свободного стека (каждые 60 сек) ===
+            // Если стек близок к исчерпанию — логируем предупреждение.
+            // При Kernel Panic это поможет определить причину.
+            if (now - lastStackCheck > 60000) {
+                lastStackCheck = now;
+                unsigned long freeStack = uxTaskGetStackHighWaterMark(nullptr);
+                Serial.printf("[Cloud] Stack free: %u bytes\n", freeStack);
+                if (freeStack < 2048) {
+                    Serial.printf("[Cloud] WARNING: Stack low! Only %u bytes free!\n", freeStack);
+                }
+            }
 
             // Проверяем какие запросы пора сделать
             bool doTelemetry = (now - lastTelemetryMs >= getBackoffInterval(telemetryIntervalMs));
@@ -393,7 +408,7 @@ public:
         Serial.println("[Cloud] Initialized: " + serverUrl);
     }
 
-    // Запуск cloud задачи (core 0, приоритет 0, стек 8KB)
+    // Запуск cloud задачи (core 0, приоритет 0, стек 16KB)
     void startTask() {
         if (_taskHandle != nullptr) return;  // Уже запущена
 
@@ -401,7 +416,7 @@ public:
         xTaskCreatePinnedToCore(
             _cloudTaskEntry,   // Функция задачи
             "cloud_task",      // Имя (для отладки)
-            8192,              // Стек (8KB — достаточно для HTTP + JSON парсинга)
+            16384,             // Стек (16KB — SSL/TLS требует 6-10KB, JSON + буферы ещё ~4KB)
             this,              // Параметр: указатель на CloudManager
             0,                 // Приоритет (низкий, ниже WiFi задач)
             &_taskHandle,      // Handle задачи

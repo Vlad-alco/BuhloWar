@@ -156,11 +156,15 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     for (int attempt = 0; attempt < 3 && !connected; attempt++) {
         Serial.printf("[NetMgr] WiFi connect attempt %d/3\n", attempt + 1);
 
-        // === Чистый старт WiFi: сбрасываем предыдущее подключение ===
-        // При смене точки доступа WiFi может "застрять" на старых креденшиалах
-        // disconnect(true) очищает кэш WiFi и позволяет чисто подключиться к новой AP
-        WiFi.disconnect(true);
-        delay(100);  // Короткая пауза для завершения disconnect
+        // === Безопасный сброс WiFi перед новой попыткой ===
+        // disconnect(false) — отключиться от STA, но НЕ выключать WiFi радио.
+        // disconnect(true) ВЫКЛЮЧАЕТ WiFi полностью (WIFI_OFF), что УБИВАЕТ AP режим,
+        // который уже запущен через startWebServerEarly(). WebServer и DNS при этом
+        // остаются привязаны к несуществующему интерфейсу → Kernel Panic при обращении.
+        // WiFi.mode(WIFI_AP_STA) — гарантирует dual режим (AP+STA), AP остаётся живым.
+        WiFi.disconnect(false);
+        WiFi.mode(WIFI_AP_STA);
+        delay(100);  // Короткая пауза для применения режима
 
         WiFi.begin(ssid1.c_str(), pass1.c_str());
         

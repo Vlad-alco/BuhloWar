@@ -1,3 +1,29 @@
+## 2026-05-31 — Фикс: Kernel Panic — WiFi.disconnect(true) убивает AP режим + переполнение стека CloudManager
+
+### AppNetwork.cpp + CloudManager.h — безопасный WiFi disconnect + увеличенный стек + мониторинг
+
+**Задача**: система падает с Kernel Panic через 5-8 минут после запуска. WiFi подключается, Cloud работает, затем краш и перезагрузка. Циклично.
+
+**Анализ корневой причины**:
+
+1. **WiFi.disconnect(true) убивает AP режим** — предыдущий фикс добавил `WiFi.disconnect(true)` перед `WiFi.begin()`, но `disconnect(true)` полностью выключает WiFi радио (WIFI_OFF). К этому моменту AP режим уже запущен через `startWebServerEarly()` — WebServer и DNS сервер привязаны к AP интерфейсу. Когда WiFi выключается, эти объекты остаются привязаны к несуществующему интерфейсу → Kernel Panic при обращении к ним.
+
+2. **Переполнение стека CloudManager** — cloud задача запущена со стеком 8KB, но SSL/TLS требует 6-10KB стека, а JSON парсинг и буферы ещё ~4KB. При большом JSON телеметрии стек переполняется → Kernel Panic.
+
+**Решение** (3 изменения):
+
+1. **Безопасный WiFi disconnect** — `WiFi.disconnect(false)` вместо `disconnect(true)`. Параметр `false` отключается от STA точки доступа, но НЕ выключает WiFi радио. AP режим остаётся живым. Дополнительно `WiFi.mode(WIFI_AP_STA)` гарантирует dual режим.
+
+2. **Увеличенный стек CloudManager** — 16KB вместо 8KB. SSL/TLS требует 6-10KB, JSON + буферы ещё ~4KB. 16KB даёт безопасный запас.
+
+3. **Мониторинг стека в CloudManager** — каждые 60 сек логируется свободный остаток стека (`uxTaskGetStackHighWaterMark`). При остатке < 2KB — предупреждение. Помогает диагностировать переполнение до Kernel Panic.
+
+**Изменённые файлы**:
+- `AppNetwork.cpp`: `WiFi.disconnect(true)` → `WiFi.disconnect(false)` + `WiFi.mode(WIFI_AP_STA)`
+- `CloudManager.h`: стек 8192 → 16384, мониторинг стека каждые 60 сек
+
+---
+
 ## 2026-05-31 — Фикс: система не переходит из AP в STA режим при подключении WiFi
 
 ### AppNetwork.cpp — обнаружение фонового подключения WiFi + чистый старт + увеличенный таймаут
