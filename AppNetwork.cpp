@@ -150,14 +150,22 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     
     // === Увеличенный таймаут для холодного старта ===
     // При Power On WiFi радио требует больше времени на инициализацию
-    // 3 попытки по 3 сек = до 9 сек максимум (вместо 2 сек)
+    // 3 попытки по 5 сек = до 15 сек максимум
+    // При подключении к новой точке доступа ESP32 может требовать больше времени
     bool connected = false;
     for (int attempt = 0; attempt < 3 && !connected; attempt++) {
         Serial.printf("[NetMgr] WiFi connect attempt %d/3\n", attempt + 1);
+
+        // === Чистый старт WiFi: сбрасываем предыдущее подключение ===
+        // При смене точки доступа WiFi может "застрять" на старых креденшиалах
+        // disconnect(true) очищает кэш WiFi и позволяет чисто подключиться к новой AP
+        WiFi.disconnect(true);
+        delay(100);  // Короткая пауза для завершения disconnect
+
         WiFi.begin(ssid1.c_str(), pass1.c_str());
         
         int tries = 0;
-        while (WiFi.status() != WL_CONNECTED && tries < 30) {  // 3 сек на попытку
+        while (WiFi.status() != WL_CONNECTED && tries < 50) {  // 5 сек на попытку
             delay(100);
             if (server && systemReady) server->handleClient();
             yield();
@@ -365,11 +373,43 @@ void AppNetwork::update() {
     }
     
     // === ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СЕТИ ===
-    // Защита: минимальный интервал 30 секунд
-    unsigned long safeInterval = (checkIntervalMs > 30000) ? checkIntervalMs : 30000;
+    // В AP режиме проверяем чаще (каждые 10 сек), чтобы быстрее обнаружить
+    // подключение WiFi в фоне. В STA режиме — по настроенному интервалу (минимум 30 сек).
+    unsigned long safeInterval;
+    if (networkMode == NetworkMode::AP_MODE) {
+        safeInterval = 10000;  // 10 сек в AP режиме — быстрее обнаружим подключение
+    } else {
+        safeInterval = (checkIntervalMs > 30000) ? checkIntervalMs : 30000;
+    }
     
     if (networkInitialized && (now - lastCheckTime > safeInterval || lastCheckTime == 0)) {
         lastCheckTime = now;
+        
+        // === ПЕРЕХОД AP → STA: WiFi подключился в фоне ===
+        // Если при старте begin() не удалось подключиться за отведённое время,
+        // но ESP32 в фоне всё-таки подключился к роутеру — переводим в STA режим.
+        // Без этой проверки система навсегда оставалась в AP_MODE даже при
+        // работающем WiFi (IP получен, веб-интерфейс доступен, но телеметрия не шлётся).
+        if (networkMode == NetworkMode::AP_MODE) {
+            if (WiFi.status() == WL_CONNECTED) {
+                wifiConnected = true;
+                networkMode = NetworkMode::STA_MODE;
+                
+                Serial.println("[NetMgr] WiFi connected in background! Switching AP -> STA mode.");
+                Serial.print("[NetMgr] STA IP: "); Serial.println(WiFi.localIP());
+                Serial.print("[NetMgr] AP IP: "); Serial.println(WiFi.softAPIP());
+                logger.log("WiFi: Background connected -> STA mode (AP+STA dual)");
+                
+                // Проверяем интернет и синхронизируем NTP
+                online = checkInternet();
+                if (online) {
+                    syncNTP();
+                    Serial.println("[NetMgr] Internet OK. NTP synced.");
+                } else {
+                    Serial.println("[NetMgr] WiFi connected but no internet.");
+                }
+            }
+        }
         
         if (networkMode == NetworkMode::STA_MODE) {
             // === Проверка WiFi ===
