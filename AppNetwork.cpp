@@ -321,6 +321,15 @@ NetworkMode AppNetwork::getNetworkMode() {
     return networkMode;
 }
 
+// === ФЛАГ ПЕРЕХОДА AP→STA (сбрасывается после чтения) ===
+bool AppNetwork::didSwitchToSTA() {
+    if (switchedToSTA) {
+        switchedToSTA = false;  // Сброс после чтения
+        return true;
+    }
+    return false;
+}
+
 // === СИМВОЛ СЕТИ ДЛЯ LCD ===
 char AppNetwork::getNetworkSymbol() {
     switch (networkMode) {
@@ -398,6 +407,7 @@ void AppNetwork::update() {
             if (WiFi.status() == WL_CONNECTED) {
                 wifiConnected = true;
                 networkMode = NetworkMode::STA_MODE;
+                switchedToSTA = true;  // Сигнал для loop() — инициализировать CloudManager
                 
                 Serial.println("[NetMgr] WiFi connected in background! Switching AP -> STA mode.");
                 Serial.print("[NetMgr] STA IP: "); Serial.println(WiFi.localIP());

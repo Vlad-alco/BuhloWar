@@ -1,3 +1,30 @@
+## 2026-05-31 — Фикс: CloudManager не инициализируется при фоновом переходе AP→STA + LCD не обновляет символ сети
+
+### BuhloWar.ino + AppNetwork.h + AppNetwork.cpp — CloudManager init + LCD network symbol
+
+**Задача**: при фоновом переходе AP→STA (WiFi подключился в фоне) CloudManager не инициализируется, телеметрия не отправляется, символ сети на LCD не меняется с 'A' на 'W'.
+
+**Анализ корневой причины**:
+
+1. **CloudManager не инициализируется** — в `setup()` CloudManager создаётся только при `netMode == STA_MODE`. При фоновом переходе AP→STA в `update()` этот код не выполняется повторно. `cloudManager.isConfigured()` возвращает false → телеметрия не шлётся.
+
+2. **LCD символ не обновляется** — `processEngine.updateNetworkStatus()` вызывается только внутри `if (processEngine.isProcessRunning())`. В idle режиме (процесс не запущен) символ 'A' на LCD не меняется на 'W' даже после перехода в STA_MODE.
+
+**Решение** (3 изменения):
+
+1. **Флаг `didSwitchToSTA()`** — в AppNetwork добавлен флаг `switchedToSTA`, который устанавливается при переходе AP→STA в `update()`. Метод `didSwitchToSTA()` возвращает true один раз и сбрасывает флаг. Аналог edge-trigger.
+
+2. **Инициализация CloudManager в loop()** — при обнаружении `didSwitchToSTA()` в основном цикле, CloudManager инициализируется с теми же параметрами (URL, API key, command callback), что и в `setup()`. Защита от повторной инициализации: `!cloudManager.isConfigured()`.
+
+3. **Обновление LCD символа сети всегда** — добавлен блок в `loop()` который отслеживает изменение символа сети (`W`/`A`/`X`) через static-переменную `lastNetSymbol`. При изменении — вызывает `processEngine.updateNetworkStatus()` независимо от того, запущен процесс или нет.
+
+**Изменённые файлы**:
+- `AppNetwork.h`: добавлен метод `didSwitchToSTA()` и поле `switchedToSTA`
+- `AppNetwork.cpp`: реализация `didSwitchToSTA()`, установка `switchedToSTA=true` при AP→STA переходе
+- `BuhloWar.ino`: блок инициализации CloudManager при `didSwitchToSTA()`, обновление LCD символа сети в idle
+
+---
+
 ## 2026-05-31 — Фикс: Kernel Panic — WiFi.disconnect(true) убивает AP режим + переполнение стека CloudManager
 
 ### AppNetwork.cpp + CloudManager.h — безопасный WiFi disconnect + увеличенный стек + мониторинг

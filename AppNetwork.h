@@ -48,6 +48,7 @@ public:
     bool isOnline(); 
     NetworkMode getNetworkMode();  // Получить текущий режим сети
     char getNetworkSymbol();        // Символ для LCD (W/A/X)
+    bool didSwitchToSTA();          // true если произошёл переход AP→STA (сбрасывается после чтения)
     String getTimeStr();
 
 private:
@@ -67,6 +68,7 @@ private:
     bool webServerStarted = false; // Флаг: WebServer уже запущен
     bool networkInitialized = false; // Флаг: сеть инициализирована
     bool systemReady = false;         // Флаг: система полностью инициализирована (processEngine.begin() вызван)
+    bool switchedToSTA = false;       // Флаг: переход AP→STA произошёл в фоне (для инициализации CloudManager)
     NetworkMode networkMode = NetworkMode::OFFLINE;  // Текущий режим сети
     unsigned long lastLogSize = 0;  // Позиция лога для отправки в облако
     TaskHandle_t networkTaskHandle = nullptr;

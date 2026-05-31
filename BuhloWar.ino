@@ -309,6 +309,50 @@ void loop() {
       processEngine.handleCommand(msg.command, msg.param);
   }
 
+  // === ПЕРЕХОД AP→STA: инициализация CloudManager при фоновом подключении ===
+  // Если WiFi подключился в фоне (после неудачного begin()), AppNetwork
+  // устанавливает флаг switchedToSTA. Здесь мы инициализируем CloudManager,
+  // который в setup() не был создан (т.к. тогда был AP_MODE).
+  if (appNetwork.didSwitchToSTA()) {
+      SystemConfig cfg = configManager.getConfig();
+      String cloudUrl = cfg.cloudUrl;
+      String cloudKey = cfg.cloudApiKey;
+      if (cloudUrl.length() > 0 && cloudKey.length() > 0 && !cloudManager.isConfigured()) {
+          cloudManager.begin(cloudUrl, cloudKey);
+          cloudManager.onCommandReceived([](const String& command, const String& params) {
+              Serial.printf("[Cloud] Command: %s\n", command.c_str());
+              if (command == "START_DIST") {
+                  CommandMessage msg = { UiCommand::START_DIST, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "START_RECT") {
+                  CommandMessage msg = { UiCommand::START_RECT, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "STOP") {
+                  CommandMessage msg = { UiCommand::STOP_PROCESS, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "UP") {
+                  CommandMessage msg = { UiCommand::UP, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "DOWN") {
+                  CommandMessage msg = { UiCommand::DOWN, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "YES" || command == "DIALOG_YES") {
+                  CommandMessage msg = { UiCommand::DIALOG_YES, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "NO" || command == "DIALOG_NO") {
+                  CommandMessage msg = { UiCommand::DIALOG_NO, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              } else if (command == "NEXT_STAGE") {
+                  CommandMessage msg = { UiCommand::NEXT_STAGE, 0 };
+                  xQueueSend(commandQueue, &msg, 0);
+              }
+          });
+          Serial.println("[System] CloudManager initialized (background WiFi connect)");
+          logger.log("Cloud: Initialized after background WiFi connect");
+      }
+  }
+  // ==========================================================================
+
   // 2. Потом ДВИЖОК (обработал команду, обновил температуры, сформировал строки line0-line3)
   processEngine.update(); 
 
@@ -323,6 +367,17 @@ void loop() {
 
   // 4. Синхронизация Web -> LCD (переключение меню)
   
+  // === Обновление символа сети на LCD (ВСЕГДА, не только при процессе) ===
+  // Без этого при фоновом переходе AP→STA символ 'A' на LCD не менялся на 'W'
+  static char lastNetSymbol = 0;
+  char currentNetSymbol = appNetwork.getNetworkSymbol();
+  if (currentNetSymbol != lastNetSymbol) {
+      lastNetSymbol = currentNetSymbol;
+      processEngine.updateNetworkStatus(currentNetSymbol);
+      Serial.printf("[System] Network symbol changed: %c\n", currentNetSymbol);
+  }
+  // =====================================================================
+
   static bool wasRunning = false; // Запоминаем, работал ли процесс
   static String lastStageName = "";
   
