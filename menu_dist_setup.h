@@ -30,7 +30,7 @@ private:
   // Всего 9 параметров
   SettingsItem settingsItems[9] = {
     {"RAZGON", 30, 80, 1, "C"},       // 0
-    {"BAKSTOP", 50, 99, 1, "C"},      // 1
+    {"BAKSTOP", 50, 100, 1, "C"},      // 1
     {"MIDTERM", 35, 96, 1, "C"},      // 2 (НОВЫЙ ПУНКТ)
     {"NAGREV", 0, 1, 1, ""},          // 3 (0=TEN, 1=GAS/Индукция)
     {"FULL PWR", 0, 1, 1, ""},        // 4 (Bool)
