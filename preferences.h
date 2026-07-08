@@ -57,6 +57,7 @@ enum EEPROMAddress {
   ADDR_VALVE_HEAD_CAP = 196,    // HCAP (мл/мин)
   ADDR_VALVE_BODY_CAP = 200,    // BCAP (мл/мин)
   ADDR_VALVE0_BODY_CAP = 204,   // B0CAP (мл/мин) для НО клапана
+  ADDR_VALVE_BODY_CAP_HEADS = 482,  // BCH (мл/мин) — capacity BODY NC на скорости голов
   ADDR_FULL_PWR = 208,
   ADDR_MIDTERM_ABV = 212,   // Крепость смены тары (%)     
   
@@ -141,8 +142,9 @@ struct SystemConfig {
   
   // Пропускные способности
   int valve_head_capacity = 100; // HCAP
-  int valve_body_capacity = 100; // BCAP
+  int valve_body_capacity = 100; // BCAP — capacity для скорости тела
   int valve0_body_capacity = 100; // B0CAP
+  int valve_body_capacity_heads = 0; // BCH — capacity BODY NC на скорости голов (0 = не калибровано)
   // Внутри struct SystemConfig, после int active_test = 60;
   bool fullPwr = true; // Использовать полную мощность при разгоне (DIST)
   

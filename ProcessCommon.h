@@ -152,12 +152,14 @@ String testAwaitingType = "";     // "head", "body_nc", "body_no"
     // === СОСТОЯНИЕ МАСТЕРА КАЛИБРОВКИ КЛАПАНОВ ===
     struct CalibWizard {
         int valve = 0;           // 0=none, 1=heads, 2=body_nc, 3=body_no
-        int step = 0;            // 0=idle, 1=dry_run, 2=capacity, 3=input, 4=result
+        int step = 0;            // 0=idle, 1=dry_run, 2=capacity, 3=input, 4=result, 5=cap_heads, 6=cap_body, 7=input2
         bool isRunning = false;  // true = идёт таймер (пролив или capacity)
         int remainingSec = 0;    // Оставшиеся секунды
         int totalSec = 0;        // Общее время теста
         float volume = 0.0f;     // Введённый объём (мл)
         float capacity = 0.0f;   // Рассчитанный capacity (мл/мин)
+        float capacityHeads = 0.0f; // capacity BODY NC на скорости голов
+        float headsTestVolume = 0.0f; // Запомненный объём первого теста (BODY NC)
     } calibWizard;
     // ==============================================
 };
@@ -212,10 +214,12 @@ enum class UiCommand {
     FINISH_CALIBRATION,
     
     // Команды мастера калибровки клапанов
-    CALIB_START_DRY,        // Начать пролив (10 сек)
-    CALIB_START_CAPACITY,   // Начать измерение capacity (60 сек)
-    CALIB_SET_VOLUME,       // Ввести измеренный объём
-    CALIB_CANCEL            // Отмена калибровки
+    CALIB_START_DRY,           // Начать пролив (10 сек)
+    CALIB_START_CAPACITY,      // Начать измерение capacity (60 сек) — для HEADS/BODY_NO
+    CALIB_START_CAP_HEADS,     // Начать capacity на скорости голов (BODY NC)
+    CALIB_START_CAP_BODY,      // Начать capacity на скорости тела (BODY NC)
+    CALIB_SET_VOLUME,          // Ввести измеренный объём
+    CALIB_CANCEL               // Отмена калибровки
 };
 
 // ==================== ОТВЕТЫ PROCESSENGINE ====================

@@ -124,6 +124,8 @@ if (!SensorManager::getInstance()->isCalibrating((SensorIndex)idx) && currentSta
         currentStatus.calibWizard.remainingSec = valveCalMenu->getTestRemaining();
         currentStatus.calibWizard.volume = ws.enteredVolume;
         currentStatus.calibWizard.capacity = ws.calculatedCapacity;
+        currentStatus.calibWizard.capacityHeads = ws.calculatedCapHeads;
+        currentStatus.calibWizard.headsTestVolume = ws.headsTestVolume;
     }
     // ====================================================
         
@@ -380,18 +382,32 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
     // === КОМАНДЫ КАЛИБРОВКИ ИЗ WEB (работают в любой момент, ДО проверки VALVE_CAL) ===
     if (command == UiCommand::CALIB_START_DRY) {
         if (valveCalMenu) {
-            SystemConfig& cfgCalib = configManager->getConfig();
-            valveCalMenu->startCalibFromWeb(param, cfgCalib.calibDrySec);
-            Serial.printf("[WebCmd] Calib DRY: valve=%d, %d sec\n", param, cfgCalib.calibDrySec);
+            valveCalMenu->startDryRunFromWeb(param);
+            Serial.printf("[WebCmd] Calib DRY: valve=%d\n", param);
         }
         return EngineResponse::OK;
     }
     
     if (command == UiCommand::CALIB_START_CAPACITY) {
         if (valveCalMenu) {
-            SystemConfig& cfgCalib2 = configManager->getConfig();
-            valveCalMenu->startCalibFromWeb(param, cfgCalib2.calibCapacitySec);
-            Serial.printf("[WebCmd] Calib CAPACITY: valve=%d, %d sec\n", param, cfgCalib2.calibCapacitySec);
+            valveCalMenu->startCapacityFromWeb(param);
+            Serial.printf("[WebCmd] Calib CAPACITY: valve=%d\n", param);
+        }
+        return EngineResponse::OK;
+    }
+    
+    if (command == UiCommand::CALIB_START_CAP_HEADS) {
+        if (valveCalMenu) {
+            valveCalMenu->startCapHeadsFromWeb(param);
+            Serial.printf("[WebCmd] Calib CAP_HEADS: valve=%d\n", param);
+        }
+        return EngineResponse::OK;
+    }
+    
+    if (command == UiCommand::CALIB_START_CAP_BODY) {
+        if (valveCalMenu) {
+            valveCalMenu->startCapBodyFromWeb(param);
+            Serial.printf("[WebCmd] Calib CAP_BODY: valve=%d\n", param);
         }
         return EngineResponse::OK;
     }
@@ -1162,10 +1178,11 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
     } else {
         // Нет клапана голов, работаем через тело
         if (cfg.bodyValveNC) {
-            // Конфиг 3: Body(NC). Импульсный режим (тайминги голов!)
+            // Конфиг 3: Body(NC). Импульсный режим с capacity для голов
             int openMs, closeMs;
             float targetSpeed = speedGolovy * (cfg.speedHeadCorr / 100.0f);
-            calcValveTiming(targetSpeed, (float)cfg.valve_head_capacity, openMs, closeMs);
+            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_head_capacity;
+            calcValveTiming(targetSpeed, bodyCapHeads, openMs, closeMs);
             outputManager->startBodyValveCycling(openMs, closeMs);
         } else {
             // Конфиг 4: Body(NO). Ручной режим.
@@ -1183,7 +1200,7 @@ float vHeadMin = 0;
 
 // Определяем актуальную пропускную способность в зависимости от конфига клапана
 float cap = cfg.useHeadValve    ? (float)cfg.valve_head_capacity :
-            cfg.bodyValveNC     ? (float)cfg.valve_body_capacity :
+            cfg.bodyValveNC     ? (cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_body_capacity) :
                                   (float)cfg.valve0_body_capacity;
 
 // Защита от деления на ноль: если capacity не откалиброван или = 0,
@@ -1260,7 +1277,8 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
         if (cfg.bodyValveNC) {
             int openMs, closeMs;
             float targetSpeed = speedGolovy * (cfg.speedHeadCorr / 100.0f);
-            calcValveTiming(targetSpeed, (float)cfg.valve_head_capacity, openMs, closeMs);
+            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_head_capacity;
+            calcValveTiming(targetSpeed, bodyCapHeads, openMs, closeMs);
             outputManager->startBodyValveCycling(openMs, closeMs);
         }
     }

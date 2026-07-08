@@ -220,6 +220,7 @@ void ConfigManager::loadConfig() {
   currentConfig.valve_head_capacity = readInt(ADDR_VALVE_HEAD_CAP, 100);
   currentConfig.valve_body_capacity = readInt(ADDR_VALVE_BODY_CAP, 100);
   currentConfig.valve0_body_capacity = readInt(ADDR_VALVE0_BODY_CAP, 100);
+  currentConfig.valve_body_capacity_heads = readInt(ADDR_VALVE_BODY_CAP_HEADS, 0);
   
   // === НОВЫЕ ПАРАМЕТРЫ КАЛИБРОВКИ КЛАПАНОВ ===
   currentConfig.minOpenTime = readInt(ADDR_MIN_OPEN_TIME, 100);
@@ -314,6 +315,7 @@ void ConfigManager::saveConfig() {
   writeInt(ADDR_VALVE_HEAD_CAP, currentConfig.valve_head_capacity);
   writeInt(ADDR_VALVE_BODY_CAP, currentConfig.valve_body_capacity);
   writeInt(ADDR_VALVE0_BODY_CAP, currentConfig.valve0_body_capacity);
+  writeInt(ADDR_VALVE_BODY_CAP_HEADS, currentConfig.valve_body_capacity_heads);
   
   // === НОВЫЕ ПАРАМЕТРЫ КАЛИБРОВКИ КЛАПАНОВ ===
   writeInt(ADDR_MIN_OPEN_TIME, currentConfig.minOpenTime);
@@ -395,6 +397,7 @@ void ConfigManager::saveRectConfig() {
   writeInt(ADDR_VALVE_HEAD_CAP, currentConfig.valve_head_capacity);
   writeInt(ADDR_VALVE_BODY_CAP, currentConfig.valve_body_capacity);
   writeInt(ADDR_VALVE0_BODY_CAP, currentConfig.valve0_body_capacity);
+  writeInt(ADDR_VALVE_BODY_CAP_HEADS, currentConfig.valve_body_capacity_heads);
   // Сохраняем тайминги клапанов
   writeInt(ADDR_HEAD_OPEN_MS, currentConfig.headOpenMs);
   writeInt(ADDR_HEAD_CLOSE_MS, currentConfig.headCloseMs);

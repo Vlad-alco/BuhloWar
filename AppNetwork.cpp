@@ -841,6 +841,8 @@ void AppNetwork::handleApiCommand() {
     else if (body.indexOf("\"cmd\":\"TEST_BODY\"") > 0)         sendCmd(UiCommand::TEST_BODY);
     else if (body.indexOf("\"cmd\":\"CALIB_START_DRY\"") > 0)   sendCmd(UiCommand::CALIB_START_DRY, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_START_CAP\"") > 0)   sendCmd(UiCommand::CALIB_START_CAPACITY, getValveParam());
+    else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_HEADS\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_HEADS, getValveParam());
+    else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_BODY\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_BODY, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_CANCEL\"") > 0)      sendCmd(UiCommand::CALIB_CANCEL);
     else if (body.indexOf("\"cmd\":\"IDENTIFY_") > 0) {
         if      (body.indexOf("TSAR") > 0) sendCmd(UiCommand::IDENTIFY_TSAR);
@@ -964,6 +966,7 @@ void AppNetwork::handleApiSettings() {
     cfg.active_test = getInt("active_test", cfg.active_test);
     cfg.valve_head_capacity = getInt("valve_head_capacity", cfg.valve_head_capacity);
     cfg.valve_body_capacity = getInt("valve_body_capacity", cfg.valve_body_capacity);
+    cfg.valve_body_capacity_heads = getInt("valve_body_capacity_heads", cfg.valve_body_capacity_heads);
     cfg.valve0_body_capacity = getInt("valve0_body_capacity", cfg.valve0_body_capacity);
     cfg.minOpenTime = getInt("minOpenTime", cfg.minOpenTime);
     cfg.speedHeadCorr = getInt("speedHeadCorr", cfg.speedHeadCorr);
@@ -1169,6 +1172,7 @@ String AppNetwork::buildCfgJson() {
     json += "\"active_test\":" + String(cfg.active_test) + ",";
     json += "\"valve_head_capacity\":" + String(cfg.valve_head_capacity) + ",";
     json += "\"valve_body_capacity\":" + String(cfg.valve_body_capacity) + ",";
+    json += "\"valve_body_capacity_heads\":" + String(cfg.valve_body_capacity_heads) + ",";
     json += "\"valve0_body_capacity\":" + String(cfg.valve0_body_capacity) + ",";
     json += "\"minOpenTime\":" + String(cfg.minOpenTime) + ",";
     json += "\"speedHeadCorr\":" + String(cfg.speedHeadCorr) + ",";
@@ -1312,6 +1316,7 @@ void AppNetwork::handleSaveProfile() {
     json += "\"active_test\":" + String(cfg.active_test) + ",";
     json += "\"valve_head_capacity\":" + String(cfg.valve_head_capacity) + ",";
     json += "\"valve_body_capacity\":" + String(cfg.valve_body_capacity) + ",";
+    json += "\"valve_body_capacity_heads\":" + String(cfg.valve_body_capacity_heads) + ",";
     json += "\"valve0_body_capacity\":" + String(cfg.valve0_body_capacity) + ",";
     json += "\"minOpenTime\":" + String(cfg.minOpenTime) + ",";
     json += "\"speedHeadCorr\":" + String(cfg.speedHeadCorr) + ",";
@@ -1525,6 +1530,7 @@ void AppNetwork::handleLoadProfile() {
     cfg.active_test = getInt("active_test", cfg.active_test);
     cfg.valve_head_capacity = getInt("valve_head_capacity", cfg.valve_head_capacity);
     cfg.valve_body_capacity = getInt("valve_body_capacity", cfg.valve_body_capacity);
+    cfg.valve_body_capacity_heads = getInt("valve_body_capacity_heads", cfg.valve_body_capacity_heads);
     cfg.valve0_body_capacity = getInt("valve0_body_capacity", cfg.valve0_body_capacity);
     cfg.minOpenTime = getInt("minOpenTime", cfg.minOpenTime);
     cfg.speedHeadCorr = getInt("speedHeadCorr", cfg.speedHeadCorr);

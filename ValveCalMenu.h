@@ -17,9 +17,12 @@ const int SPEED_BODY_1kW = 500;   // мл/ч/кВт для тела
 // === ЭТАПЫ МАСТЕРА КАЛИБРОВКИ ===
 enum class CalibState {
   MENU_MAIN,           // Выбор клапана: HEADS / BODY NC / BODY NO / EXIT
-  WIZARD_DRY_RUN,      // Шаг 1: Пролив системы (10 сек)
-  WIZARD_CAPACITY,     // Шаг 2: Измерение capacity (60 сек)
+  WIZARD_DRY_RUN,      // Шаг 1: Пролив системы (10 сек, 100% open)
+  WIZARD_CAPACITY,     // Шаг 2: Capacity (HEADS=импульс голов, BODY_NO=100% open)
+  WIZARD_CAP_HEADS,    // Шаг 2a: Capacity BODY NC на скорости голов (импульс)
+  WIZARD_CAP_BODY,     // Шаг 2b: Capacity BODY NC на скорости тела (импульс)
   WIZARD_INPUT,        // Ввод объёма (1 мл шаг)
+  WIZARD_INPUT2,       // Ввод объёма второго теста (BODY NC — тело)
   WIZARD_RESULT        // Результат калибровки
 };
 
@@ -33,20 +36,29 @@ enum class CalibStep {
   IDLE,
   DRY_RUN,
   CAPACITY,
-  INPUT_VOLUME,  // Переименовано для избежания конфликта с INPUT из ESP32
+  CAPACITY_HEADS,
+  CAPACITY_BODY,
+  INPUT_VOLUME,
+  INPUT_VOLUME2,
   RESULT
 };
 
 // === СОСТОЯНИЕ МАСТЕРА КАЛИБРОВКИ ===
 struct CalibWizardState {
   CalibValve valve = CalibValve::HEADS;    // HEADS / BODY_NC / BODY_NO
-  CalibStep step = CalibStep::IDLE;         // IDLE / DRY_RUN / CAPACITY / INPUT_VOLUME / RESULT
+  CalibStep step = CalibStep::IDLE;         // IDLE / DRY_RUN / CAPACITY / ...
   bool launchedByProcess = false;           // true = авто (LCD+Web sync), false = ручной Web only
   bool isTestRunning = false;
   unsigned long testStartTime = 0;
   int testDurationSec = 0;                  // 10 или 60
-  float enteredVolume = 0.0f;               // мл (0.1 шаг)
-  float calculatedCapacity = 0.0f;          // мл/мин
+  float enteredVolume = 0.0f;               // мл (1 шаг)
+  float headsTestVolume = 0.0f;             // запомненный объём первого теста BODY NC
+  float calculatedCapacity = 0.0f;          // мл/мин (текущий/последний рассчитанный)
+  float calculatedCapHeads = 0.0f;          // мл/мин — capacity на скорости голов (BODY NC)
+  float calculatedCapBody = 0.0f;           // мл/мин — capacity на скорости тела (BODY NC)
+  int testOpenMs = 0;                       // openMs использованный в текущем тесте
+  int testCloseMs = 0;                      // closeMs использованный в текущем тесте
+  bool testIsCycling = false;               // true = тест в импульсном режиме
 };
 // ====================================
 
@@ -78,14 +90,21 @@ private:
   void startWizard(CalibValve valve) {
     wizard.valve = valve;
     wizard.step = CalibStep::DRY_RUN;
-    wizard.launchedByProcess = true;  // Для вызова из процесса
+    wizard.launchedByProcess = true;
     wizard.isTestRunning = false;
     wizard.enteredVolume = 0.0f;
+    wizard.headsTestVolume = 0.0f;
     wizard.calculatedCapacity = 0.0f;
+    wizard.calculatedCapHeads = 0.0f;
+    wizard.calculatedCapBody = 0.0f;
+    wizard.testOpenMs = 0;
+    wizard.testCloseMs = 0;
+    wizard.testIsCycling = false;
     currentState = CalibState::WIZARD_DRY_RUN;
     display();
   }
   
+  // Открыть клапан на 100% (для dry run и BODY NO capacity)
   void openValveForTest() {
     switch(wizard.valve) {
       case CalibValve::HEADS:
@@ -98,34 +117,162 @@ private:
     }
   }
   
-  void closeValve() {
+  // Закрыть клапан
+  void closeValveForTest() {
     switch(wizard.valve) {
       case CalibValve::HEADS:
+        output->stopHeadValveTest();
         output->closeHeadValve();
         break;
       case CalibValve::BODY_NC:
       case CalibValve::BODY_NO:
+        output->stopBodyValveTest();
         output->closeBodyValve();
         break;
     }
   }
   
-  void saveCapacity() {
+  // === Расчёт таймингов импульсного теста ===
+  // targetSpeedMlH — целевая скорость в мл/ч
+  // Возвращает true если cycling запущен, false если fallback на 100% open
+  bool startCyclingForTest(float targetSpeedMlH) {
     SystemConfig& cfg = config->getConfig();
-    int capacityInt = (int)(wizard.calculatedCapacity + 0.5f);  // Округление
+    int minOpen = cfg.minOpenTime > 0 ? cfg.minOpenTime : 100;
     
+    // Берём текущий capacity как оценку (или дефолт 100)
+    float capEstimate = 0.0f;
     switch(wizard.valve) {
       case CalibValve::HEADS:
-        cfg.valve_head_capacity = capacityInt;
+        capEstimate = (float)cfg.valve_head_capacity;
         break;
       case CalibValve::BODY_NC:
-        cfg.valve_body_capacity = capacityInt;
+        // Для первого теста (головы) берём valve_body_capacity, для второго (тело) тоже
+        capEstimate = (float)cfg.valve_body_capacity;
         break;
       case CalibValve::BODY_NO:
-        cfg.valve0_body_capacity = capacityInt;
+        capEstimate = (float)cfg.valve0_body_capacity;
         break;
     }
+    if (capEstimate < 1.0f) capEstimate = 100.0f;
+    
+    // Рассчитываем duty cycle
+    float dutyCycle = targetSpeedMlH / (capEstimate * 60.0f);
+    if (dutyCycle > 0.9f) dutyCycle = 0.9f;
+    if (dutyCycle < 0.001f) dutyCycle = 0.001f;
+    
+    // Рассчитываем openMs/closeMs (same logic as calcValveTiming)
+    int openMs, closeMs;
+    float idealOpenMs = dutyCycle * minOpen;
+    
+    if (idealOpenMs >= minOpen) {
+      openMs = (int)(idealOpenMs + 0.5f);
+      closeMs = minOpen - openMs;
+    } else {
+      openMs = minOpen;
+      float closeMsCalc = (float)openMs * (1.0f - dutyCycle) / dutyCycle;
+      closeMs = (int)(closeMsCalc + 0.5f);
+    }
+    if (closeMs < 100) closeMs = 100;
+    
+    // Запоминаем для обратного расчёта capacity
+    wizard.testOpenMs = openMs;
+    wizard.testCloseMs = closeMs;
+    wizard.testIsCycling = true;
+    
+    // Запускаем cycling
+    switch(wizard.valve) {
+      case CalibValve::HEADS:
+        output->startHeadValveCycling(openMs, closeMs);
+        Serial.printf("[Calib] Heads cycling: open=%dms close=%dms duty=%.4f\n", openMs, closeMs, dutyCycle);
+        break;
+      case CalibValve::BODY_NC:
+      case CalibValve::BODY_NO:
+        output->startBodyValveCycling(openMs, closeMs);
+        Serial.printf("[Calib] Body cycling: open=%dms close=%dms duty=%.4f\n", openMs, closeMs, dutyCycle);
+        break;
+    }
+    return true;
+  }
+  
+  // Обратный расчёт capacity по измеренному объёму и тестовому duty cycle
+  float backCalculateCapacity(float volumeMl, int durationSec) {
+    if (durationSec <= 0 || volumeMl <= 0) return 0.0f;
+    
+    if (wizard.testIsCycling && wizard.testOpenMs > 0 && wizard.testCloseMs > 0) {
+      // Импульсный режим: реальная пропускная способность
+      float dutyCycle = (float)wizard.testOpenMs / (float)(wizard.testOpenMs + wizard.testCloseMs);
+      // volumeMl = capacity_true * dutyCycle * durationSec / 60.0
+      // capacity_true = volumeMl * 60.0 / (dutyCycle * durationSec)
+      float capTrue = volumeMl * 60.0f / (dutyCycle * (float)durationSec);
+      return capTrue;
+    } else {
+      // 100% open: capacity = volume / time_min
+      return volumeMl / ((float)durationSec / 60.0f);
+    }
+  }
+  
+  // Сохранить результаты калибровки
+  void saveCapacity() {
+    SystemConfig& cfg = config->getConfig();
+    
+    switch(wizard.valve) {
+      case CalibValve::HEADS: {
+        // HEADS: calculatedCapacity = результат импульсного теста на скорости голов
+        int capacityInt = (int)(wizard.calculatedCapacity + 0.5f);
+        cfg.valve_head_capacity = capacityInt;
+        Serial.printf("[Calib] Save HEADS capacity: %d ml/min\n", capacityInt);
+        break;
+      }
+      case CalibValve::BODY_NC: {
+        // BODY NC: два значения
+        int capHeadsInt = (int)(wizard.calculatedCapHeads + 0.5f);
+        int capBodyInt = (int)(wizard.calculatedCapBody + 0.5f);
+        cfg.valve_body_capacity_heads = capHeadsInt;
+        cfg.valve_body_capacity = capBodyInt;
+        Serial.printf("[Calib] Save BODY NC: cap_heads=%d, cap_body=%d ml/min\n", capHeadsInt, capBodyInt);
+        break;
+      }
+      case CalibValve::BODY_NO: {
+        // BODY NO: 100% open, одно значение
+        int capacityInt = (int)(wizard.calculatedCapacity + 0.5f);
+        cfg.valve0_body_capacity = capacityInt;
+        Serial.printf("[Calib] Save BODY NO capacity: %d ml/min\n", capacityInt);
+        break;
+      }
+    }
     config->saveRectConfig();
+  }
+  
+  // Получить целевую скорость голов (мл/ч) с учётом мощности
+  float getHeadsTargetSpeed() {
+    SystemConfig& cfg = config->getConfig();
+    float koff = cfg.power / 1000.0f;
+    return koff * (float)cfg.speedGolovyBase;
+  }
+  
+  // Получить целевую скорость тела (мл/ч) с учётом мощности
+  float getBodyTargetSpeed() {
+    SystemConfig& cfg = config->getConfig();
+    float koff = cfg.power / 1000.0f;
+    return koff * (float)cfg.speedTeloBase;
+  }
+  
+  // Проверить, является ли текущий клапан BODY NC (нужна двухточечная калибровка)
+  bool isTwoPointCalibration() {
+    return wizard.valve == CalibValve::BODY_NC;
+  }
+  
+  // Проверить, нужен ли импульсный режим для capacity теста
+  bool needsCyclingForCapacity() {
+    switch(wizard.valve) {
+      case CalibValve::HEADS:
+        return true;     // Всегда импульс на скорости голов
+      case CalibValve::BODY_NC:
+        return true;     // Импульс на головах и теле
+      case CalibValve::BODY_NO:
+        return false;    // 100% open
+    }
+    return false;
   }
   
 public:
@@ -141,7 +288,7 @@ public:
   int getTestRemaining() {
     if (!wizard.isTestRunning) return 0;
     unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
-    return (elapsed < wizard.testDurationSec) ? (wizard.testDurationSec - elapsed) : 0;
+    return (elapsed < (unsigned long)wizard.testDurationSec) ? (wizard.testDurationSec - (int)elapsed) : 0;
   }
   // ========================
   
@@ -155,7 +302,10 @@ public:
       case CalibState::MENU_MAIN: displayMainMenu(); break;
       case CalibState::WIZARD_DRY_RUN: displayDryRun(); break;
       case CalibState::WIZARD_CAPACITY: displayCapacity(); break;
+      case CalibState::WIZARD_CAP_HEADS: displayCapHeads(); break;
+      case CalibState::WIZARD_CAP_BODY: displayCapBody(); break;
       case CalibState::WIZARD_INPUT: displayInput(); break;
+      case CalibState::WIZARD_INPUT2: displayInput2(); break;
       case CalibState::WIZARD_RESULT: displayResult(); break;
     }
   }
@@ -169,7 +319,7 @@ public:
     const char* items[] = {"HEADS", "BODY NC", "BODY NO", "EXIT"};
     
     for (int i = 0; i < 4; i++) {
-      lcd->setCursor(0, i + 0);  // Сдвигаем меню на строку выше
+      lcd->setCursor(0, i + 0);
       lcd->print(i == selectedItem ? ">" : " ");
       lcd->print(items[i]);
       
@@ -177,24 +327,34 @@ public:
       SystemConfig& cfg = config->getConfig();
       if (i < 3) {
         lcd->print(" ");
-        int cap = 0;
-        if (i == 0) cap = cfg.valve_head_capacity;
-        else if (i == 1) cap = cfg.valve_body_capacity;
-        else cap = cfg.valve0_body_capacity;
-        lcd->print(cap);
-        lcd->print("ml/m");
+        if (i == 0) {
+          lcd->print(cfg.valve_head_capacity);
+          lcd->print("ml/m");
+        } else if (i == 1) {
+          lcd->print(cfg.valve_body_capacity);
+          if (cfg.valve_body_capacity_heads > 0) {
+            lcd->print("H");
+            lcd->print(cfg.valve_body_capacity_heads);
+          }
+        } else {
+          lcd->print(cfg.valve0_body_capacity);
+          lcd->print("ml/m");
+        }
       }
     }
   }
   
   void displayDryRun() {
-    // Шаг 1/2: Пролив системы
     lcd->setCursor(0, 0);
     lcd->print("VALVE CALIBRATION");
     
     lcd->setCursor(0, 1);
     lcd->print(getValveName(wizard.valve));
-    lcd->print(" Step 1/2: Flush");
+    
+    int totalSteps = isTwoPointCalibration() ? 4 : 3;
+    lcd->print(" Step 1/");
+    lcd->print(totalSteps);
+    lcd->print(": Flush");
     
     if (wizard.isTestRunning) {
       lcd->setCursor(0, 2);
@@ -215,17 +375,31 @@ public:
   }
   
   void displayCapacity() {
-    // Шаг 2/2: Измерение capacity
+    // HEADS: импульс на скорости голов
+    // BODY NO: 100% open
     lcd->setCursor(0, 0);
     lcd->print("VALVE CALIBRATION");
     
     lcd->setCursor(0, 1);
     lcd->print(getValveName(wizard.valve));
-    lcd->print(" Step 2/2: Cap.");
+    
+    if (wizard.valve == CalibValve::HEADS) {
+      lcd->print(" Step 2/3: Cap.");
+    } else {
+      lcd->print(" Step 2/3: Cap.");
+    }
     
     if (wizard.isTestRunning) {
       lcd->setCursor(0, 2);
-      lcd->print("Valve OPEN 100%");
+      if (wizard.testIsCycling) {
+        lcd->print("Pulse: ");
+        lcd->print(wizard.testOpenMs);
+        lcd->print("/");
+        lcd->print(wizard.testCloseMs);
+        lcd->print("ms");
+      } else {
+        lcd->print("Valve OPEN 100%");
+      }
       
       lcd->setCursor(0, 3);
       unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
@@ -241,8 +415,59 @@ public:
     }
   }
   
+  void displayCapHeads() {
+    // BODY NC Step 2/4: Capacity на скорости голов
+    lcd->setCursor(0, 0);
+    lcd->print("VALVE CALIBRATION");
+    
+    lcd->setCursor(0, 1);
+    lcd->print("BODY NC Step 2/4");
+    
+    if (wizard.isTestRunning) {
+      lcd->setCursor(0, 2);
+      lcd->print("Pulse HEAD speed");
+      
+      lcd->setCursor(0, 3);
+      unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
+      char buf[16];
+      sprintf(buf, "%03d / %03d sec", (int)elapsed, wizard.testDurationSec);
+      lcd->print(buf);
+    } else {
+      lcd->setCursor(0, 2);
+      lcd->print("Cup for HEAD speed");
+      
+      lcd->setCursor(0, 3);
+      lcd->print("SET-start");
+    }
+  }
+  
+  void displayCapBody() {
+    // BODY NC Step 3/4: Capacity на скорости тела
+    lcd->setCursor(0, 0);
+    lcd->print("VALVE CALIBRATION");
+    
+    lcd->setCursor(0, 1);
+    lcd->print("BODY NC Step 3/4");
+    
+    if (wizard.isTestRunning) {
+      lcd->setCursor(0, 2);
+      lcd->print("Pulse BODY speed");
+      
+      lcd->setCursor(0, 3);
+      unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
+      char buf[16];
+      sprintf(buf, "%03d / %03d sec", (int)elapsed, wizard.testDurationSec);
+      lcd->print(buf);
+    } else {
+      lcd->setCursor(0, 2);
+      lcd->print("Cup for BODY speed");
+      
+      lcd->setCursor(0, 3);
+      lcd->print("SET-start");
+    }
+  }
+  
   void displayInput() {
-    // Ввод объёма (целое число, шаг 1 мл)
     lcd->setCursor(0, 0);
     lcd->print("ENTER VOLUME");
     
@@ -252,28 +477,66 @@ public:
     lcd->print("]");
     lcd->print(" ml");
     
+    if (isTwoPointCalibration() && wizard.step == CalibStep::CAPACITY_HEADS) {
+      lcd->setCursor(0, 2);
+      lcd->print("HEAD speed test");
+    } else {
+      lcd->setCursor(0, 2);
+      lcd->print("UP/DOWN +/-1");
+    }
+    
+    lcd->setCursor(0, 3);
+    lcd->print("SET-confirm");
+  }
+  
+  void displayInput2() {
+    lcd->setCursor(0, 0);
+    lcd->print("ENTER VOLUME (2)");
+    
+    lcd->setCursor(0, 1);
+    lcd->print("[");
+    lcd->print((int)wizard.enteredVolume);
+    lcd->print("]");
+    lcd->print(" ml");
+    
     lcd->setCursor(0, 2);
-    lcd->print("UP/DOWN +/-1");
+    lcd->print("BODY speed test");
     
     lcd->setCursor(0, 3);
     lcd->print("SET-confirm");
   }
   
   void displayResult() {
-    // Результат калибровки
     lcd->setCursor(0, 0);
     lcd->print("CALIBRATION DONE");
     
-    lcd->setCursor(0, 1);
-    lcd->print("Cap: ");
-    lcd->print(wizard.calculatedCapacity, 1);
-    lcd->print(" ml/min");
-    
-    lcd->setCursor(0, 2);
     SystemConfig& cfg = config->getConfig();
-    lcd->print("minOpen: ");
-    lcd->print(cfg.minOpenTime);
-    lcd->print("ms (def)");
+    
+    if (isTwoPointCalibration()) {
+      // BODY NC: два результата
+      lcd->setCursor(0, 1);
+      lcd->print("H:");
+      lcd->print((int)wizard.calculatedCapHeads);
+      lcd->print(" B:");
+      lcd->print((int)wizard.calculatedCapBody);
+      lcd->print(" ml/m");
+      
+      lcd->setCursor(0, 2);
+      lcd->print("minOpen:");
+      lcd->print(cfg.minOpenTime);
+      lcd->print("ms (def)");
+    } else {
+      // HEADS или BODY NO: один результат
+      lcd->setCursor(0, 1);
+      lcd->print("Cap: ");
+      lcd->print(wizard.calculatedCapacity, 1);
+      lcd->print(" ml/min");
+      
+      lcd->setCursor(0, 2);
+      lcd->print("minOpen: ");
+      lcd->print(cfg.minOpenTime);
+      lcd->print("ms (def)");
+    }
     
     lcd->setCursor(0, 3);
     lcd->print("SET-next BACK-exit");
@@ -292,6 +555,7 @@ public:
         break;
         
       case CalibState::WIZARD_INPUT:
+      case CalibState::WIZARD_INPUT2:
         wizard.enteredVolume += 1.0f;
         if (wizard.enteredVolume > 9999.0f) wizard.enteredVolume = 9999.0f;
         display();
@@ -313,6 +577,7 @@ public:
         break;
         
       case CalibState::WIZARD_INPUT:
+      case CalibState::WIZARD_INPUT2:
         wizard.enteredVolume -= 1.0f;
         if (wizard.enteredVolume < 0.0f) wizard.enteredVolume = 0.0f;
         display();
@@ -337,8 +602,12 @@ public:
         
       case CalibState::WIZARD_DRY_RUN:
         if (!wizard.isTestRunning) {
-          // Начинаем dry run (10 сек)
-          wizard.testDurationSec = 10;
+          // Начинаем dry run — клапан 100% open
+          SystemConfig& cfgDry = config->getConfig();
+          wizard.testDurationSec = cfgDry.calibDrySec > 0 ? cfgDry.calibDrySec : 10;
+          wizard.testIsCycling = false;
+          wizard.testOpenMs = 0;
+          wizard.testCloseMs = 0;
           wizard.isTestRunning = true;
           wizard.testStartTime = millis();
           openValveForTest();
@@ -348,26 +617,85 @@ public:
         
       case CalibState::WIZARD_CAPACITY:
         if (!wizard.isTestRunning) {
-          // Начинаем тест capacity (60 сек)
-          wizard.testDurationSec = 60;
+          // Capacity: HEADS = импульс голов, BODY NO = 100% open
+          SystemConfig& cfgCap = config->getConfig();
+          wizard.testDurationSec = cfgCap.calibCapacitySec > 0 ? cfgCap.calibCapacitySec : 60;
           wizard.isTestRunning = true;
           wizard.testStartTime = millis();
-          openValveForTest();
+          
+          if (needsCyclingForCapacity()) {
+            // HEADS: импульс на скорости голов
+            startCyclingForTest(getHeadsTargetSpeed());
+          } else {
+            // BODY NO: 100% open
+            wizard.testIsCycling = false;
+            openValveForTest();
+          }
+          display();
+        }
+        break;
+        
+      case CalibState::WIZARD_CAP_HEADS:
+        if (!wizard.isTestRunning) {
+          // BODY NC: capacity на скорости голов (импульс)
+          SystemConfig& cfgCH = config->getConfig();
+          wizard.testDurationSec = cfgCH.calibCapacitySec > 0 ? cfgCH.calibCapacitySec : 60;
+          wizard.isTestRunning = true;
+          wizard.testStartTime = millis();
+          startCyclingForTest(getHeadsTargetSpeed());
+          display();
+        }
+        break;
+        
+      case CalibState::WIZARD_CAP_BODY:
+        if (!wizard.isTestRunning) {
+          // BODY NC: capacity на скорости тела (импульс)
+          SystemConfig& cfgCB = config->getConfig();
+          wizard.testDurationSec = cfgCB.calibCapacitySec > 0 ? cfgCB.calibCapacitySec : 60;
+          wizard.isTestRunning = true;
+          wizard.testStartTime = millis();
+          startCyclingForTest(getBodyTargetSpeed());
           display();
         }
         break;
         
       case CalibState::WIZARD_INPUT:
-        // Расчёт capacity
-        // capacity = объём_мл / время_мин
-        wizard.calculatedCapacity = wizard.enteredVolume / (wizard.testDurationSec / 60.0f);
+        if (isTwoPointCalibration() && wizard.step == CalibStep::CAPACITY_HEADS) {
+          // BODY NC: первый тест (головы) завершён, запоминаем объём
+          wizard.calculatedCapHeads = backCalculateCapacity(wizard.enteredVolume, wizard.testDurationSec);
+          wizard.headsTestVolume = wizard.enteredVolume;
+          Serial.printf("[Calib] BODY NC heads capacity: %.1f ml/min (vol=%.0f ml, %d sec)\n", 
+            wizard.calculatedCapHeads, wizard.enteredVolume, wizard.testDurationSec);
+          
+          // Переходим к capacity на скорости тела
+          wizard.step = CalibStep::CAPACITY_BODY;
+          wizard.enteredVolume = 0.0f;
+          currentState = CalibState::WIZARD_CAP_BODY;
+        } else {
+          // HEADS или BODY NO: финальный расчёт
+          wizard.calculatedCapacity = backCalculateCapacity(wizard.enteredVolume, wizard.testDurationSec);
+          Serial.printf("[Calib] %s capacity: %.1f ml/min (vol=%.0f ml, %d sec, cycling=%d)\n", 
+            getValveName(wizard.valve), wizard.calculatedCapacity, wizard.enteredVolume, 
+            wizard.testDurationSec, wizard.testIsCycling ? 1 : 0);
+          saveCapacity();
+          wizard.step = CalibStep::RESULT;
+          currentState = CalibState::WIZARD_RESULT;
+        }
+        display();
+        break;
+        
+      case CalibState::WIZARD_INPUT2:
+        // BODY NC: второй тест (тело) завершён
+        wizard.calculatedCapBody = backCalculateCapacity(wizard.enteredVolume, wizard.testDurationSec);
+        Serial.printf("[Calib] BODY NC body capacity: %.1f ml/min (vol=%.0f ml, %d sec)\n", 
+          wizard.calculatedCapBody, wizard.enteredVolume, wizard.testDurationSec);
         saveCapacity();
+        wizard.step = CalibStep::RESULT;
         currentState = CalibState::WIZARD_RESULT;
         display();
         break;
         
       case CalibState::WIZARD_RESULT:
-        // Переход к следующему клапану или выход
         currentState = CalibState::MENU_MAIN;
         selectedItem = 0;
         display();
@@ -378,7 +706,7 @@ public:
   void handleBackButton() {
     if (wizard.isTestRunning) {
       // Останавливаем тест
-      closeValve();
+      closeValveForTest();
       wizard.isTestRunning = false;
       display();
       return;
@@ -386,15 +714,33 @@ public:
     
     switch(currentState) {
       case CalibState::WIZARD_RESULT:
-        currentState = CalibState::WIZARD_INPUT;
+        currentState = CalibState::WIZARD_INPUT2;
+        if (!isTwoPointCalibration()) {
+          currentState = CalibState::WIZARD_INPUT;
+        }
+        display();
+        break;
+        
+      case CalibState::WIZARD_INPUT2:
+        currentState = CalibState::WIZARD_CAP_BODY;
         display();
         break;
         
       case CalibState::WIZARD_INPUT:
-        currentState = CalibState::WIZARD_CAPACITY;
+        if (isTwoPointCalibration() && wizard.step == CalibStep::CAPACITY_HEADS) {
+          currentState = CalibState::WIZARD_CAP_HEADS;
+        } else {
+          currentState = CalibState::WIZARD_CAPACITY;
+        }
         display();
         break;
         
+      case CalibState::WIZARD_CAP_BODY:
+        currentState = CalibState::WIZARD_INPUT;
+        display();
+        break;
+        
+      case CalibState::WIZARD_CAP_HEADS:
       case CalibState::WIZARD_CAPACITY:
       case CalibState::WIZARD_DRY_RUN:
         currentState = CalibState::MENU_MAIN;
@@ -425,32 +771,69 @@ public:
     if (wizard.isTestRunning) {
       unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
       
-      if (elapsed >= wizard.testDurationSec) {
+      if (elapsed >= (unsigned long)wizard.testDurationSec) {
         // Тест завершён
-        closeValve();
+        closeValveForTest();
         wizard.isTestRunning = false;
         
-        if (wizard.step == CalibStep::DRY_RUN) {
-          // Dry run завершён, переходим к capacity
-          wizard.step = CalibStep::CAPACITY;
-          currentState = CalibState::WIZARD_CAPACITY;
-        } else {
-          // Capacity завершён, переходим к вводу объёма
-          wizard.step = CalibStep::INPUT_VOLUME;
-          currentState = CalibState::WIZARD_INPUT;
-          // Инициализируем объём из текущего значения cap в настройках
-          SystemConfig& cfg = config->getConfig();
-          int currentCap = 0;
-          switch(wizard.valve) {
-            case CalibValve::HEADS: currentCap = cfg.valve_head_capacity; break;
-            case CalibValve::BODY_NC: currentCap = cfg.valve_body_capacity; break;
-            case CalibValve::BODY_NO: currentCap = cfg.valve0_body_capacity; break;
+        switch(wizard.step) {
+          case CalibStep::DRY_RUN: {
+            // Dry run завершён, определяем следующий шаг
+            if (isTwoPointCalibration()) {
+              // BODY NC: → capacity на скорости голов
+              wizard.step = CalibStep::CAPACITY_HEADS;
+              currentState = CalibState::WIZARD_CAP_HEADS;
+            } else {
+              // HEADS / BODY NO: → capacity
+              wizard.step = CalibStep::CAPACITY;
+              currentState = CalibState::WIZARD_CAPACITY;
+            }
+            break;
           }
-          wizard.enteredVolume = (float)currentCap;
+          
+          case CalibStep::CAPACITY_HEADS: {
+            // BODY NC: capacity голов завершён → ввод объёма
+            wizard.step = CalibStep::INPUT_VOLUME;
+            currentState = CalibState::WIZARD_INPUT;
+            // Предзаполнение из текущего значения
+            SystemConfig& cfg = config->getConfig();
+            wizard.enteredVolume = (float)cfg.valve_body_capacity_heads > 0 
+              ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_body_capacity;
+            break;
+          }
+          
+          case CalibStep::CAPACITY: {
+            // HEADS / BODY NO: capacity завершён → ввод объёма
+            wizard.step = CalibStep::INPUT_VOLUME;
+            currentState = CalibState::WIZARD_INPUT;
+            // Предзаполнение из текущего значения
+            SystemConfig& cfg = config->getConfig();
+            int currentCap = 0;
+            switch(wizard.valve) {
+              case CalibValve::HEADS: currentCap = cfg.valve_head_capacity; break;
+              case CalibValve::BODY_NC: currentCap = cfg.valve_body_capacity; break;
+              case CalibValve::BODY_NO: currentCap = cfg.valve0_body_capacity; break;
+            }
+            wizard.enteredVolume = (float)currentCap;
+            break;
+          }
+          
+          case CalibStep::CAPACITY_BODY: {
+            // BODY NC: capacity тела завершён → ввод объёма (2-й раз)
+            wizard.step = CalibStep::INPUT_VOLUME2;
+            currentState = CalibState::WIZARD_INPUT2;
+            // Предзаполнение из текущего значения
+            SystemConfig& cfg = config->getConfig();
+            wizard.enteredVolume = (float)cfg.valve_body_capacity;
+            break;
+          }
+          
+          default:
+            break;
         }
         display();
       } else {
-        unsigned long elapsed = (millis() - wizard.testStartTime) / 1000;
+        // Обновляем таймер на экране
         char buf[16];
         sprintf(buf, "%03d / %03d sec", (int)elapsed, wizard.testDurationSec);
         lcd->setCursor(0, 3);
@@ -468,60 +851,158 @@ public:
   
   // === МЕТОД ДЛЯ ВВОДА ОБЪЁМА ИЗ WEB ===
   void setVolumeFromWeb(float volume) {
-    wizard.enteredVolume = volume;
-    wizard.calculatedCapacity = volume / (wizard.testDurationSec / 60.0f);
-    saveCapacity();
-    wizard.step = CalibStep::INPUT_VOLUME;
-    currentState = CalibState::WIZARD_RESULT;
+    if (isTwoPointCalibration() && wizard.step == CalibStep::CAPACITY_HEADS) {
+      // BODY NC: первый ввод (головы)
+      wizard.calculatedCapHeads = backCalculateCapacity(volume, wizard.testDurationSec);
+      wizard.headsTestVolume = volume;
+      Serial.printf("[Calib] Web BODY NC heads capacity: %.1f ml/min\n", wizard.calculatedCapHeads);
+      
+      // Переходим к capacity на скорости тела
+      wizard.step = CalibStep::CAPACITY_BODY;
+      wizard.enteredVolume = 0.0f;
+      currentState = CalibState::WIZARD_CAP_BODY;
+    } else if (isTwoPointCalibration() && wizard.step == CalibStep::CAPACITY_BODY) {
+      // BODY NC: второй ввод (тело)
+      wizard.calculatedCapBody = backCalculateCapacity(volume, wizard.testDurationSec);
+      Serial.printf("[Calib] Web BODY NC body capacity: %.1f ml/min\n", wizard.calculatedCapBody);
+      saveCapacity();
+      wizard.step = CalibStep::RESULT;
+      currentState = CalibState::WIZARD_RESULT;
+    } else {
+      // HEADS или BODY NO: финальный расчёт
+      wizard.calculatedCapacity = backCalculateCapacity(volume, wizard.testDurationSec);
+      saveCapacity();
+      wizard.step = CalibStep::RESULT;
+      currentState = CalibState::WIZARD_RESULT;
+    }
   }
   
-  // === МЕТОД ДЛЯ ЗАПУСКА ТЕСТА ИЗ WEB ===
+  // === МЕТОДЫ ДЛЯ ЗАПУСКА ТЕСТА ИЗ WEB ===
+  
+  // Начать dry run (100% open) из Web
   // valveNum: 1=heads, 2=body_nc, 3=body_no
-  // durationSec: 10 (dry run) или 60 (capacity)
-  bool startCalibFromWeb(int valveNum, int durationSec) {
-    if (wizard.isTestRunning) return false;  // Уже идёт тест
+  bool startDryRunFromWeb(int valveNum) {
+    if (wizard.isTestRunning) return false;
     
-    // === ВАЖНО: Полный сброс состояния перед новым тестом ===
+    // Сброс состояния
     wizard.isTestRunning = false;
     wizard.enteredVolume = 0.0f;
+    wizard.headsTestVolume = 0.0f;
     wizard.calculatedCapacity = 0.0f;
+    wizard.calculatedCapHeads = 0.0f;
+    wizard.calculatedCapBody = 0.0f;
     wizard.testDurationSec = 0;
     wizard.testStartTime = 0;
+    wizard.testOpenMs = 0;
+    wizard.testCloseMs = 0;
+    wizard.testIsCycling = false;
     wizard.launchedByProcess = false;
     
-    // Устанавливаем клапан
     wizard.valve = (valveNum == 1) ? CalibValve::HEADS : 
                    (valveNum == 2) ? CalibValve::BODY_NC : CalibValve::BODY_NO;
     
-    // Устанавливаем шаг
-    if (durationSec == 10) {
-      wizard.step = CalibStep::DRY_RUN;
-      currentState = CalibState::WIZARD_DRY_RUN;
-    } else {
-      wizard.step = CalibStep::CAPACITY;
-      currentState = CalibState::WIZARD_CAPACITY;
-    }
+    SystemConfig& cfg = config->getConfig();
+    int drySec = cfg.calibDrySec > 0 ? cfg.calibDrySec : 10;
     
-    // Запускаем тест
-    wizard.testDurationSec = durationSec;
+    wizard.step = CalibStep::DRY_RUN;
+    currentState = CalibState::WIZARD_DRY_RUN;
+    wizard.testDurationSec = drySec;
     wizard.isTestRunning = true;
     wizard.testStartTime = millis();
-    wizard.launchedByProcess = false;  // Запущен из Web
+    wizard.launchedByProcess = false;
     
     openValveForTest();
-    Serial.printf("[Calib] Web started: valve=%d, duration=%d sec\n", valveNum, durationSec);
+    Serial.printf("[Calib] Web DRY: valve=%d, %d sec\n", valveNum, drySec);
+    return true;
+  }
+  
+  // Начать capacity тест из Web (для HEADS и BODY NO)
+  bool startCapacityFromWeb(int valveNum) {
+    if (wizard.isTestRunning) return false;
+    
+    SystemConfig& cfg = config->getConfig();
+    int capSec = cfg.calibCapacitySec > 0 ? cfg.calibCapacitySec : 60;
+    
+    wizard.testDurationSec = capSec;
+    wizard.isTestRunning = true;
+    wizard.testStartTime = millis();
+    wizard.launchedByProcess = false;
+    
+    if (needsCyclingForCapacity()) {
+      // HEADS: импульс на скорости голов
+      wizard.step = CalibStep::CAPACITY;
+      currentState = CalibState::WIZARD_CAPACITY;
+      startCyclingForTest(getHeadsTargetSpeed());
+      Serial.printf("[Calib] Web CAPACITY (cycling): valve=%d, %d sec\n", valveNum, capSec);
+    } else {
+      // BODY NO: 100% open
+      wizard.step = CalibStep::CAPACITY;
+      currentState = CalibState::WIZARD_CAPACITY;
+      wizard.testIsCycling = false;
+      openValveForTest();
+      Serial.printf("[Calib] Web CAPACITY (100%%): valve=%d, %d sec\n", valveNum, capSec);
+    }
+    return true;
+  }
+  
+  // Начать capacity на скорости голов (BODY NC) из Web
+  bool startCapHeadsFromWeb(int valveNum) {
+    if (wizard.isTestRunning) return false;
+    
+    SystemConfig& cfg = config->getConfig();
+    int capSec = cfg.calibCapacitySec > 0 ? cfg.calibCapacitySec : 60;
+    
+    wizard.step = CalibStep::CAPACITY_HEADS;
+    currentState = CalibState::WIZARD_CAP_HEADS;
+    wizard.testDurationSec = capSec;
+    wizard.isTestRunning = true;
+    wizard.testStartTime = millis();
+    wizard.launchedByProcess = false;
+    
+    startCyclingForTest(getHeadsTargetSpeed());
+    Serial.printf("[Calib] Web CAP_HEADS: valve=%d, %d sec\n", valveNum, capSec);
+    return true;
+  }
+  
+  // Начать capacity на скорости тела (BODY NC) из Web
+  bool startCapBodyFromWeb(int valveNum) {
+    if (wizard.isTestRunning) return false;
+    
+    SystemConfig& cfg = config->getConfig();
+    int capSec = cfg.calibCapacitySec > 0 ? cfg.calibCapacitySec : 60;
+    
+    wizard.step = CalibStep::CAPACITY_BODY;
+    currentState = CalibState::WIZARD_CAP_BODY;
+    wizard.testDurationSec = capSec;
+    wizard.isTestRunning = true;
+    wizard.testStartTime = millis();
+    wizard.launchedByProcess = false;
+    
+    startCyclingForTest(getBodyTargetSpeed());
+    Serial.printf("[Calib] Web CAP_BODY: valve=%d, %d sec\n", valveNum, capSec);
     return true;
   }
   
   // === МЕТОД ДЛЯ ОТМЕНЫ ТЕСТА ИЗ WEB ===
   void cancelCalibFromWeb() {
     if (wizard.isTestRunning) {
-      closeValve();
+      closeValveForTest();
       wizard.isTestRunning = false;
     }
     wizard.step = CalibStep::IDLE;
     currentState = CalibState::MENU_MAIN;
     Serial.println("[Calib] Web cancelled");
+  }
+  
+  // Совместимость со старым API
+  bool startCalibFromWeb(int valveNum, int durationSec) {
+    if (durationSec <= 15) {
+      // Считаем это dry run
+      return startDryRunFromWeb(valveNum);
+    } else {
+      // Capacity test
+      return startCapacityFromWeb(valveNum);
+    }
   }
 };
 
