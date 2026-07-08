@@ -413,15 +413,12 @@ void AppNetwork::update() {
                 Serial.print("[NetMgr] STA IP: "); Serial.println(WiFi.localIP());
                 Serial.print("[NetMgr] AP IP: "); Serial.println(WiFi.softAPIP());
                 logger.log("WiFi: Background connected -> STA mode (AP+STA dual)");
-                
-                // Проверяем интернет и синхронизируем NTP
-                online = checkInternet();
-                if (online) {
-                    syncNTP();
-                    Serial.println("[NetMgr] Internet OK. NTP synced.");
-                } else {
-                    Serial.println("[NetMgr] WiFi connected but no internet.");
-                }
+
+                // checkInternet() и syncNTP() НЕ вызываем здесь!
+                // Они блокируют на 1-3 сек, а update() работает в том же потоке
+                // что и WebServer (Core 0). Вызов отложен в следующий цикл update(),
+                // где в блоке STA_MODE они выполнятся при периодической проверке.
+                Serial.println("[NetMgr] Internet/NTP check deferred to next cycle.");
             }
         }
         
@@ -968,17 +965,17 @@ void AppNetwork::syncNTP() {
 
 bool AppNetwork::checkInternet() {
     WiFiClient testClient;
-    testClient.setTimeout(1);  // 1 сек вместо 2 — быстрее обнаруживаем отсутствие интернета
+    testClient.setTimeout(1);  // 1 сек таймаут TCP-подключения
 
-    // 3 попытки вместо 20: максимальная задержка 3 сек вместо потенциальных 40 сек
-    for (int i = 0; i < 3; i++) {
-        if (testClient.connect("google.com", 80)) {
-            testClient.stop();
-            Serial.println("[NetMgr] Internet check: OK");
-            return true;
-        }
-        if (server && systemReady) server->handleClient();  // не блокируем WebServer
-        yield();
+    // 1 попытка: максимальная блокировка ~1 сек вместо 3 сек (было 3 попытки).
+    // checkInternet() вызывается из update() (Core 0), который также
+    // обслуживает WebServer через handleClient(). Каждая лишняя секунда
+    // блокировки = зависание веб-интерфейса.
+    // Точность не критична — проверка повторится через 10-30 сек.
+    if (testClient.connect("google.com", 80)) {
+        testClient.stop();
+        Serial.println("[NetMgr] Internet check: OK");
+        return true;
     }
 
     testClient.stop();
