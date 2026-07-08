@@ -1057,8 +1057,12 @@ void AppNetwork::syncNTP() {
     configTime(tzOffset * 3600, 0, "pool.ntp.org", "time.nist.gov");
     
     struct tm timeinfo;
-    // Таймаут 2000 мс вместо дефолтного 5000 мс — не блокируем надолго
-    if (!getLocalTime(&timeinfo, 2000)) {
+    // Таймаут 500 мс: достаточно для ответа NTP-сервера при наличии интернета.
+    // configTime() уже запустил фоновый SNTP-клиент ESP32 — он продолжит
+    // синхронизацию автоматически, даже если первая попытка не успела.
+    // getLocalTime() здесь — лишь проверка, что время уже получено.
+    // Было 2000 мс — слишком долго для update() в потоке WebServer (Core 0).
+    if (!getLocalTime(&timeinfo, 500)) {
         Serial.println("[NetMgr] NTP Failed");
         return;
     }
