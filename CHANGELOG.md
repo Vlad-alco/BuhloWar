@@ -1,3 +1,57 @@
+## 2026-07-09 — Фич: двухточечная калибровка клапанов (BODY NC)
+
+**Задача**
+Для клапанов BODY NC (нормально закрытые) один замер capacity недостаточен — импульсный режим при разных duty cycle (скорость голов vs скорость тела) даёт разную эффективную пропускную способность. Нужны два отдельных замера для точного расчёта.
+
+**Изменения в логике калибровки:**
+
+Для BODY NC — **4 шага** вместо 3:
+1. Пролив системы (10 сек, 100% open) — общий для всех клапанов
+2. **Capacity на скорости голов** (60 сек, импульсный режим с duty cycle для голов)
+3. **Capacity на скорости тела** (60 сек, импульсный режим с duty cycle для тела)
+4. Ввод двух объёмов → расчёт и сохранение двух значений capacity
+
+Для HEADS — 3 шага (пролив → импульс на скорости голов 50 мл/ч → ввод объёма).
+Для BODY NO — 3 шага (пролив → 100% open 60 сек → ввод объёма).
+
+**Принцип работы:**
+- Для импульсного теста используется текущий capacity как оценка для расчёта duty cycle.
+- Обратный расчёт: `capacity_true = V × 60 / (dutyCycle × T)` — бэкенд знает точный duty cycle теста.
+- BODY NC хранит два значения: `valve_body_capacity_heads` (BCH) и `valve_body_capacity` (тело).
+- При работе процесса (головы) BODY NC использует `valve_body_capacity_heads` для расчёта импульсных таймингов.
+
+**Изменённые файлы:**
+- `ValveCalMenu.h`: полный рерайт — двухточечный wizard, `startCyclingForTest()`, `backCalculateCapacity()`, `saveCapacity()`, Web-методы
+- `ProcessCommon.h`: новые команды `CALIB_START_CAP_HEADS`, `CALIB_START_CAP_BODY`, `CALIB_SET_VOLUME`; поле `capacityHeads` в `CalibWizard`
+- `preferences.h/cpp`: поле `valve_body_capacity_heads` (BCH) с EEPROM-адресом
+- `ProcessEngine.cpp`: обработчики новых команд, передача объёма в `setVolumeFromWeb()`
+- `AppNetwork.cpp`: парсинг новых команд, `capacityHeads`/`headsTestVolume` в JSON статуса, `valve_body_capacity_heads` в конфиге
+- `AppNetwork.h`: декларация новых методов
+
+---
+
+## 2026-07-09 — Фич: Web UI — двухточечная калибровка клапанов
+
+**Задача**
+Обновить Web-интерфейс (index.html + index_landscape_knob.html) для нового 4-шагового flow калибровки BODY NC.
+
+**Изменения в UI:**
+
+- BODY NC wizard: 5 экранов (dry run → cap heads → cap body → input 1 → input 2 → result)
+- HEADS/BODY NO wizard: 3 экрана (без изменений логики)
+- Новый экран результата для BODY NC: отображает два значения capacity (головы / тело)
+- Настройки BODY NC: показаны два поля capacity — «головы» и «тело»
+- Статус калибровки BODY NC: показывает оба значения, например `✓ 120 мл/мин (H:45)`
+- Команды: `CALIB_START_CAP_HEADS`, `CALIB_START_CAP_BODY` вместо единого `CALIB_START_CAP`
+- Маппинг шагов бэкенда (0-7) на UI-элементы через `stepToElId`
+- Обратная совместимость: HEADS и BODY NO работают как раньше
+
+**Изменённые файлы:**
+- `index.html`: wizard panel — новые шаги 2a/2b/3b, dual result, обновлённый JS
+- `index_landscape_knob.html`: аналогичные изменения с inline-стилями
+
+---
+
 ## 2026-07-09 — Фикс: зависание Web-интерфейса (Причина №5 — handleListProfiles безлимитное чтение)
 
 **Задача**
