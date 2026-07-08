@@ -24,14 +24,19 @@ extern SemaphoreHandle_t sdMutex;
 // При уничтожении (выход из области видимости) - освобождает
 class SDScopeLock {
 public:
+    bool locked = false;  // Флаг: мьютекс успешно захвачен
+
     SDScopeLock() {
         if (sdMutex) {
-            // Конечный таймаут 5 секунд вместо бесконечного ожидания
-            xSemaphoreTake(sdMutex, pdMS_TO_TICKS(5000));
+            // Таймаут 500 мс вместо 5000 мс (Причина №4).
+            // Вызывается из Core 1 (logger.log) и Core 0 (readLastLog).
+            // Если мьютекс недоступен — лучше пропустить операцию,
+            // чем блокировать поток на 5 секунд.
+            locked = xSemaphoreTake(sdMutex, pdMS_TO_TICKS(500));
         }
     }
     ~SDScopeLock() {
-        if (sdMutex) {
+        if (sdMutex && locked) {
             xSemaphoreGive(sdMutex);
         }
     }
@@ -77,8 +82,15 @@ public:
 
         // === КРИТИЧЕСКАЯ СЕКЦИЯ: работа с SD ===
         {
-            SDScopeLock lock;  // Захват мьютекса (автоматически)
-            
+            SDScopeLock lock;  // Захват мьютекса (автоматически, таймаут 500мс)
+            if (!lock.locked) {
+                // Мьютекс не получен — пропускаем запись лог-строки.
+                // Лог не критичен, лучше пропустить чем блокировать Core 1.
+                Serial.println("[SDLogger] Mutex busy, log line skipped");
+                Serial.println("[NO SD] " + logLine);
+                return;
+            }
+
             // Пишем на SD карту с retry
             const int maxRetries = 3;
             File file;
@@ -109,7 +121,10 @@ public:
         if (!sdAvailable) return "SD Error";
         
         // === КРИТИЧЕСКАЯ СЕКЦИЯ: чтение с SD ===
-        SDScopeLock lock;  // Захват мьютекса
+        SDScopeLock lock;  // Захват мьютекса (таймаут 500мс)
+        if (!lock.locked) {
+            return "Log unavailable (SD busy)";
+        }
         
         File file = SD.open("/system.log");
         if (!file) return "Log file not found";

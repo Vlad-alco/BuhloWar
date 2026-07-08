@@ -83,9 +83,10 @@ void AppNetwork::startWebServerEarly() {
     });
 
     // Главная страница
+    // sdMutex НЕ используется: serveStatic() (строка ниже) тоже читает SD
+    // без мьютекса и работает стабильно. Мьютекс нужен только для записи
+    // (logger.log на Core 1). Чтение — thread-safe на уровне ESP32 SD библиотеки.
     server->on("/", HTTP_GET, [this]() {
-        if (sdMutex) xSemaphoreTake(sdMutex, pdMS_TO_TICKS(5000));
-        
         // SD.open с retry
         File file;
         for (int retry = 0; retry < 3; retry++) {
@@ -100,8 +101,6 @@ void AppNetwork::startWebServerEarly() {
         } else {
             server->send(404, "text/plain", "File Not Found: index.html");
         }
-        
-        if (sdMutex) xSemaphoreGive(sdMutex);
     });
 
     // Статика с кешированием
