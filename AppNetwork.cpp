@@ -228,8 +228,81 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     networkInitialized = true;
 }
 
-// === АСИНХРОННАЯ ПЕРЕПОДКЛЮЧЕННАЯ К WIFI ===
-// Вызывается из update() при потере связи
+// === ПОШАГОВЫЙ РЕКОННЕКТ (Причина №2) ===
+// startReconnect() — инициализация переменных для пошагового реконнекта.
+// Вызывается один раз, когда решено начинать попытки подключения.
+void AppNetwork::startReconnect() {
+    reconnecting = true;
+    reconnectAttempt = 0;
+    reconnectSSID = 1;  // Начинаем с первой сети
+    Serial.println("[NetMgr] Starting incremental reconnect (SSID1, attempt 1)...");
+}
+
+// tryReconnectOnce() — делает ровно 1 попытку подключения к текущей SSID.
+// Блокировка: максимум ~1.5 сек (15 итераций × 100мс).
+// Возвращает true если подключился, false если нет.
+bool AppNetwork::tryReconnectOnce() {
+    // Определяем, какую сеть пробуем в этой попытке
+    const String& ssid = (reconnectSSID == 1) ? ssid1 : ssid2;
+    const String& pass = (reconnectSSID == 1) ? pass1 : pass2;
+
+    Serial.printf("[NetMgr] Reconnect try: %s (attempt %d/3)\n",
+                  reconnectSSID == 1 ? "SSID1" : "SSID2", reconnectAttempt + 1);
+
+    WiFi.begin(ssid.c_str(), pass.c_str());
+
+    // Ждём подключения: 15 итераций × 100мс = 1.5 сек максимум
+    int tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries < 15) {
+        delay(100);
+        // handleClient каждые 5 итераций (500мс) — WebServer не теряет отзывчивость
+        if (tries % 5 == 0 && server && systemReady) server->handleClient();
+        yield();
+        tries++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiConnected = true;
+        return true;
+    }
+
+    // Не подключилось — продвигаем счётчик
+    reconnectAttempt++;
+
+    if (reconnectAttempt >= 3) {
+        // 3 попытки текущей SSID исчерпаны
+        reconnectAttempt = 0;
+        if (reconnectSSID == 1 && ssid2.length() > 0) {
+            // Переходим ко второй SSID
+            reconnectSSID = 2;
+            Serial.println("[NetMgr] SSID1 exhausted. Switching to SSID2.");
+        } else {
+            // Все сети исчерпаны — реконнект провален
+            Serial.println("[NetMgr] All reconnect attempts failed. Switching to AP...");
+            resetReconnect();
+            wifiLostTime = 0;
+            if (startAPMode()) {
+                networkMode = NetworkMode::AP_MODE;
+            } else {
+                networkMode = NetworkMode::OFFLINE;
+            }
+        }
+    }
+    return false;
+}
+
+// resetReconnect() — сброс всех переменных пошагового реконнекта.
+// Вызывается при успешном подключении или при полном отказе (переход в AP/OFFLINE).
+void AppNetwork::resetReconnect() {
+    reconnecting = false;
+    reconnectAttempt = 0;
+    reconnectSSID = 1;
+}
+
+// === АСИНХРОННАЯ ПЕРЕПОДКЛЮЧЕННАЯ К WIFI (начальное подключение при старте) ===
+// Вызывается из beginNetwork() один раз при запуске системы.
+// Здесь блокировка допустима — WebServer ещё не обрабатывает пользовательские запросы
+// (systemReady = false, API handlers заблокированы).
 bool AppNetwork::connectToWiFi() {
     // Пробуем первую сеть (до 3 раз, 15 итераций × 100мс = 1.5 сек на попытку)
     for (int i = 0; i < 3; i++) {
@@ -425,30 +498,59 @@ void AppNetwork::update() {
         if (networkMode == NetworkMode::STA_MODE) {
             // === Проверка WiFi ===
             if (WiFi.status() != WL_CONNECTED) {
-                Serial.println("[NetMgr] WiFi lost. Reconnecting...");
-                if (connectToWiFi()) {
-                    Serial.println("[NetMgr] WiFi reconnected.");
-                } else {
-                    Serial.println("[NetMgr] WiFi reconnect failed. Switching to AP...");
-                    if (startAPMode()) {
-                        networkMode = NetworkMode::AP_MODE;
-                    } else {
-                        networkMode = NetworkMode::OFFLINE;
+                // --- Пошаговый реконнект (Причина №2) ---
+                // Старый код: connectToWiFi() блокировал до 9 сек (6 попыток × 1.5 сек)
+                // Новый код: 1 попытка за цикл update(), WebServer «дышит» между попытками.
+
+                // Если реконнект ещё не начат — запускаем (с 3-сек защитной задержкой)
+                if (!reconnecting) {
+                    // Защита от «морганий» WiFi: ждём 3 сек перед началом реконнекта.
+                    // Если WiFi вернётся сам за эти 3 сек — вообще не нужно реконнектиться.
+                    if (wifiLostTime == 0) {
+                        wifiLostTime = now;  // Запоминаем момент потери
+                        Serial.println("[NetMgr] WiFi lost. Waiting 3s before reconnect...");
+                    } else if (now - wifiLostTime >= 3000) {
+                        // 3 секунды прошли, WiFi не вернулся — начинаем пошаговый реконнект
+                        startReconnect();
                     }
-                    return;
+                    // Пока ждём 3 сек — выходим, WebServer продолжит работать
                 }
-            }
-            
-            // === Проверка интернета ===
-            bool hasInternet = checkInternet();
-            if (hasInternet && !online) {
-                online = true;
-                syncNTP();
-                // sendMessage("Connection restored."); // Telegram disabled
-                Serial.println("[NetMgr] Internet restored.");
-            } else if (!hasInternet && online) {
-                online = false;
-                Serial.println("[NetMgr] Internet lost. Web continues, Telegram disabled.");
+
+                // Если реконнект активен — делаем 1 попытку за этот цикл
+                if (reconnecting) {
+                    if (tryReconnectOnce()) {
+                        // Подключение успешно!
+                        Serial.println("[NetMgr] WiFi reconnected (incremental).");
+                        resetReconnect();
+                        wifiLostTime = 0;
+                        // Не проверяем интернет здесь — он проверится
+                        // в следующем цикле update() в блоке ниже
+                    }
+                    // Если не получилось — просто выходим, следующая попытка
+                    // в следующем цикле update() (через ~30 сек или при следующей проверке)
+                }
+            } else {
+                // WiFi подключен — сбрасываем состояние реконнекта на всякий случай
+                if (reconnecting) {
+                    resetReconnect();
+                    wifiLostTime = 0;
+                }
+                if (wifiLostTime != 0) {
+                    wifiLostTime = 0;
+                    // WiFi вернулся сам (до начала реконнекта)
+                }
+
+                // === Проверка интернета (только при подключенном WiFi) ===
+                bool hasInternet = checkInternet();
+                if (hasInternet && !online) {
+                    online = true;
+                    syncNTP();
+                    // sendMessage("Connection restored."); // Telegram disabled
+                    Serial.println("[NetMgr] Internet restored.");
+                } else if (!hasInternet && online) {
+                    online = false;
+                    Serial.println("[NetMgr] Internet lost. Web continues, Telegram disabled.");
+                }
             }
         }
     }

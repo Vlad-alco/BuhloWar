@@ -73,6 +73,14 @@ private:
     unsigned long lastLogSize = 0;  // Позиция лога для отправки в облако
     TaskHandle_t networkTaskHandle = nullptr;
 
+    // --- Состояние пошагового реконнекта (Причина №2) ---
+    // Вместо единого блокирующего connectToWiFi() (до 9 сек),
+    // реконнект разбит на 1 попытку за цикл update().
+    int reconnectAttempt = 0;         // Текущий номер попытки (0-2 для каждой SSID)
+    int reconnectSSID = 1;            // Какую сеть пробуем: 1 = ssid1, 2 = ssid2
+    bool reconnecting = false;        // true — процесс реконнекта активен
+    unsigned long wifiLostTime = 0;   // Когда обнаружена потеря WiFi (для 3-сек задержки)
+
     unsigned long lastCheckTime = 0;
     int checkIntervalMs = 300000; 
     unsigned long lastAlarmTgTime = 0;
@@ -89,7 +97,10 @@ private:
 
     // --- Внутренние методы ---
     bool loadConfigFromSD();
-    bool connectToWiFi();
+    bool connectToWiFi();  // Используется только в beginNetwork() для начального подключения
+    bool tryReconnectOnce();  // Одна попытка реконнекта (до 1.5 сек) для пошагового update()
+    void startReconnect();  // Инициализация пошагового реконнекта
+    void resetReconnect();   // Сброс состояния реконнекта при успехе/отказе
     void syncNTP();
     bool checkInternet();
     String parseLine(String line, String key);
