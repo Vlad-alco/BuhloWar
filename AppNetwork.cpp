@@ -1338,6 +1338,10 @@ void AppNetwork::handleListProfiles() {
     String json = "{\"profiles\":[";
     
     SDScopeLock lock;
+    if (!lock.locked) {
+        server->send(503, "application/json", "{\"error\":\"SD busy\"}");
+        return;
+    }
     
     File profilesDir = SD.open("/profiles");
     if (!profilesDir || !profilesDir.isDirectory()) {
@@ -1346,22 +1350,43 @@ void AppNetwork::handleListProfiles() {
         return;
     }
     
+    // Лимиты (Причина №5):
+    // MAX_PROFILES — защита от «мусорных» директорий с сотнями файлов.
+    // 50 профилей — более чем достаточно для ректификации.
+    const int MAX_PROFILES = 50;
+    // MAX_FILE_READ — имя профиля ("name":"...") всегда в начале файла.
+    // Читаем максимум 2 КБ — достаточно для поиска "name", не читаем весь файл.
+    const int MAX_FILE_READ = 2048;
+    // Буфер для чтения файла кусками вместо посимвольного += (антифрагментация)
+    char buf[256];
+    
     bool first = true;
+    int count = 0;
     File file = profilesDir.openNextFile();
-    while (file) {
+    while (file && count < MAX_PROFILES) {
         if (!file.isDirectory() && String(file.name()).endsWith(".json")) {
+            count++;
             // Читаем имя профиля из файла
             String filename = String(file.name());
             
-            // Ищем "name" в файле
-            String name = filename.substring(0, filename.length() - 5); // убираем .json
+            // Fallback-имя: имя файла без .json
+            String name = filename.substring(0, filename.length() - 5);
             
-            // Простой парсинг имени
+            // Буферное чтение файла (до MAX_FILE_READ байт)
+            // Вместо content += (char)file.read() — тысячи реаллокаций String
             String content = "";
-            while (file.available()) {
-                content += (char)file.read();
+            content.reserve(MAX_FILE_READ);  // Резервируем сразу, без фрагментации
+            int totalRead = 0;
+            while (file.available() && totalRead < MAX_FILE_READ) {
+                int toRead = min((int)file.available(), 256);
+                if (totalRead + toRead > MAX_FILE_READ) toRead = MAX_FILE_READ - totalRead;
+                int bytesRead = file.read((uint8_t*)buf, toRead);
+                if (bytesRead <= 0) break;
+                content.concat(buf, bytesRead);
+                totalRead += bytesRead;
             }
             
+            // Ищем "name" в прочитанном фрагменте
             int nameIdx = content.indexOf("\"name\":\"");
             if (nameIdx >= 0) {
                 int nameStart = nameIdx + 8;
@@ -1378,6 +1403,7 @@ void AppNetwork::handleListProfiles() {
         file = profilesDir.openNextFile();
     }
     
+    profilesDir.close();
     json += "]}";
     server->send(200, "application/json", json);
 }
