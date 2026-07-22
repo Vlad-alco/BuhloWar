@@ -60,7 +60,6 @@ void handleBackButton();
 // ================= НАСТРОЙКА =================
 void setup() {
   Serial.begin(115200);
-  Serial.setDebugOutput(true);
   Serial.println("BuhloWar System v2.0");
   
   // === СОЗДАНИЕ МЬЮТЕКСА SD КАРТЫ (ПЕРВЫМ ДЕЛОМ!) ===
@@ -80,6 +79,10 @@ void setup() {
   // Важно: SD должна быть инициализирована ДО первого logger.log()
   appNetwork.initSD();
   // =====================================
+  
+  // === ИНИЦИАЛИЗАЦИЯ ЛОГЕРА (сразу после SD) ===
+  logger.init();
+  // =============================================
 
 // === АНАЛИЗ ПРИЧИНЫ СБРОСА ===
   esp_reset_reason_t reason = esp_reset_reason();
@@ -124,7 +127,9 @@ void setup() {
     
     // Устанавливаем переменную окружения для часового пояса (чтобы localtime() работал верно)
     // Формат: "UTC-3" для Москвы (знак минус, так как UTC = Local - Offset)
-    String tzStr = "UTC" + String(-tzOffset);
+    char tzSign = (tzOffset >= 0) ? '+' : '-';
+    int absOffset = (tzOffset >= 0) ? tzOffset : -tzOffset;
+    String tzStr = "UTC" + tzSign + String(absOffset);
     setenv("TZ", tzStr.c_str(), 1);
     tzset();
     
@@ -166,9 +171,6 @@ void setup() {
     Serial.println("Sensors: INIT ERROR");
     logger.log("Sensors: INIT ERROR");
   }
-  // === ИНИЦИАЛИЗАЦИЯ ЛОГЕРА ===
-  logger.init();
-  logger.log("System Boot Start");
   // 3. Инициализация сети (WEB и WiFi)
   lcd.clear();
   lcd.setCursor(0, 0); lcd.print("Starting Web...");
@@ -189,7 +191,7 @@ void setup() {
   Serial.println("[System] Network Task started on Core 0");
   // =================================
 
-  delay(500);  // минимальная пауза для старта Core 0 задачи
+  delay(100);  // пауза для старта Core 0 задачи
   
   SystemConfig cfg = configManager.getConfig();
   lcd.clear();
@@ -214,38 +216,27 @@ void setup() {
       if (cloudUrl.length() > 0 && cloudKey.length() > 0) {
           cloudManager.begin(cloudUrl, cloudKey);
           cloudManager.onCommandReceived([](const String& command, const String& params) {
+              auto sendCmd = [&](UiCommand cmd) {
+                  CommandMessage msg = { cmd, 0 };
+                  if (xQueueSend(commandQueue, &msg, 0) != pdTRUE) {
+                      Serial.printf("[CmdQueue] FULL! Dropped: %d\n", (int)cmd);
+                  }
+              };
               Serial.printf("[Cloud] Command: %s\n", command.c_str());
-              if (command == "START_DIST") {
-                  CommandMessage msg = { UiCommand::START_DIST, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "START_RECT") {
-                  CommandMessage msg = { UiCommand::START_RECT, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "STOP") {
-                  CommandMessage msg = { UiCommand::STOP_PROCESS, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "UP") {
-                  CommandMessage msg = { UiCommand::UP, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "DOWN") {
-                  CommandMessage msg = { UiCommand::DOWN, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "YES" || command == "DIALOG_YES") {
-                  CommandMessage msg = { UiCommand::DIALOG_YES, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "NO" || command == "DIALOG_NO") {
-                  CommandMessage msg = { UiCommand::DIALOG_NO, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "NEXT_STAGE") {
-                  CommandMessage msg = { UiCommand::NEXT_STAGE, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              }
+              if (command == "START_DIST") sendCmd(UiCommand::START_DIST);
+              else if (command == "START_RECT") sendCmd(UiCommand::START_RECT);
+              else if (command == "STOP") sendCmd(UiCommand::STOP_PROCESS);
+              else if (command == "UP") sendCmd(UiCommand::UP);
+              else if (command == "DOWN") sendCmd(UiCommand::DOWN);
+              else if (command == "YES" || command == "DIALOG_YES") sendCmd(UiCommand::DIALOG_YES);
+              else if (command == "NO" || command == "DIALOG_NO") sendCmd(UiCommand::DIALOG_NO);
+              else if (command == "NEXT_STAGE") sendCmd(UiCommand::NEXT_STAGE);
           });
           logger.log("Cloud: Connected to " + cloudUrl);
       }
       // ==========================================
       
-      delay(1500);  // 1.5 сек вместо 5 сек — достаточно чтобы прочитать IP на LCD
+      delay(800);
   } 
   else if (netMode == NetworkMode::AP_MODE) {
       lcd.clear();
@@ -258,13 +249,13 @@ void setup() {
       Serial.print("[System] Password: "); Serial.println(AP_PASS);
       Serial.print("[System] Web: http://"); Serial.println(AP_IP_ADDR);
       logger.log("AP Mode: " + String(AP_SSID));
-      delay(1500);  // 1.5 сек вместо 5 сек
+      delay(800);
   } 
   else {
       lcd.setCursor(0, 1); lcd.print("OFFLINE Mode");
       Serial.println("[System] Full OFFLINE - LCD only");
       logger.log("Network: OFFLINE");
-      delay(1000);
+      delay(500);
   }
   
   // 5. Инициализация ProcessEngine (основная логика)
@@ -282,7 +273,7 @@ void setup() {
   lcd.print("BUHLOWAR SYSTEM");
   lcd.setCursor(0, 1);
   lcd.print("V 2803 ESP32 S3 ");
-  delay(1500);
+  delay(800);
   
   mainMenu->display();
 
@@ -320,32 +311,21 @@ void loop() {
       if (cloudUrl.length() > 0 && cloudKey.length() > 0 && !cloudManager.isConfigured()) {
           cloudManager.begin(cloudUrl, cloudKey);
           cloudManager.onCommandReceived([](const String& command, const String& params) {
+              auto sendCmd = [&](UiCommand cmd) {
+                  CommandMessage msg = { cmd, 0 };
+                  if (xQueueSend(commandQueue, &msg, 0) != pdTRUE) {
+                      Serial.printf("[CmdQueue] FULL! Dropped: %d\n", (int)cmd);
+                  }
+              };
               Serial.printf("[Cloud] Command: %s\n", command.c_str());
-              if (command == "START_DIST") {
-                  CommandMessage msg = { UiCommand::START_DIST, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "START_RECT") {
-                  CommandMessage msg = { UiCommand::START_RECT, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "STOP") {
-                  CommandMessage msg = { UiCommand::STOP_PROCESS, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "UP") {
-                  CommandMessage msg = { UiCommand::UP, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "DOWN") {
-                  CommandMessage msg = { UiCommand::DOWN, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "YES" || command == "DIALOG_YES") {
-                  CommandMessage msg = { UiCommand::DIALOG_YES, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "NO" || command == "DIALOG_NO") {
-                  CommandMessage msg = { UiCommand::DIALOG_NO, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              } else if (command == "NEXT_STAGE") {
-                  CommandMessage msg = { UiCommand::NEXT_STAGE, 0 };
-                  xQueueSend(commandQueue, &msg, 0);
-              }
+              if (command == "START_DIST") sendCmd(UiCommand::START_DIST);
+              else if (command == "START_RECT") sendCmd(UiCommand::START_RECT);
+              else if (command == "STOP") sendCmd(UiCommand::STOP_PROCESS);
+              else if (command == "UP") sendCmd(UiCommand::UP);
+              else if (command == "DOWN") sendCmd(UiCommand::DOWN);
+              else if (command == "YES" || command == "DIALOG_YES") sendCmd(UiCommand::DIALOG_YES);
+              else if (command == "NO" || command == "DIALOG_NO") sendCmd(UiCommand::DIALOG_NO);
+              else if (command == "NEXT_STAGE") sendCmd(UiCommand::NEXT_STAGE);
           });
           Serial.println("[System] CloudManager initialized (background WiFi connect)");
           logger.log("Cloud: Initialized after background WiFi connect");
@@ -362,10 +342,7 @@ void loop() {
       cloudManager.update(telemetry);
   }
 
-  // 3. Потом ОБНОВЛЕНИЕ ВЫХОДОВ (реле)
-  outputManager.update();
-
-  // 4. Синхронизация Web -> LCD (переключение меню)
+  // 3. Синхронизация Web -> LCD (переключение меню)
   
   // === Обновление символа сети на LCD (ВСЕГДА, не только при процессе) ===
   // Без этого при фоновом переходе AP→STA символ 'A' на LCD не менялся на 'W'

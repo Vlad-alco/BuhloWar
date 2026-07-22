@@ -132,6 +132,11 @@ private:
     // Переменные для TELO
     float rtsarM = 0.0f;          // Запомненная температура TSAR (Reference Temp)
     float adPressM = 0.0f;         // Запомненное давление (гПа)
+    // BME-статус на этапе TELO (member вместо static)
+    bool teloBmeReferenceCaptured = false;
+    bool teloBmeWasAvailable = true;
+    int teloLastOpenMs = -1;
+    int teloLastCloseMs = -1;
     
     // Переменные для метода Шпора
     float bodyOpenCor = 0.0f;      // Скорректированное время открытия клапана тела (мс)

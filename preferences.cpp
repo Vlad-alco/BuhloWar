@@ -62,22 +62,32 @@ float ConfigManager::getABV(float temp, float pressure_mmHg, bool isOutput) {
 }
 
 // Вспомогательные методы для работы с EEPROM
+// Формат: big-endian [31:24, 23:16, 15:8, 7:0]
 void ConfigManager::writeInt(int address, int value) {
-  EEPROM.write(address, value >> 8);
-  EEPROM.write(address + 1, value & 0xFF);
-  EEPROM.write(address + 2, (value >> 24) & 0xFF);
-  EEPROM.write(address + 3, (value >> 16) & 0xFF);
+  EEPROM.write(address, (value >> 24) & 0xFF);
+  EEPROM.write(address + 1, (value >> 16) & 0xFF);
+  EEPROM.write(address + 2, (value >> 8) & 0xFF);
+  EEPROM.write(address + 3, value & 0xFF);
 }
 
 int ConfigManager::readInt(int address, int defaultValue) {
-  if (EEPROM.read(address) == 0xFF && EEPROM.read(address + 1) == 0xFF &&
-      EEPROM.read(address + 2) == 0xFF && EEPROM.read(address + 3) == 0xFF) {
+  uint8_t b[4];
+  b[0] = EEPROM.read(address);
+  b[1] = EEPROM.read(address + 1);
+  b[2] = EEPROM.read(address + 2);
+  b[3] = EEPROM.read(address + 3);
+
+  if (b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0xFF) {
     return defaultValue;
   }
-  
-  int value = (EEPROM.read(address) << 8) | EEPROM.read(address + 1);
-  value |= (EEPROM.read(address + 2) << 24) | (EEPROM.read(address + 3) << 16);
-  return value;
+
+  // Миграция со старого формата [15:8, 7:0, 31:24, 23:16]:
+  // для положительных значений < 2^24 bytes[2:3] == 0x00
+  if (b[2] == 0x00 && b[3] == 0x00) {
+    return (b[0] << 8) | b[1];
+  }
+  // Новый формат big-endian
+  return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
 }
 
 void ConfigManager::writeFloat(int address, float value) {

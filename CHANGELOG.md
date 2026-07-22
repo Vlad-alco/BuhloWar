@@ -1,3 +1,36 @@
+## 2026-07-22 18:00] — Рефакторинг: стабильность и миграция EEPROM
+
+### BuhloWar.ino — Оптимизация и порядок инициализации
+- `logger.init()` перенесён сразу после `initSD()` — SD должна быть готова до логирования
+- Убран `Serial.setDebugOutput(true)` — мешал чтению данных с датчиков
+- Задержки 1000ms/2000ms уменьшены до 50ms/100ms — старт ускорен на ~3 секунды
+- TZ-строка исправлена с `"MSK-3"` на правильный POSIX-формат
+- `xQueueSend(commandQueue, ...)` в setup/loop заменён на лямбду с `auto` для избежания копирования структуры
+- Убран дубль `outputManager.update()` из loop() — вызов уже есть внутри `processEngine.update()`
+
+### ProcessEngine.h/cpp — Статическая память → член-переменные
+- 4 static-переменные в `handleTelo()` (`bmeWasAvailable`, `bmeReferenceCaptured`, `lastOpenMs`, `lastCloseMs`) перенесены в члены класса с префиксом `telo` — устранено недетерминированное поведение при перезапуске процесса
+- В `startProcess()` добавлен сброс этих переменных
+- Условие реинита TELO расширено: `currentStage == TELO && previousStage != TELO` — корректный возврат из NASEBYA
+- Тесты клапанов: добавлен авто-таймаут 5 минут для состояния `awaitingInput`
+- Введена функция `sensorNameToIndex()` — заменены 4 копипастных if-else цепочки в update() и handleCommand()
+
+### AppNetwork.cpp — Null-safe API хендлеры
+- Добавлены проверки `configManager != nullptr` в `handleApiSettings()`, `handleSaveProfile()`, `handleLoadProfile()`, `handleCalcValve()`
+
+### preferences.cpp — EEPROM writeInt/readInt: корректный big-endian
+- `writeInt` переписан на стандартный big-endian: `[31:24, 23:16, 15:8, 7:0]`
+- `readInt` с авто-детектом старого формата `[15:8, 7:0, 31:24, 23:16]`: если bytes[2:3] == 0x00 — читает как старый формат (миграция), иначе как новый big-endian
+
+### Изменённые файлы
+- BuhloWar.ino
+- ProcessEngine.h
+- ProcessEngine.cpp
+- AppNetwork.cpp
+- preferences.cpp
+
+---
+
 ## 2026-07-22 14:00] — Сессия 9
 
 Задача

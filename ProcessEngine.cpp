@@ -58,6 +58,15 @@ void ProcessEngine::handleUiBack() {
     // =====================
 }
 
+// === ВСПОМОГАТЕЛЬНАЯ: имя датчика → индекс ===
+static SensorIndex sensorNameToIndex(const String& name) {
+    if (name == "AQUA") return SENSOR_AQUA;
+    if (name == "TSAR") return SENSOR_TSAR;
+    if (name == "TANK") return SENSOR_TANK;
+    return SENSOR_TSA;
+}
+// =============================================
+
 // ==================== ОСНОВНОЙ ЦИКЛ ====================
 
 void ProcessEngine::update() {
@@ -65,15 +74,10 @@ void ProcessEngine::update() {
     checkSafety();
         // === ПРОВЕРКА СТАТУСА WEB КАЛИБРОВКИ ===
     if (currentStatus.webCalibStatus == 1) { // Если в режиме поиска
-        // Определяем индекс датчика по имени (грубо, но работает)
-        int idx = 0;
-        if (currentStatus.webCalibSensorName == "AQUA") idx = 1;
-        else if (currentStatus.webCalibSensorName == "TSAR") idx = 2;
-        else if (currentStatus.webCalibSensorName == "TANK") idx = 3;
+        SensorIndex idx = sensorNameToIndex(currentStatus.webCalibSensorName);
 
         DeviceAddress addr;
-        // Проверяем, найден ли датчик (checkCalibration теперь не сохраняет)
-                if (SensorManager::getInstance()->checkCalibration((SensorIndex)idx, addr)) {
+        if (SensorManager::getInstance()->checkCalibration(idx, addr)) {
             currentStatus.webCalibStatus = 2; // Найден
             Serial.println("[WebCalib] Sensor Found!");
             logger.log("[WebCalib] Sensor Found!");
@@ -81,7 +85,7 @@ void ProcessEngine::update() {
         
         // Таймаут (30 сек)
                // Простая проверка времени (менеджер сбросит флаг inProgress при таймауте)
-if (!SensorManager::getInstance()->isCalibrating((SensorIndex)idx) && currentStatus.webCalibStatus == 1) {
+if (!SensorManager::getInstance()->isCalibrating(idx) && currentStatus.webCalibStatus == 1) {
      currentStatus.webCalibStatus = 3;// Ошибка/Не найден
              Serial.println("[WebCalib] Not Found / Timeout");
              logger.log("[WebCalib] Not Found / Timeout");
@@ -94,9 +98,15 @@ if (!SensorManager::getInstance()->isCalibrating((SensorIndex)idx) && currentSta
     outputManager->stopHeadValveTest();
     headTestStatus.active = false;
     headTestStatus.awaitingInput = true;
+    headTestStatus.startTime = millis(); // переиспользуем для таймаута ожидания
     Serial.println("[Process] Head Test Finished - Awaiting ml input");
     logger.log("[Process] Head Test Finished - Awaiting ml input");
 }
+    }
+    if (headTestStatus.awaitingInput && millis() - headTestStatus.startTime > 300000) {
+        headTestStatus.awaitingInput = false;
+        Serial.println("[Process] Head Test input timeout (5 min) - auto cleared");
+        logger.log("[Process] Head Test input timeout - auto cleared");
     }
     
     if (bodyTestStatus.active) {
@@ -105,9 +115,15 @@ if (!SensorManager::getInstance()->isCalibrating((SensorIndex)idx) && currentSta
     outputManager->stopBodyValveTest();
     bodyTestStatus.active = false;
     bodyTestStatus.awaitingInput = true;
+    bodyTestStatus.startTime = millis(); // переиспользуем для таймаута ожидания
     Serial.println("[Process] Body Test Finished - Awaiting ml input");
     logger.log("[Process] Body Test Finished - Awaiting ml input");
 }
+    }
+    if (bodyTestStatus.awaitingInput && millis() - bodyTestStatus.startTime > 300000) {
+        bodyTestStatus.awaitingInput = false;
+        Serial.println("[Process] Body Test input timeout (5 min) - auto cleared");
+        logger.log("[Process] Body Test input timeout - auto cleared");
     }
     
     // === СИНХРОНИЗАЦИЯ СОСТОЯНИЯ КАЛИБРОВКИ КЛАПАНОВ ===
@@ -484,15 +500,14 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
     if (command == UiCommand::IDENTIFY_TSA || command == UiCommand::IDENTIFY_AQUA || 
     command == UiCommand::IDENTIFY_TSAR || command == UiCommand::IDENTIFY_TANK) {
     
-    int idx = 0;
     String name = "TSA";
-    if (command == UiCommand::IDENTIFY_AQUA) { idx = 1; name = "AQUA"; }
-    else if (command == UiCommand::IDENTIFY_TSAR) { idx = 2; name = "TSAR"; }
-    else if (command == UiCommand::IDENTIFY_TANK) { idx = 3; name = "TANK"; }
+    if (command == UiCommand::IDENTIFY_AQUA) name = "AQUA";
+    else if (command == UiCommand::IDENTIFY_TSAR) name = "TSAR";
+    else if (command == UiCommand::IDENTIFY_TANK) name = "TANK";
 
     currentStatus.webCalibSensorName = name;
     currentStatus.webCalibStatus = 1; // Сразу поиск
-    SensorManager::getInstance()->startCalibration((SensorIndex)idx);
+    SensorManager::getInstance()->startCalibration(sensorNameToIndex(name));
     Serial.print("[WebCalib] Started for "); Serial.println(name);
     logger.log("CMD: [WebCalib] Started for " + name);
     return EngineResponse::OK;
@@ -500,11 +515,8 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
     
      if (command == UiCommand::DIALOG_NO) {
     if (currentStatus.webCalibStatus >= 1 && currentStatus.webCalibStatus <= 3) {
-        int idx = 0;
-        if (currentStatus.webCalibSensorName == "AQUA")  idx = 1;
-        else if (currentStatus.webCalibSensorName == "TSAR") idx = 2;
-        else if (currentStatus.webCalibSensorName == "TANK") idx = 3;
-        SensorManager::getInstance()->cancelCalibration((SensorIndex)idx);
+        SensorIndex idx = sensorNameToIndex(currentStatus.webCalibSensorName);
+        SensorManager::getInstance()->cancelCalibration(idx);
         currentStatus.webCalibStatus = 0;
         currentStatus.webCalibSensorName = "";
         Serial.println("[WebCalib] Cancelled");
@@ -515,11 +527,8 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
 
     if (command == UiCommand::DIALOG_YES) {
     if (currentStatus.webCalibStatus == 2) { // Найден — сохраняем
-        int idx = 0;
-        if (currentStatus.webCalibSensorName == "AQUA")  idx = 1;
-        else if (currentStatus.webCalibSensorName == "TSAR") idx = 2;
-        else if (currentStatus.webCalibSensorName == "TANK") idx = 3;
-        SensorManager::getInstance()->confirmCalibrationSave((SensorIndex)idx);
+        SensorIndex idx = sensorNameToIndex(currentStatus.webCalibSensorName);
+        SensorManager::getInstance()->confirmCalibrationSave(idx);
         currentStatus.webCalibStatus = 0;
         currentStatus.webCalibSensorName = "";
         Serial.println("[WebCalib] Saved");
@@ -607,6 +616,10 @@ bool ProcessEngine::startProcess(ProcessType type) {
     // Сброс переменных TELO при старте
     rtsarM = 0.0f;
     adPressM = 0.0f;
+    teloBmeReferenceCaptured = false;
+    teloBmeWasAvailable = true;
+    teloLastOpenMs = -1;
+    teloLastCloseMs = -1;
 
     // === НОВОЕ: Сброс накопленного объема голов ===
     headsVolDone = 0.0f;
@@ -1352,16 +1365,8 @@ void ProcessEngine::handleTelo() {
     SystemConfig& cfg = configManager->getConfig();
     const SensorData& data = sensorAdapter->getData();
 
-    // Статическая переменная для отслеживания предыдущего состояния BME
-    static bool bmeWasAvailable = true;
-    // Флаг: был ли захвачен референс давления при старте ТЕЛО
-    static bool bmeReferenceCaptured = false;
-    // Статические для логирования только при изменении
-    static int lastOpenMs = -1;
-    static int lastCloseMs = -1;
-
-    // 1. Инициализация референсных значений (только при первом входе)
-    if (rtsarM < 0.1f) { 
+    // 1. Инициализация референсных значений (при первом входе или после NASEBYA)
+    if (rtsarM < 0.1f || currentStage == Stage::TELO && previousStage != Stage::TELO) { 
         koff = cfg.power / 1000.0f; 
         rtsarM = data.tsar.value;
         
@@ -1369,14 +1374,14 @@ void ProcessEngine::handleTelo() {
         if (currentStatus.bmeAvailable) {
             // BME работает - захватываем реальное давление
             adPressM = data.pressure;
-            bmeReferenceCaptured = true;
-            bmeWasAvailable = true;
+            teloBmeReferenceCaptured = true;
+            teloBmeWasAvailable = true;
             logger.log("TELO: BME reference captured. adPressM: " + String(adPressM, 1) + " hPa");
         } else {
             // BME НЕ работает - коррекция отключена на весь этап, давление = 760 мм рт.ст. (1013.25 гПа)
             adPressM = 1013.25f; // 760 мм рт.ст. в гПа
-            bmeReferenceCaptured = false;
-            bmeWasAvailable = false;
+            teloBmeReferenceCaptured = false;
+            teloBmeWasAvailable = false;
             logger.log("WARNING: BME280 not available at TELO start! Pressure correction DISABLED for entire stage.");
             Serial.println("[TELO] BME missing! Correction disabled, using 760 mmHg.");
         }
@@ -1395,7 +1400,7 @@ void ProcessEngine::handleTelo() {
                  + ", bodyValveNC=" + String(cfg.bodyValveNC ? "true" : "false") + ")");
         logger.log("  rtsarM: " + String(rtsarM, 2) + "C"
                  + "  adPressM: " + String(adPressM, 1) + "hPa"
-                 + "  bmeReferenceCaptured: " + String(bmeReferenceCaptured ? "YES" : "NO"));
+                 + "  teloBmeReferenceCaptured: " + String(teloBmeReferenceCaptured ? "YES" : "NO"));
         logger.log("  bodyOpenCor: " + String(bodyOpenCor, 1) + "s"
                  + "  Initial Speed: " + String(speedShpora, 1) + "ml/h");
         // ==============================
@@ -1406,22 +1411,22 @@ void ProcessEngine::handleTelo() {
     // 2. Расчет поправки давления
     float pressureCorrection = 0.0f;
     
-    if (bmeReferenceCaptured) {
+    if (teloBmeReferenceCaptured) {
         // Референс был захвачен - работаем с коррекцией
         
         // Мониторинг потери/восстановления BME
-        if (bmeWasAvailable && !currentStatus.bmeAvailable) {
+        if (teloBmeWasAvailable && !currentStatus.bmeAvailable) {
             // BME пропал - используем последние данные
             logger.log("ERROR: BME280 connection lost during TELO! Using frozen pressure: " + String(data.pressure) + " hPa");
             Serial.println("[TELO] BME LOST! Pressure frozen at: " + String(data.pressure) + " hPa");
         }
-        else if (!bmeWasAvailable && currentStatus.bmeAvailable) {
+        else if (!teloBmeWasAvailable && currentStatus.bmeAvailable) {
             // BME восстановился - обновляем референс и восстанавливаем динамическую коррекцию
             adPressM = data.pressure;
             logger.log("INFO: BME280 restored. Dynamic correction resumed. New adPressM: " + String(adPressM, 1) + " hPa");
             Serial.println("[TELO] BME Restored. Dynamic correction resumed.");
         }
-        bmeWasAvailable = currentStatus.bmeAvailable;
+        teloBmeWasAvailable = currentStatus.bmeAvailable;
         
         // Расчёт коррекции (при потере BME data.pressure = замороженное значение)
         pressureCorrection = (data.pressure - adPressM) * cfg.pressureCoeff;
@@ -1499,11 +1504,11 @@ void ProcessEngine::handleTelo() {
         calcValveTiming(targetSpeed, (float)cfg.valve_body_capacity, openMs, closeMs);
         
         // Выводим только при изменении
-        if (openMs != lastOpenMs || closeMs != lastCloseMs) {
+        if (openMs != teloLastOpenMs || closeMs != teloLastCloseMs) {
             Serial.printf("[TELO] Shpora: open=%ums, close=%ums, speed=%.1f ml/h\n", 
                 openMs, closeMs, speedShpora);
-            lastOpenMs = openMs;
-            lastCloseMs = closeMs;
+            teloLastOpenMs = openMs;
+            teloLastCloseMs = closeMs;
         }
         outputManager->startBodyValveCycling(openMs, closeMs);
 

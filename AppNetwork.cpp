@@ -876,6 +876,10 @@ void AppNetwork::handleApiSettings() {
     String body = server->arg("plain");
     Serial.println("[API] Settings Save Request received.");
 
+    if (!configManager) {
+        server->send(500, "application/json", "{\"error\":\"Config not ready\"}");
+        return;
+    }
     SystemConfig& cfg = configManager->getConfig();
 
     auto getInt = [&](const char* key, int defaultVal) -> int {
@@ -1283,6 +1287,11 @@ void AppNetwork::handleSaveProfile() {
         return;
     }
     
+    if (!configManager) {
+        server->send(500, "application/json", "{\"error\":\"Config not ready\"}");
+        return;
+    }
+
     // Создаём имя файла
     String filename = transliterate(name);
     filename.replace(" ", "_");
@@ -1461,6 +1470,11 @@ void AppNetwork::handleLoadProfile() {
         content += (char)file.read();
     }
     file.close();
+
+    if (!configManager) {
+        server->send(500, "application/json", "{\"error\":\"Config not ready\"}");
+        return;
+    }
     
     // Парсим и применяем настройки
     SystemConfig& cfg = configManager->getConfig();
@@ -1586,6 +1600,11 @@ void AppNetwork::handleCalcValve() {
     int typeEnd = body.indexOf("\"", typeStart);
     String type = body.substring(typeStart, typeEnd);
     
+    if (!configManager) {
+        server->send(500, "application/json", "{\"error\":\"Config not ready\"}");
+        return;
+    }
+
     // Расчёт capacity
     int testDuration = configManager->getConfig().active_test;
     float capacity = ml / (testDuration / 60.0f);  // мл/мин
