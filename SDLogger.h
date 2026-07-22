@@ -131,24 +131,94 @@ public:
         
         String content = "";
         
-        // === ИЗМЕНЕНО: Буфер увеличен с 4096 до 16384 байт (16 КБ) ===
-        // ESP32-S3 имеет достаточно памяти для этого.
+        // === Буфер 16 КБ ===
         const int bufferSize = 16384; 
         
         if (file.size() > bufferSize) {
             file.seek(file.size() - bufferSize);
         }
         
-        // Резервируем память для строки, чтобы не было фрагментации кучи
         content.reserve(bufferSize); 
         
         while (file.available()) {
             content += (char)file.read();
         }
         file.close();
-        // При выходе lock уничтожается -> мьютекс освобождается
         
         return content;
+    }
+
+    // === НОВЫЙ МЕТОД: последние N строк лога как JSON-массив ===
+    // Читает только ~1KB (вместо 16KB у readLastLog) — быстро, не нагружает SD.
+    // Вызывается каждую секунду из handleApiStatus() — оптимизирован для частых вызовов.
+    // Возвращает: ["строка1","строка2",...] (новые сверху, старые внизу)
+    String getLastLogLinesJson(int maxLines = 10) {
+        if (!sdAvailable) return "[]";
+        
+        SDScopeLock lock;
+        if (!lock.locked) return "[]";
+        
+        File file = SD.open("/system.log");
+        if (!file) return "[]";
+        
+        // Читаем только последний 1KB — хватит на 10-15 строк
+        const int readSize = 1024;
+        String content = "";
+        content.reserve(readSize);
+        
+        if (file.size() > readSize) {
+            file.seek(file.size() - readSize);
+        }
+        
+        while (file.available()) {
+            content += (char)file.read();
+        }
+        file.close();
+        
+        // Разбиваем на строки, собираем последние maxLines (новые сверху)
+        String lines[maxLines];
+        int lineCount = 0;
+        int startIdx = 0;
+        
+        for (int i = 0; i < content.length() && lineCount < maxLines; i++) {
+            if (content.charAt(i) == '\n') {
+                String line = content.substring(startIdx, i);
+                line.trim();
+                if (line.length() > 0) {
+                    for (int j = maxLines - 1; j > 0; j--) {
+                        lines[j] = lines[j - 1];
+                    }
+                    lines[0] = line;
+                    if (lineCount < maxLines) lineCount++;
+                }
+                startIdx = i + 1;
+            }
+        }
+        // Последняя строка (если нет \n в конце)
+        if (startIdx < content.length()) {
+            String line = content.substring(startIdx);
+            line.trim();
+            if (line.length() > 0 && lineCount < maxLines) {
+                for (int j = maxLines - 1; j > 0; j--) {
+                    lines[j] = lines[j - 1];
+                }
+                lines[0] = line;
+                lineCount++;
+            }
+        }
+        
+        // Формируем JSON-массив с экранированием
+        String json = "[";
+        for (int i = 0; i < lineCount; i++) {
+            if (i > 0) json += ",";
+            String escaped = lines[i];
+            escaped.replace("\\", "\\\\");
+            escaped.replace("\"", "\\\"");
+            json += "\"" + escaped + "\"";
+        }
+        json += "]";
+        
+        return json;
     }
     
     // Читает только НОВЫЕ записи с момента последнего вызова (для облака)

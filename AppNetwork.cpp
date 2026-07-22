@@ -713,6 +713,15 @@ void AppNetwork::handleApiStatus() {
     
     json += "}";
     
+    // === ЛОГИ: последние 10 строк из SD как JSON-массив ===
+    // Добавляется в конец JSON, после calibWizard.
+    // Использует getLastLogLinesJson() — читает только ~1KB с SD, быстро.
+    // Формат: ,"logs":["строка1","строка2",...]
+    // Новые строки сверху (индекс 0), старые внизу.
+    json = json.substring(0, json.length() - 1); // Убираем последнюю }
+    json += ",\"logs\":" + logger.getLastLogLinesJson(10);
+    json += "}";
+    
     server->send(200, "application/json", json);
 }
 
