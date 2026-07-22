@@ -539,16 +539,16 @@ void AppNetwork::update() {
                     // WiFi вернулся сам (до начала реконнекта)
                 }
 
-                // === Проверка интернета (только при подключенном WiFi) ===
-                bool hasInternet = checkInternet();
-                if (hasInternet && !online) {
-                    online = true;
-                    syncNTP();
-                    // sendMessage("Connection restored."); // Telegram disabled
-                    Serial.println("[NetMgr] Internet restored.");
-                } else if (!hasInternet && online) {
+                // === Статус интернета = WiFi connected (без блокировки) ===
+                if (WiFi.status() == WL_CONNECTED) {
+                    if (!online) {
+                        online = true;
+                        syncNTP();
+                        Serial.println("[NetMgr] Internet restored (WiFi up).");
+                    }
+                } else if (online) {
                     online = false;
-                    Serial.println("[NetMgr] Internet lost. Web continues, Telegram disabled.");
+                    Serial.println("[NetMgr] Internet lost (WiFi down).");
                 }
             }
         }
