@@ -1,3 +1,21 @@
+## [2026-08-28 20:00] — Сессия 3
+Фикс: восстановлено объявление cfg в startCyclingForTest()
+
+Задача
+При предыдущем коммите (ce22ddf) в startCyclingForTest() была удалена строка SystemConfig& cfg = config->getConfig() вместе с заменой cfg.minOpenTime на CALIB_MIN_OPEN. Без этой строки обращения к cfg.valve_head_capacity, cfg.valve_body_capacity, cfg.valve0_body_capacity на строках 148-155 вызывали ошибку компиляции: 'cfg' was not declared in this scope.
+
+Решение
+Добавлена строка SystemConfig& cfg = config->getConfig(); после объявления CALIB_MIN_OPEN.
+
+Почему так решили
+Строка была случайно удалена при редактировании — cfg используется для чтения текущих значений capacity как начальной оценки для расчёта duty cycle. Без неё функция не компилируется.
+
+Ключевые детали
+Затронута только одна строка, логика не изменена.
+
+Изменённые файлы
+ValveCalMenu.h: добавлено SystemConfig& cfg = config->getConfig(); в startCyclingForTest()
+
 ## [2026-08-28 19:30] — Сессия 2
 Фикс: калибровка клапанов — расчёт capacity через ESP + импульсы при 500 мс
 
