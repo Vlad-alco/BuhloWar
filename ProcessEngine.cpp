@@ -435,6 +435,15 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
         }
         return EngineResponse::OK;
     }
+    // === CALIB_SET_VOLUME: передать измеренный объём для расчёта capacity ===
+    if (command == UiCommand::CALIB_SET_VOLUME) {
+        if (valveCalMenu) {
+            valveCalMenu->setVolumeFromWeb((float)param);
+            Serial.printf("[WebCmd] Calib SET_VOLUME: %d ml\n", param);
+            logger.log("[WebCmd] Calib SET_VOLUME: " + String(param) + " ml");
+        }
+        return EngineResponse::OK;
+    }
     // ================================================================
 
     // === НОВАЯ КОМАНДА ДЛЯ WEB (Кнопка "ДАЛЕЕ") — ДО проверки VALVE_CAL ===

@@ -3223,17 +3223,14 @@
         }
 
         async function submitCalibVolume(){
-            if(_isBodyNC()){calibWizard._capHeadsSaved=Math.round(calibWizard.volume);try{await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valve_body_capacity_heads:calibWizard._capHeadsSaved})});}catch(e){}calibWizard.volume=0;showCalibStep(6);}
-            else{const capacity=Math.round(calibWizard.volume);const field=calibWizard.valve==='heads'?'valve_head_capacity':'valve0_body_capacity';
-            try{const response=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:capacity})});if(!response.ok){alert('Ошибка сохранения: '+response.status);return;}
-            const resultEl=document.getElementById('calib-result-cap');if(resultEl)resultEl.textContent=capacity;document.getElementById('calib-result-single').style.display='';document.getElementById('calib-result-dual').style.display='none';showCalibStep(4);updateValveCalibrationStatus();}catch(e){alert('Ошибка сохранения: '+e);}}
+            // Отправляем измерённый объём в ESP для расчёта capacity
+            // ESP вызовет backCalculateCapacity() и сохранит реальный capacity в EEPROM
+            try{await _calibSend('CALIB_SET_VOLUME',{volume:calibWizard.volume});}catch(e){alert('Ошибка передачи объёма: '+e);}
         }
 
         async function submitCalibVolume2(){
-            const capBody=Math.round(calibWizard.volume2);const capHeads=calibWizard._capHeadsSaved;
-            try{const response=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valve_body_capacity:capBody})});if(!response.ok){alert('Ошибка сохранения: '+response.status);return;}
-            document.getElementById('calib-result-single').style.display='none';document.getElementById('calib-result-dual').style.display='';
-            const rh=document.getElementById('calib-result-cap-h');if(rh)rh.textContent=capHeads;const rb=document.getElementById('calib-result-cap-b');if(rb)rb.textContent=capBody;showCalibStep(4);updateValveCalibrationStatus();}catch(e){alert('Ошибка сохранения: '+e);}
+            // BODY NC: второй ввод (тело) — финальный расчёт через ESP
+            try{await _calibSend('CALIB_SET_VOLUME',{volume:calibWizard.volume2});}catch(e){alert('Ошибка передачи объёма: '+e);}
         }
 
         function updateValveCalibrationStatus(){
@@ -3262,7 +3259,8 @@
                     else if(cw.step===5)_resetBtn('btn-calib-cap-heads-start','calib-cap-heads-progress');else if(cw.step===6)_resetBtn('btn-calib-cap-body-start','calib-cap-body-progress');
                 }
                 if(cw.step===4){if(cw.capacityHeads>0){document.getElementById('calib-result-single').style.display='none';document.getElementById('calib-result-dual').style.display='';const rh=document.getElementById('calib-result-cap-h');if(rh)rh.textContent=Math.round(cw.capacityHeads);const rb=document.getElementById('calib-result-cap-b');if(rb)rb.textContent=Math.round(cw.capacity);}
-                    else if(cw.capacity>0){document.getElementById('calib-result-single').style.display='';document.getElementById('calib-result-dual').style.display='none';const re=document.getElementById('calib-result-cap');if(re)re.textContent=Math.round(cw.capacity);}}
+                    else if(cw.capacity>0){document.getElementById('calib-result-single').style.display='';document.getElementById('calib-result-dual').style.display='none';const re=document.getElementById('calib-result-cap');if(re)re.textContent=Math.round(cw.capacity);}
+                    updateValveCalibrationStatus();}
                 calibWizard.step=localStep;calibWizard.valve={1:'heads',2:'body_nc',3:'body_no'}[cw.valve]||'';
                 if(cw.step===3&&calibWizard._lastInputStep!==3){calibWizard._lastInputStep=3;const cfg=currentData.cfg||{};if(calibWizard.valve==='heads')calibWizard.volume=(cfg.valve_head_capacity||0);else if(calibWizard.valve==='body_nc')calibWizard.volume=(cfg.valve_body_capacity_heads||cfg.valve_body_capacity||0);else calibWizard.volume=(cfg.valve0_body_capacity||0);const volEl=document.getElementById('calib-volume');if(volEl)volEl.textContent=Math.round(calibWizard.volume);}
                 if(cw.step===7&&calibWizard._lastInputStep!==7){calibWizard._lastInputStep=7;calibWizard.volume2=(currentData.cfg||{}).valve_body_capacity||0;const volEl2=document.getElementById('calib-volume2');if(volEl2)volEl2.textContent=Math.round(calibWizard.volume2);}

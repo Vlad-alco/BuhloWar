@@ -1,3 +1,34 @@
+## [2026-08-28 19:30] — Сессия 2
+Фикс: калибровка клапанов — расчёт capacity через ESP + импульсы при 500 мс
+
+Задача
+Два критических бага в мастере калибровки клапанов:
+1. Web-мастер сохранял сырой измеренный объём (мл) как capacity вместо расчёта через backCalculateCapacity()
+2. При калибровке использовался cfg.minOpenTime (1000 мс), что давало 1-2 импульса за 60 сек — недостаточно для точного измерения
+
+Решение
+1. Web теперь отправляет CALIB_SET_VOLUME в ESP. ESP рассчитывает реальный capacity через backCalculateCapacity() и сохраняет в EEPROM
+2. startCyclingForTest() использует фиксированный minOpen = 500 мс (вместо cfg.minOpenTime), что даёт ~7 импульсов за 60 сек
+
+Почему так решили
+- backCalculateCapacity() учитывает duty cycle теста и извлекает истинную пропускную способность. Без него при duty=2% ошибка в 50 раз
+- 500 мс ближе к реальной работе клапана в процессе, даёт достаточно импульсов для точного измерения, не затрагивает calcValveTiming() в рабочем процессе
+
+Ключевые детали
+- Добавлена команда CALIB_SET_VOLUME в ProcessEngine.cpp и AppNetwork.cpp
+- В JSON-статус calibWizard добавлено поле capacityHeads (раньше отсутствовало — Web всегда получал 0)
+- Web submitCalibVolume/submitCalibVolume2 переписаны: вместо прямого POST /api/settings отправляют команду в ESP
+- updateCalibWizardUI() теперь вызывает updateValveCalibrationStatus() при показе результата
+
+Изменённые файлы
+ValveCalMenu.h: startCyclingForTest() — фиксированный CALIB_MIN_OPEN = 500 вместо cfg.minOpenTime
+AppNetwork.cpp: добавлен парсинг CALIB_SET_VOLUME с извлечением volume из JSON; добавлено capacityHeads в calibWizard JSON
+ProcessEngine.cpp: добавлен обработчик UiCommand::CALIB_SET_VOLUME → valveCalMenu->setVolumeFromWeb()
+index.html: submitCalibVolume() и submitCalibVolume2() переписаны на отправку CALIB_SET_VOLUME в ESP
+index_landscape_knob.html: те же исправления submitCalibVolume/submitCalibVolume2 + updateValveCalibrationStatus при RESULT
+
+---
+
 ## [2026-08-28 12:00] — Сессия 1
 Фикс: система не подключается к SSID2 при старте
 

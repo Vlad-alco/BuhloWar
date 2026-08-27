@@ -136,8 +136,10 @@ private:
   // targetSpeedMlH — целевая скорость в мл/ч
   // Возвращает true если cycling запущен, false если fallback на 100% open
   bool startCyclingForTest(float targetSpeedMlH) {
-    SystemConfig& cfg = config->getConfig();
-    int minOpen = cfg.minOpenTime > 0 ? cfg.minOpenTime : 100;
+    // При калибровке используем фиксированный minOpen = 500 мс
+    // (ближе к реальной работе клапана в процессе, даёт достаточно импульсов за 60 сек)
+    const int CALIB_MIN_OPEN = 500;
+    int minOpen = CALIB_MIN_OPEN;
     
     // Берём текущий capacity как оценку (или дефолт 100)
     float capEstimate = 0.0f;

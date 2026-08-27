@@ -742,6 +742,7 @@ void AppNetwork::handleApiStatus() {
     json += "\"totalSec\":" + String(status.calibWizard.totalSec) + ",";
     json += "\"volume\":" + String(status.calibWizard.volume, 1) + ",";
     json += "\"capacity\":" + String(status.calibWizard.capacity, 1);
+    json += ",\"capacityHeads\":" + String(status.calibWizard.capacityHeads, 1);
     json += "}";
     
     json += "}";
@@ -886,6 +887,21 @@ void AppNetwork::handleApiCommand() {
     else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_HEADS\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_HEADS, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_BODY\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_BODY, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_CANCEL\"") > 0)      sendCmd(UiCommand::CALIB_CANCEL);
+    // === CALIB_SET_VOLUME: передаём измеренный объём (мл) для расчёта capacity ===
+    else if (body.indexOf("\"cmd\":\"CALIB_SET_VOLUME\"") > 0) {
+      // Извлекаем volume из JSON: {"cmd":"CALIB_SET_VOLUME","valve":1,"volume":15}
+      int volIdx = body.indexOf("\"volume\":");
+      int volume = 0;
+      if (volIdx > 0) {
+        int start = volIdx + 9;
+        int end = body.indexOf(',', start);
+        if (end == -1) end = body.indexOf('}', start);
+        String volStr = body.substring(start, end);
+        volStr.trim();
+        volume = (int)volStr.toFloat();
+      }
+      sendCmd(UiCommand::CALIB_SET_VOLUME, volume);
+    }
     else if (body.indexOf("\"cmd\":\"IDENTIFY_") > 0) {
         if      (body.indexOf("TSAR") > 0) sendCmd(UiCommand::IDENTIFY_TSAR);
         else if (body.indexOf("TANK") > 0) sendCmd(UiCommand::IDENTIFY_TANK);

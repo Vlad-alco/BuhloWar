@@ -2343,49 +2343,21 @@
         }
         
         async function submitCalibVolume() {
-            if (_isBodyNC()) {
-                // BODY NC: первый ввод (головы) — сохраняем, переходим к cap тела
-                calibWizard._capHeadsSaved = Math.round(calibWizard.volume);
-                try {
-                    await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ valve_body_capacity_heads: calibWizard._capHeadsSaved }) });
-                } catch(e) {}
-                // Переходим к шагу 2b (capacity на скорости тела)
-                calibWizard.volume = 0;
-                showCalibStep(6);
-            } else {
-                // HEADS / BODY NO: финальный расчёт и сохранение
-                const capacity = Math.round(calibWizard.volume);
-                const field = calibWizard.valve === 'heads' ? 'valve_head_capacity' : 'valve0_body_capacity';
-                try {
-                    const response = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ [field]: capacity }) });
-                    if (!response.ok) { alert('Ошибка сохранения: ' + response.status); return; }
-                    const resultEl = document.getElementById('calib-result-cap');
-                    if (resultEl) resultEl.textContent = capacity;
-                    document.getElementById('calib-result-single').classList.remove('hidden');
-                    document.getElementById('calib-result-dual').classList.add('hidden');
-                    document.getElementById('calib-result-label').textContent = 'Capacity:';
-                    showCalibStep(4);
-                    updateValveCalibrationStatus();
-                } catch(e) { alert('Ошибка сохранения: ' + e); }
-            }
+            // Отправляем измеренный объём в ESP для расчёта capacity
+            // ESP вызовет backCalculateCapacity() и сохранит реальный capacity в EEPROM
+            try {
+                await _calibSend('CALIB_SET_VOLUME', { volume: calibWizard.volume });
+                // ESP сам перейдёт к следующему шагу (для BODY NC — cap_body, для HEADS/BODY_NO — RESULT)
+            } catch(e) { alert('Ошибка передачи объёма: ' + e); }
         }
         
         async function submitCalibVolume2() {
-            // BODY NC: второй ввод (тело) — финальное сохранение обоих значений
-            const capBody = Math.round(calibWizard.volume2);
-            const capHeads = calibWizard._capHeadsSaved;
+            // BODY NC: второй ввод (тело) — финальный расчёт через ESP
+            // ESP рассчитает оба capacity и сохранит в EEPROM
             try {
-                const response = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ valve_body_capacity: capBody }) });
-                if (!response.ok) { alert('Ошибка сохранения: ' + response.status); return; }
-                // Показать двойной результат
-                document.getElementById('calib-result-single').classList.add('hidden');
-                document.getElementById('calib-result-dual').classList.remove('hidden');
-                document.getElementById('calib-result-cap-h').textContent = capHeads;
-                document.getElementById('calib-result-cap-b').textContent = capBody;
-                document.getElementById('calib-result-label').textContent = 'Capacity:';
-                showCalibStep(4);
-                updateValveCalibrationStatus();
-            } catch(e) { alert('Ошибка сохранения: ' + e); }
+                await _calibSend('CALIB_SET_VOLUME', { volume: calibWizard.volume2 });
+                // ESP перейдёт к RESULT
+            } catch(e) { alert('Ошибка передачи объёма: ' + e); }
         }
         
         // === ОБНОВЛЕНИЕ СТАТУСА КАЛИБРОВКИ КЛАПАНОВ ===
@@ -2479,6 +2451,8 @@
                         document.getElementById('calib-result-dual').classList.add('hidden');
                         const re = document.getElementById('calib-result-cap'); if (re) re.textContent = Math.round(cw.capacity);
                     }
+                    // Обновить бейджи калибровки на странице настроек
+                    updateValveCalibrationStatus();
                 }
                 
                 // Синхронизировать состояние
