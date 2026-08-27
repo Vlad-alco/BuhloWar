@@ -793,7 +793,7 @@
             
             <!-- Шаг 1: Dry Run (общий для всех) -->
             <div id="calib-step-1" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm" id="calib-step1-label">Шаг 1/3: Пролив системы</p>
+                <p class="text-gray-300 mb-4 text-sm">Шаг 1/2: Пролив системы</p>
                 <div class="bg-gray-700 rounded-lg p-3 mb-4 text-sm">
                     <p class="text-gray-400">Подставьте ёмкость для слива и нажмите СТАРТ</p>
                     <p class="text-gray-500 text-xs mt-1">Клапан откроется на 100%</p>
@@ -810,16 +810,16 @@
                 <button onclick="startCalibDryRun()" id="btn-calib-dry-start" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-3 rounded-lg font-bold">СТАРТ</button>
             </div>
             
-            <!-- Шаг 2: Capacity HEADS/BODY_NO (импульс для HEADS, 100% для BODY_NO) -->
+            <!-- Шаг 2: Замер capacity (цикл 1с открыт / 1с закрыт, 60 сек) -->
             <div id="calib-step-2" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm" id="calib-step2-label">Шаг 2/3: Измерение capacity</p>
+                <p class="text-gray-300 mb-4 text-sm">Шаг 2/2: Измерение capacity</p>
                 <div class="bg-gray-700 rounded-lg p-3 mb-4 text-sm">
-                    <p class="text-gray-400" id="calib-step2-desc">Подставьте мерную ёмкость и нажмите СТАРТ</p>
-                    <p class="text-gray-500 text-xs mt-1" id="calib-step2-hint">Клапан работает в импульсном режиме</p>
+                    <p class="text-gray-400">Подставьте мерную ёмкость и нажмите СТАРТ</p>
+                    <p class="text-gray-500 text-xs mt-1">Клапан: 1с открыт / 1с закрыт (30 импульсов за 60 сек)</p>
                 </div>
                 <div id="calib-cap-progress" class="hidden mb-4">
                     <div class="flex justify-between text-xs mb-1">
-                        <span id="calib-cap-mode-label">Импульсный режим</span>
+                        <span>Цикл 1с/1с</span>
                         <span id="calib-cap-time">0 / 60 с</span>
                     </div>
                     <div class="w-full bg-gray-700 h-3 rounded-full">
@@ -829,28 +829,9 @@
                 <button onclick="startCalibCapacity()" id="btn-calib-cap-start" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold">СТАРТ</button>
             </div>
             
-            <!-- Шаг 2a: Capacity BODY NC на скорости голов (импульс) -->
-            <div id="calib-step-2a" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm">Шаг 2/4: Capacity — скорость голов</p>
-                <div class="bg-gray-700 rounded-lg p-3 mb-4 text-sm">
-                    <p class="text-gray-400">Подставьте мерную ёмкость и нажмите СТАРТ</p>
-                    <p class="text-gray-500 text-xs mt-1">Клапан работает в импульсном режиме (скорость голов)</p>
-                </div>
-                <div id="calib-cap-heads-progress" class="hidden mb-4">
-                    <div class="flex justify-between text-xs mb-1">
-                        <span>Импульс: скорость голов</span>
-                        <span id="calib-cap-heads-time">0 / 60 с</span>
-                    </div>
-                    <div class="w-full bg-gray-700 h-3 rounded-full">
-                        <div id="calib-cap-heads-bar" class="bg-amber-500 h-3 rounded-full transition-all" style="width: 0%"></div>
-                    </div>
-                </div>
-                <button onclick="startCalibCapHeads()" id="btn-calib-cap-heads-start" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold">СТАРТ</button>
-            </div>
-            
-            <!-- Шаг 3: Ввод объёма (1-й для BODY NC, единственный для остальных) -->
+            <!-- Шаг 3: Ввод измеренного объёма -->
             <div id="calib-step-3" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm" id="calib-step3-label">Введите измеренный объём:</p>
+                <p class="text-gray-300 mb-4 text-sm">Введите измеренный объём:</p>
                 <div class="flex items-center justify-center gap-4 mb-4">
                     <button onclick="adjCalibVolume(-1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">-</button>
                     <div class="text-center">
@@ -859,57 +840,17 @@
                     </div>
                     <button onclick="adjCalibVolume(1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">+</button>
                 </div>
-                <p class="text-gray-500 text-xs text-center mb-4">Шаг: 1 мл</p>
-                <button onclick="submitCalibVolume()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold" id="btn-calib-submit">РАССЧИТАТЬ</button>
-            </div>
-            
-            <!-- Шаг 2b: Capacity BODY NC на скорости тела (импульс) -->
-            <div id="calib-step-2b" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm">Шаг 3/4: Capacity — скорость тела</p>
-                <div class="bg-gray-700 rounded-lg p-3 mb-4 text-sm">
-                    <p class="text-gray-400">Подставьте мерную ёмкость и нажмите СТАРТ</p>
-                    <p class="text-gray-500 text-xs mt-1">Клапан работает в импульсном режиме (скорость тела)</p>
-                </div>
-                <div id="calib-cap-body-progress" class="hidden mb-4">
-                    <div class="flex justify-between text-xs mb-1">
-                        <span>Импульс: скорость тела</span>
-                        <span id="calib-cap-body-time">0 / 60 с</span>
-                    </div>
-                    <div class="w-full bg-gray-700 h-3 rounded-full">
-                        <div id="calib-cap-body-bar" class="bg-green-500 h-3 rounded-full transition-all" style="width: 0%"></div>
-                    </div>
-                </div>
-                <button onclick="startCalibCapBody()" id="btn-calib-cap-body-start" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold">СТАРТ</button>
-            </div>
-            
-            <!-- Шаг 3b: Ввод объёма (2-й, BODY NC — скорость тела) -->
-            <div id="calib-step-3b" class="calib-step hidden">
-                <p class="text-gray-300 mb-4 text-sm">Введите измеренный объём (скорость тела):</p>
-                <div class="flex items-center justify-center gap-4 mb-4">
-                    <button onclick="adjCalibVolume(-1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">-</button>
-                    <div class="text-center">
-                        <span id="calib-volume2" class="text-3xl font-bold text-white">0</span>
-                        <span class="text-gray-400 ml-1">мл</span>
-                    </div>
-                    <button onclick="adjCalibVolume(1)" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-lg text-xl font-bold">+</button>
-                </div>
-                <p class="text-gray-500 text-xs text-center mb-4">Шаг: 1 мл</p>
-                <button onclick="submitCalibVolume2()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold">РАССЧИТАТЬ</button>
+                <p class="text-gray-500 text-xs text-center mb-4">capacity = объём × 2 (мл/мин)</p>
+                <button onclick="submitCalibVolume()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold">РАССЧИТАТЬ И СОХРАНИТЬ</button>
             </div>
             
             <!-- Результат -->
             <div id="calib-step-4" class="calib-step hidden">
                 <div class="bg-gray-700 rounded-lg p-4 mb-4 text-center" id="calib-result-box">
                     <p class="text-gray-400 text-sm" id="calib-result-label">Capacity:</p>
-                    <p class="text-3xl font-bold text-green-400" id="calib-result-single"><span id="calib-result-cap">--</span> <span class="text-lg">мл/мин</span></p>
-                    <div id="calib-result-dual" class="hidden">
-                        <p class="text-amber-400 text-sm mt-1">Головы: <span class="font-bold text-lg" id="calib-result-cap-h">--</span> мл/мин</p>
-                        <p class="text-green-400 text-sm mt-1">Тело: <span class="font-bold text-lg" id="calib-result-cap-b">--</span> мл/мин</p>
-                    </div>
-                    <p class="text-gray-400 text-sm mt-3">minOpenTime:</p>
-                    <p class="text-xl font-bold text-white"><span id="calib-result-minopen">100</span> мс <span class="text-sm text-gray-500">(default)</span></p>
+                    <p class="text-3xl font-bold text-green-400"><span id="calib-result-cap">--</span> <span class="text-lg">мл/мин</span></p>
                 </div>
-                <p class="text-green-400 text-sm text-center mb-4">✓ Сохранено!</p>
+                <p class="text-green-400 text-sm text-center mb-4">Сохранено!</p>
                 <button onclick="closeCalibWizard()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-bold">ЗАКРЫТЬ</button>
             </div>
             
@@ -2216,7 +2157,7 @@
         };
         
         // Маппинг ESP step → ID элемента для показа
-        const stepToElId = { 1:'calib-step-1', 2:'calib-step-2', 5:'calib-step-2a', 6:'calib-step-2b', 3:'calib-step-3', 7:'calib-step-3b', 4:'calib-step-4' };
+        const stepToElId = { 1:'calib-step-1', 2:'calib-step-2', 3:'calib-step-3', 4:'calib-step-4' };
         
         function _hideAllCalibSteps() {
             document.querySelectorAll('.calib-step').forEach(el => el.classList.add('hidden'));
@@ -2233,7 +2174,7 @@
             return calibWizard.valve === 'heads' ? 1 : (calibWizard.valve === 'body_nc' ? 2 : 3);
         }
         
-        function _isBodyNC() { return calibWizard.valve === 'body_nc'; }
+        
         
         function _calibSend(cmd, extra) {
             return fetch('/api/command', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({cmd, valve: _getValveNum()}, extra||{})) });
@@ -2257,34 +2198,10 @@
             calibWizard.valve = valve;
             calibWizard.step = 1;
             calibWizard.volume = 0;
-            calibWizard.volume2 = 0;
             calibWizard._lastInputStep = 0;
-            calibWizard._capHeadsSaved = 0;
-            
             const titleEl = document.getElementById('calib-wizard-title');
             if (titleEl) titleEl.textContent = 'Калибровка: ' + (valveNames[valve] || 'Клапан');
-            
-            // Адаптируем labels под тип клапана
-            const totalSteps = _isBodyNC() ? 4 : 3;
-            const s1l = document.getElementById('calib-step1-label');
-            if (s1l) s1l.textContent = 'Шаг 1/' + totalSteps + ': Пролив системы';
-            
-            if (_isBodyNC()) {
-                // BODY NC: сухой → cap голов → ввод → cap тело → ввод → результат
-                showCalibStep(1);
-            } else {
-                // HEADS / BODY NO: сухой → capacity → ввод → результат
-                const s2l = document.getElementById('calib-step2-label');
-                if (s2l) s2l.textContent = 'Шаг 2/' + totalSteps + ': Измерение capacity';
-                const s2d = document.getElementById('calib-step2-desc');
-                if (s2d) s2d.textContent = valve === 'heads' ? 'Подставьте мерную ёмкость и нажмите СТАРТ' : 'Подставьте мерную ёмкость и нажмите СТАРТ';
-                const s2h = document.getElementById('calib-step2-hint');
-                if (s2h) s2h.textContent = valve === 'heads' ? 'Клапан работает в импульсном режиме (скорость голов)' : 'Клапан откроется на 100%';
-                const ml = document.getElementById('calib-cap-mode-label');
-                if (ml) ml.textContent = valve === 'heads' ? 'Импульсный режим' : 'Клапан открыт 100%';
-                showCalibStep(1);
-            }
-            
+            showCalibStep(1);
             const panel = document.getElementById('calib-wizard-panel');
             if (panel) panel.style.display = 'flex';
         }
@@ -2292,12 +2209,10 @@
         async function closeCalibWizard() {
             if (calibWizard.timerInterval) { clearInterval(calibWizard.timerInterval); calibWizard.timerInterval = null; }
             try { await _calibSend('CALIB_CANCEL'); } catch(e) {}
-            calibWizard.step = 0; calibWizard.volume = 0; calibWizard.volume2 = 0; calibWizard._lastInputStep = 0;
+            calibWizard.step = 0; calibWizard.volume = 0; calibWizard._lastInputStep = 0;
             const panel = document.getElementById('calib-wizard-panel'); if (panel) panel.style.display = 'none';
             _resetStepBtn('btn-calib-dry-start', 'calib-dry-progress');
             _resetStepBtn('btn-calib-cap-start', 'calib-cap-progress');
-            _resetStepBtn('btn-calib-cap-heads-start', 'calib-cap-heads-progress');
-            _resetStepBtn('btn-calib-cap-body-start', 'calib-cap-body-progress');
         }
         
         async function startCalibDryRun() {
@@ -2312,34 +2227,15 @@
             await _calibSend('CALIB_START_CAP');
         }
         
-        async function startCalibCapHeads() {
-            const b = document.getElementById('btn-calib-cap-heads-start'); if (b) b.classList.add('hidden');
-            _showProgress('calib-cap-heads-progress', 'calib-cap-heads-bar', 'calib-cap-heads-time', 0, 60);
-            await _calibSend('CALIB_START_CAP_HEADS');
-        }
+
         
-        async function startCalibCapBody() {
-            const b = document.getElementById('btn-calib-cap-body-start'); if (b) b.classList.add('hidden');
-            _showProgress('calib-cap-body-progress', 'calib-cap-body-bar', 'calib-cap-body-time', 0, 60);
-            await _calibSend('CALIB_START_CAP_BODY');
-        }
         
         function adjCalibVolume(delta) {
-            // Определяем哪个 объём редактируем: на шаге 3b — volume2
-            const isSecondInput = calibWizard.step === 7;
-            if (isSecondInput) {
-                calibWizard.volume2 += delta;
-                if (calibWizard.volume2 < 0) calibWizard.volume2 = 0;
-                if (calibWizard.volume2 > 9999) calibWizard.volume2 = 9999;
-                const volEl = document.getElementById('calib-volume2');
-                if (volEl) volEl.textContent = Math.round(calibWizard.volume2);
-            } else {
-                calibWizard.volume += delta;
-                if (calibWizard.volume < 0) calibWizard.volume = 0;
-                if (calibWizard.volume > 9999) calibWizard.volume = 9999;
-                const volEl = document.getElementById('calib-volume');
-                if (volEl) volEl.textContent = Math.round(calibWizard.volume);
-            }
+            calibWizard.volume += delta;
+            if (calibWizard.volume < 0) calibWizard.volume = 0;
+            if (calibWizard.volume > 9999) calibWizard.volume = 9999;
+            const volEl = document.getElementById('calib-volume');
+            if (volEl) volEl.textContent = Math.round(calibWizard.volume);
         }
         
         async function submitCalibVolume() {
@@ -2351,14 +2247,6 @@
             } catch(e) { alert('Ошибка передачи объёма: ' + e); }
         }
         
-        async function submitCalibVolume2() {
-            // BODY NC: второй ввод (тело) — финальный расчёт через ESP
-            // ESP рассчитает оба capacity и сохранит в EEPROM
-            try {
-                await _calibSend('CALIB_SET_VOLUME', { volume: calibWizard.volume2 });
-                // ESP перейдёт к RESULT
-            } catch(e) { alert('Ошибка передачи объёма: ' + e); }
-        }
         
         // === ОБНОВЛЕНИЕ СТАТУСА КАЛИБРОВКИ КЛАПАНОВ ===
         function updateValveCalibrationStatus() {
@@ -2371,10 +2259,7 @@
             }
             const bodyNcDateEl = document.getElementById('valve-body-nc-date');
             if (bodyNcDateEl) {
-                let txt = '';
-                if (cfg.valve_body_capacity > 0) txt = '\u2713 ' + cfg.valve_body_capacity + ' мл/мин';
-                if (cfg.valve_body_capacity_heads > 0) txt += ' (H:' + cfg.valve_body_capacity_heads + ')';
-                if (txt) { bodyNcDateEl.textContent = txt; bodyNcDateEl.classList.remove('text-gray-500'); bodyNcDateEl.classList.add('text-green-400'); }
+                if (cfg.valve_body_capacity > 0) { bodyNcDateEl.textContent = '\u2713 ' + cfg.valve_body_capacity + ' мл/мин'; bodyNcDateEl.classList.remove('text-gray-500'); bodyNcDateEl.classList.add('text-green-400'); }
                 else { bodyNcDateEl.textContent = 'не калибровался'; bodyNcDateEl.classList.remove('text-green-400'); bodyNcDateEl.classList.add('text-gray-500'); }
             }
             const bodyNoDateEl = document.getElementById('valve-body-no-date');
@@ -2388,92 +2273,41 @@
         function updateCalibWizardUI() {
             const panel = document.getElementById('calib-wizard-panel');
             if (!panel) return;
-            
-            // Локальный режим
             if (calibWizard.step > 0 && (!currentData.calibWizard || currentData.calibWizard.step === 0)) {
                 if (panel.style.display !== 'flex') panel.style.display = 'flex';
                 return;
             }
             if (!currentData.calibWizard) return;
             const cw = currentData.calibWizard;
-            
-            // Маппинг: ESP step → локальный шаг для showCalibStep
-            let localStep = cw.step;
-            // ESP: 5=CAPACITY_HEADS → show 2a, 6=CAPACITY_BODY → show 2b, 7=INPUT_VOLUME2 → show 3b
-            if (cw.step === 5) localStep = 5; // 2a
-            if (cw.step === 6) localStep = 6; // 2b
-            if (cw.step === 7) localStep = 7; // 3b
-            
             if (cw.step > 0) {
                 if (panel.style.display !== 'flex') panel.style.display = 'flex';
-                
-                const vn = { 1:'ГОЛОВЫ', 2:'ТЕЛО NC (НЗ)', 3:'ТЕЛО NO (НО)' };
+                const vn = { 1:'ГОЛОВЫ', 2:'ТЕЛО NC', 3:'ТЕЛО NO' };
                 const titleEl = document.getElementById('calib-wizard-title');
                 if (titleEl) titleEl.textContent = 'Калибровка: ' + (vn[cw.valve] || 'Клапан');
-                
-                // Синхронизировать шаг
-                if (localStep !== calibWizard.step) showCalibStep(localStep);
-                
-                // Прогресс
+                if (cw.step !== calibWizard.step) showCalibStep(cw.step);
                 if (cw.isRunning && cw.totalSec > 0) {
                     const elapsed = cw.totalSec - cw.remainingSec;
-                    if (cw.step === 1) {
-                        const b = document.getElementById('btn-calib-dry-start'); if (b) b.classList.add('hidden');
-                        _showProgress('calib-dry-progress', 'calib-dry-bar', 'calib-dry-time', elapsed, cw.totalSec);
-                    } else if (cw.step === 2) {
-                        const b = document.getElementById('btn-calib-cap-start'); if (b) b.classList.add('hidden');
-                        _showProgress('calib-cap-progress', 'calib-cap-bar', 'calib-cap-time', elapsed, cw.totalSec);
-                    } else if (cw.step === 5) {
-                        const b = document.getElementById('btn-calib-cap-heads-start'); if (b) b.classList.add('hidden');
-                        _showProgress('calib-cap-heads-progress', 'calib-cap-heads-bar', 'calib-cap-heads-time', elapsed, cw.totalSec);
-                    } else if (cw.step === 6) {
-                        const b = document.getElementById('btn-calib-cap-body-start'); if (b) b.classList.add('hidden');
-                        _showProgress('calib-cap-body-progress', 'calib-cap-body-bar', 'calib-cap-body-time', elapsed, cw.totalSec);
-                    }
+                    if (cw.step === 1) { const b = document.getElementById('btn-calib-dry-start'); if (b) b.classList.add('hidden'); _showProgress('calib-dry-progress','calib-dry-bar','calib-dry-time',elapsed,cw.totalSec); }
+                    else if (cw.step === 2) { const b = document.getElementById('btn-calib-cap-start'); if (b) b.classList.add('hidden'); _showProgress('calib-cap-progress','calib-cap-bar','calib-cap-time',elapsed,cw.totalSec); }
                 } else {
-                    // Кнопки старт (тест не идёт)
-                    if (cw.step === 1) _resetStepBtn('btn-calib-dry-start', 'calib-dry-progress');
-                    else if (cw.step === 2) _resetStepBtn('btn-calib-cap-start', 'calib-cap-progress');
-                    else if (cw.step === 5) _resetStepBtn('btn-calib-cap-heads-start', 'calib-cap-heads-progress');
-                    else if (cw.step === 6) _resetStepBtn('btn-calib-cap-body-start', 'calib-cap-body-progress');
+                    if (cw.step === 1) _resetStepBtn('btn-calib-dry-start','calib-dry-progress');
+                    else if (cw.step === 2) _resetStepBtn('btn-calib-cap-start','calib-cap-progress');
                 }
-                
-                // Результат
-                if (cw.step === 4) {
-                    if (cw.capacityHeads > 0) {
-                        // BODY NC: двойной результат
-                        document.getElementById('calib-result-single').classList.add('hidden');
-                        document.getElementById('calib-result-dual').classList.remove('hidden');
-                        const rh = document.getElementById('calib-result-cap-h'); if (rh) rh.textContent = Math.round(cw.capacityHeads);
-                        const rb = document.getElementById('calib-result-cap-b'); if (rb) rb.textContent = Math.round(cw.capacity);
-                    } else if (cw.capacity > 0) {
-                        document.getElementById('calib-result-single').classList.remove('hidden');
-                        document.getElementById('calib-result-dual').classList.add('hidden');
-                        const re = document.getElementById('calib-result-cap'); if (re) re.textContent = Math.round(cw.capacity);
-                    }
-                    // Обновить бейджи калибровки на странице настроек
+                if (cw.step === 4 && cw.capacity > 0) {
+                    const re = document.getElementById('calib-result-cap'); if (re) re.textContent = Math.round(cw.capacity);
                     updateValveCalibrationStatus();
                 }
-                
-                // Синхронизировать состояние
-                calibWizard.step = localStep;
+                calibWizard.step = cw.step;
                 calibWizard.valve = { 1:'heads', 2:'body_nc', 3:'body_no' }[cw.valve] || '';
-                
-                // Инициализация объёма при переходе на шаг ввода
                 if (cw.step === 3 && calibWizard._lastInputStep !== 3) {
                     calibWizard._lastInputStep = 3;
                     const cfg = currentData.cfg || {};
                     if (calibWizard.valve === 'heads') calibWizard.volume = (cfg.valve_head_capacity || 0);
-                    else if (calibWizard.valve === 'body_nc') calibWizard.volume = (cfg.valve_body_capacity_heads || cfg.valve_body_capacity || 0);
+                    else if (calibWizard.valve === 'body_nc') calibWizard.volume = (cfg.valve_body_capacity || 0);
                     else calibWizard.volume = (cfg.valve0_body_capacity || 0);
                     const volEl = document.getElementById('calib-volume'); if (volEl) volEl.textContent = Math.round(calibWizard.volume);
                 }
-                if (cw.step === 7 && calibWizard._lastInputStep !== 7) {
-                    calibWizard._lastInputStep = 7;
-                    calibWizard.volume2 = (currentData.cfg || {}).valve_body_capacity || 0;
-                    const volEl2 = document.getElementById('calib-volume2'); if (volEl2) volEl2.textContent = Math.round(calibWizard.volume2);
-                }
-                if (cw.step !== 3 && cw.step !== 7) { calibWizard._lastInputStep = 0; }
+                if (cw.step !== 3) { calibWizard._lastInputStep = 0; }
             }
         }
         // ================================================

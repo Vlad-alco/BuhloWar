@@ -1,3 +1,39 @@
+## [2026-08-28 21:00] — Сессия 4
+Рефакторинг: упрощённая методика калибровки клапанов (цикл 1с/1с)
+
+Задача
+Три проблемы в мастере калибровки:
+1. Импульсный тест на низкой duty cycle (2-5%) давал 2-3 импульса за 60 сек — недостаточно для точного измерения
+2. Web wizard: полная рассинхрон маппинга шагов ESP (CalibStep enum) ↔ Web (stepToElId), из-за чего BODY_NC и BODY_NO перепрыгивали шаги
+3. Двухточечная калибровка BODY_NC (capacity на скорости голов + на скорости тела) — ненужная сложность, физический capacity клапана при 100% открытии один
+
+Решение
+1. Единый метод замера для ВСЕХ клапанов: после пролива запускается цикл 1 сек открыт / 1 сек закрыт на 60 секунд. За 60 сек — 30 импульсов, клапан открыт суммарно 30 сек. Duty = 0.5, capacity = volume × 2 (мл/мин)
+2. Убрана двухточечная калибровка BODY_NC — один capacity для всех клапанов
+3. Упрощён wizard: 2 шага (пролив → замер) + ввод объёма + результат. Все типы клапанов одинаковы
+4. Исправлен маппинг шагов ESP ↔ Web (CalibStep: 0=IDLE, 1=DRY, 2=CAPACITY, 3=INPUT, 4=RESULT)
+
+Почему так решили
+- Фиксированный цикл 1с/1с даёт стабильные 30 импульсов — достаточно для точного измерения
+- Один capacity на клапан — это физическое свойство клапана+трубки, не зависящее от целевой скорости отбора
+- Процесс (calcValveTiming) сам рассчитывает duty по формуле: duty = targetSpeed / (capacity × 60)
+- Упрощение с 7 состояний/шагов до 4 убрало все баги синхронизации
+
+Ключевые детали
+- startCyclingForTest() теперь не принимает параметров, использует константы CALIB_CYCLE_OPEN_MS=1000, CALIB_CYCLE_CLOSE_MS=1000
+- backCalculateCapacity() переименована в calculateCapacity() (та же формула, но с фиксированным duty)
+- BODY_NC больше не использует valve_body_capacity_heads для калибровки (поле остаётся в EEPROM для совместимости)
+- Команды CALIB_START_CAP_HEADS и CALIB_START_CAP_BODY удалены из UiCommand enum
+- capacityHeads и headsTestVolume удалены из CalibWizard status struct
+
+Изменённые файлы
+ValveCalMenu.h: полная переработка — удалены WIZARD_CAP_HEADS/BODY, WIZARD_INPUT2, CalibStep::CAPACITY_HEADS/BODY/INPUT_VOLUME2, isTwoPointCalibration(), needsCyclingForCapacity(), getHeadsTargetSpeed(), getBodyTargetSpeed(), startCapHeadsFromWeb(), startCapBodyFromWeb(). startCyclingForTest() теперь фиксированный 1с/1с
+ProcessCommon.h: удалены CALIB_START_CAP_HEADS/CALIB_START_CAP_BODY из UiCommand, удалены capacityHeads/headsTestVolume из CalibWizard struct
+ProcessEngine.cpp: удалены обработчики CALIB_START_CAP_HEADS/CALIB_START_CAP_BODY, удалено присвоение capacityHeads/headsTestVolume
+AppNetwork.cpp: удалён парсинг CALIB_START_CAP_HEADS/CALIB_START_CAP_BODY, удалён capacityHeads из calibWizard JSON
+index.html: удалены шаги 2a/2b/3b, исправлен stepToElId, упрощены все JS функции wizard'а
+index_landscape_knob.html: те же изменения, адаптированы под style.display вместо classList
+
 ## [2026-08-28 20:00] — Сессия 3
 Фикс: восстановлено объявление cfg в startCyclingForTest()
 

@@ -140,8 +140,7 @@ if (!SensorManager::getInstance()->isCalibrating(idx) && currentStatus.webCalibS
         currentStatus.calibWizard.remainingSec = valveCalMenu->getTestRemaining();
         currentStatus.calibWizard.volume = ws.enteredVolume;
         currentStatus.calibWizard.capacity = ws.calculatedCapacity;
-        currentStatus.calibWizard.capacityHeads = ws.calculatedCapHeads;
-        currentStatus.calibWizard.headsTestVolume = ws.headsTestVolume;
+
     }
     // ====================================================
         
@@ -408,22 +407,6 @@ outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 10
         if (valveCalMenu) {
             valveCalMenu->startCapacityFromWeb(param);
             Serial.printf("[WebCmd] Calib CAPACITY: valve=%d\n", param);
-        }
-        return EngineResponse::OK;
-    }
-    
-    if (command == UiCommand::CALIB_START_CAP_HEADS) {
-        if (valveCalMenu) {
-            valveCalMenu->startCapHeadsFromWeb(param);
-            Serial.printf("[WebCmd] Calib CAP_HEADS: valve=%d\n", param);
-        }
-        return EngineResponse::OK;
-    }
-    
-    if (command == UiCommand::CALIB_START_CAP_BODY) {
-        if (valveCalMenu) {
-            valveCalMenu->startCapBodyFromWeb(param);
-            Serial.printf("[WebCmd] Calib CAP_BODY: valve=%d\n", param);
         }
         return EngineResponse::OK;
     }

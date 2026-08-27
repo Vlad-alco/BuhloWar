@@ -742,7 +742,6 @@ void AppNetwork::handleApiStatus() {
     json += "\"totalSec\":" + String(status.calibWizard.totalSec) + ",";
     json += "\"volume\":" + String(status.calibWizard.volume, 1) + ",";
     json += "\"capacity\":" + String(status.calibWizard.capacity, 1);
-    json += ",\"capacityHeads\":" + String(status.calibWizard.capacityHeads, 1);
     json += "}";
     
     json += "}";
@@ -884,8 +883,6 @@ void AppNetwork::handleApiCommand() {
     else if (body.indexOf("\"cmd\":\"TEST_BODY\"") > 0)         sendCmd(UiCommand::TEST_BODY);
     else if (body.indexOf("\"cmd\":\"CALIB_START_DRY\"") > 0)   sendCmd(UiCommand::CALIB_START_DRY, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_START_CAP\"") > 0)   sendCmd(UiCommand::CALIB_START_CAPACITY, getValveParam());
-    else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_HEADS\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_HEADS, getValveParam());
-    else if (body.indexOf("\"cmd\":\"CALIB_START_CAP_BODY\"") > 0) sendCmd(UiCommand::CALIB_START_CAP_BODY, getValveParam());
     else if (body.indexOf("\"cmd\":\"CALIB_CANCEL\"") > 0)      sendCmd(UiCommand::CALIB_CANCEL);
     // === CALIB_SET_VOLUME: передаём измеренный объём (мл) для расчёта capacity ===
     else if (body.indexOf("\"cmd\":\"CALIB_SET_VOLUME\"") > 0) {
