@@ -151,9 +151,13 @@ void AppNetwork::begin(int checkIntervalMinutes) {
     // При Power On WiFi радио требует больше времени на инициализацию
     // 3 попытки по 5 сек = до 15 сек максимум
     // При подключении к новой точке доступа ESP32 может требовать больше времени
+    // Переменная для логирования — какой SSID реально подключился
+    String connectedSSID = ssid1;
+
     bool connected = false;
+    // === Попытка подключения к SSID1 ===
     for (int attempt = 0; attempt < 3 && !connected; attempt++) {
-        Serial.printf("[NetMgr] WiFi connect attempt %d/3\n", attempt + 1);
+        Serial.printf("[NetMgr] WiFi connect attempt %d/3 (SSID1: %s)\n", attempt + 1, ssid1.c_str());
 
         // === Безопасный сброс WiFi перед новой попыткой ===
         // disconnect(false) — отключиться от STA, но НЕ выключать WiFi радио.
@@ -179,6 +183,35 @@ void AppNetwork::begin(int checkIntervalMinutes) {
             connected = true;
         }
     }
+
+    // === Попытка подключения к SSID2 (если SSID1 не удалось и SSID2 задан) ===
+    if (!connected && ssid2.length() > 0) {
+        Serial.printf("[NetMgr] SSID1 failed. Trying SSID2: %s\n", ssid2.c_str());
+        connectedSSID = ssid2;  // Запоминаем для логирования
+
+        for (int attempt = 0; attempt < 3 && !connected; attempt++) {
+            Serial.printf("[NetMgr] WiFi connect attempt %d/3 (SSID2: %s)\n", attempt + 1, ssid2.c_str());
+
+            // Безопасный сброс перед переключением на другую сеть
+            WiFi.disconnect(false);
+            WiFi.mode(WIFI_AP_STA);
+            delay(100);
+
+            WiFi.begin(ssid2.c_str(), pass2.c_str());
+            
+            int tries = 0;
+            while (WiFi.status() != WL_CONNECTED && tries < 50) {  // 5 сек на попытку
+                delay(100);
+                if (server && systemReady) server->handleClient();
+                yield();
+                tries++;
+            }
+            
+            if (WiFi.status() == WL_CONNECTED) {
+                connected = true;
+            }
+        }
+    }
     
     if (WiFi.status() == WL_CONNECTED) {
         wifiConnected = true;
@@ -192,7 +225,7 @@ void AppNetwork::begin(int checkIntervalMinutes) {
         
         Serial.print("[NetMgr] STA IP: "); Serial.println(WiFi.localIP());
         Serial.print("[NetMgr] AP IP: "); Serial.println(WiFi.softAPIP());
-        logger.log("WiFi: Connected to " + ssid1 + " (dual mode)");
+        logger.log("WiFi: Connected to " + connectedSSID + " (dual mode)");
         
         // Проверяем интернет (неблокирующе)
         online = checkInternet();
