@@ -140,6 +140,7 @@ private:
     // (ближе к реальной работе клапана в процессе, даёт достаточно импульсов за 60 сек)
     const int CALIB_MIN_OPEN = 500;
     int minOpen = CALIB_MIN_OPEN;
+    SystemConfig& cfg = config->getConfig();
     
     // Берём текущий capacity как оценку (или дефолт 100)
     float capEstimate = 0.0f;
