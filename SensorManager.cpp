@@ -29,6 +29,16 @@ void SensorManager::begin() {
 void SensorManager::update() {
     if (!sensorsInitialized) return;
     
+    // === Этап 6: ожидание завершения асинхронного скана калибровки ===
+    // Пока идёт конвертация скана (~800 мс), обычный опрос приостановлен:
+    // его requestTemperatures() перезапустил бы нашу конвертацию.
+    if (calibScanPending) {
+        if (millis() - calibScanRequestTime >= 800) {
+            finishCalibScan();  // Конвертация готова — читаем результаты шины
+        }
+        return;
+    }
+    
     // Не обновляем обычные данные пока идёт калибровка (чтобы не сбивать тайминги)
     for (int i = 0; i < SENSOR_COUNT; i++) {
         if (sensorData[i].calibrationInProgress) return;
@@ -91,17 +101,33 @@ bool SensorManager::startCalibration(SensorIndex index) {
     sensorData[index].calibrationInProgress = false;
     calibDeviceCount = 0;
     
-    // 2. Сканируем всю шину (блокирующе, так как это разовая операция)
-    sensors.setWaitForConversion(true);
-    sensors.requestTemperatures();
-    sensors.setWaitForConversion(false);
-    
-    // 3. Запоминаем температуры ВСЕХ найденных устройств
+    // 2. Этап 6: скан шины теперь НЕ блокирует ядро 1 на ~750 мс.
+    // Как было: setWaitForConversion(true) + requestTemperatures()
+    // останавливали loop() на время конвертации всех датчиков. Теперь
+    // запрос асинхронный, а чтение результатов происходит в update()
+    // через 800 мс (finishCalibScan). Счётчик устройств берём из
+    // последнего сканирования адресов — он не требует конвертации.
     calibDeviceCount = sensors.getDeviceCount();
     if (calibDeviceCount == 0) return false;
     if (calibDeviceCount > MAX_CALIBRATION_DEVICES) calibDeviceCount = MAX_CALIBRATION_DEVICES;
 
-    Serial.println("[Calibration] Scanning bus...");
+    // Запускаем конвертацию асинхронно и выходим сразу
+    sensors.setWaitForConversion(false);
+    sensors.requestTemperatures();
+    calibScanRequestTime = millis();
+    calibScanPending = true;
+    calibScanTarget = index;
+
+    Serial.println("[Calibration] Async bus scan started...");
+    Serial.print("Calibration started for slot "); Serial.println(index);
+    return true;
+}
+
+// === Этап 6: чтение результатов скана шины (вызывается из update()) ===
+void SensorManager::finishCalibScan() {
+    calibScanPending = false;
+
+    // Конвертация завершена — чтение адресов и температур мгновенное
     for (int i = 0; i < calibDeviceCount; i++) {
         sensors.getAddress(calibInitialAddrs[i], i);
         calibInitialTemps[i] = sensors.getTempCByIndex(i);
@@ -112,12 +138,9 @@ bool SensorManager::startCalibration(SensorIndex index) {
         Serial.print(" T: "); Serial.println(calibInitialTemps[i]);
     }
 
-    // 4. Запускаем таймер
-    sensorData[index].calibrationInProgress = true;
-    sensorData[index].calibrationStartTime = millis();
-    
-    Serial.print("Calibration started for slot "); Serial.println(index);
-    return true;
+    // Запускаем таймер калибровки (дальше — обычный поток проверки дельты)
+    sensorData[calibScanTarget].calibrationInProgress = true;
+    sensorData[calibScanTarget].calibrationStartTime = millis();
 }
 
 // === НОВЫЙ МЕТОД: Проверка дельты для LCD (без диалогов) ===
@@ -128,13 +151,27 @@ bool SensorManager::checkCalibrationDelta(SensorIndex index, DeviceAddress& foun
     if (millis() - sensorData[index].calibrationStartTime > CALIBRATION_TIMEOUT) {
         Serial.println("Calibration timeout");
         sensorData[index].calibrationInProgress = false;
+        calibCheckPending = false;
         return false;
     }
 
-    // Сканируем текущие температуры
-    sensors.setWaitForConversion(true);
-    sensors.requestTemperatures();
-    sensors.setWaitForConversion(false);
+    // === Этап 6: неблокирующая проверка дельты ===
+    // Как было: каждый вызов делал БЛОКИРУЮЩУЮ конвертацию (~750 мс),
+    // замораживая интерфейс на каждую проверку. Теперь: первый вызов
+    // запускает конвертацию асинхронно и возвращает false; результаты
+    // читаем вызовами позже (опрос идёт раз в секунду — к тому моменту
+    // конвертация гарантированно готова).
+    if (!calibCheckPending) {
+        sensors.setWaitForConversion(false);
+        sensors.requestTemperatures();
+        calibCheckRequestTime = millis();
+        calibCheckPending = true;
+        return false;  // Результат будет готов на следующем опросе
+    }
+    if (millis() - calibCheckRequestTime < 800) {
+        return false;  // Конвертация ещё идёт — опрос без блокировки
+    }
+    calibCheckPending = false;  // Конвертация готова, читаем ниже
 
     Serial.print("[CalibCheck] ");
     
@@ -195,6 +232,11 @@ bool SensorManager::checkCalibration(SensorIndex index, DeviceAddress& foundAddr
 void SensorManager::cancelCalibration(SensorIndex index) {
     if (index < SENSOR_COUNT) {
         sensorData[index].calibrationInProgress = false;
+        // Этап 6: отменяем и незавершённый скан шины, если он был запущен
+        if (calibScanPending && index == calibScanTarget) {
+            calibScanPending = false;
+            calibCheckPending = false;
+        }
         calibDeviceCount = 0;
     }
 }
@@ -239,7 +281,13 @@ bool SensorManager::isAQUAConnected() { return isConnected(SENSOR_AQUA); }
 bool SensorManager::isTSARConnected() { return isConnected(SENSOR_TSAR); }
 bool SensorManager::isTANKConnected() { return isConnected(SENSOR_TANK); }
 bool SensorManager::isCalibrated(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].isCalibrated : false; }
-bool SensorManager::isCalibrating(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].calibrationInProgress : false; }
+// Этап 6: во время асинхронного скана шины слот уже «калибруется» для меню —
+// иначе меню показало бы NOT FND раньше, чем скан завершится
+bool SensorManager::isCalibrating(SensorIndex index) {
+    if (index >= SENSOR_COUNT) return false;
+    if (calibScanPending && index == calibScanTarget) return true;
+    return sensorData[index].calibrationInProgress;
+}
 float SensorManager::getCalibrationInitialTemp(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].calibrationInitialTemp : -127.0f; }
 unsigned long SensorManager::getCalibrationElapsed(SensorIndex index) { if (index >= SENSOR_COUNT || !sensorData[index].calibrationInProgress) return 0; return millis() - sensorData[index].calibrationStartTime; }
 float SensorManager::getCurrentRawTemperature() { sensors.requestTemperatures(); if (sensors.getDeviceCount() > 0) return sensors.getTempCByIndex(0); return -127.0f; }

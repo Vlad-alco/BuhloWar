@@ -25,7 +25,34 @@ function readJson($file) {
 }
 
 function writeJson($file, $data) {
-    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    // Этап 5 (C4): LOCK_EX — эксклюзивная блокировка файла. Одновременная
+    // запись двух запросов (телеметрия + сохранение настроек) могла
+    // перемешать содержимое и повредить JSON-файл данных.
+    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT), LOCK_EX);
+}
+
+// === Этап 5 (C4): ПРОВЕРКА API-КЛЮЧА ===
+// Как было: ключ объявлялся в $config, но НИКОГДА не проверялся — любой,
+// кто знал адрес api.php, мог отправить поддельную телеметрию, стереть
+// команды или зарегистрировать свои push-устройства.
+// ESP32 отправляет заголовок "Authorization: Bearer <ключ>" во ВСЕХ своих
+// запросах (см. CloudManager), поэтому защищаем все изменяющие состояние
+// и командные эндпоинты. Открытыми остаются только чтение статуса/логов
+// для дашборда.
+function checkApiKey($config) {
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    // Некоторые хостинги не отдают Authorization в $_SERVER — пробуем apache_request_headers
+    if ($auth === '' && function_exists('apache_request_headers')) {
+        $headers = array_change_key_case(apache_request_headers() ?: [], CASE_LOWER);
+        $auth = $headers['authorization'] ?? '';
+    }
+    if (preg_match('/^Bearer\\s+(.+)$/i', trim($auth), $m)
+        && hash_equals($config['api_key'], trim($m[1]))) {
+        return; // Ключ верный
+    }
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
 }
 
 // Get OAuth2 access token from Service Account
@@ -59,9 +86,14 @@ function getAccessToken($serviceAccountFile) {
         'grant_type' => 'urn:ietf:params:oauth2:grant-type:jwt-bearer',
         'assertion' => $jwt
     ]));
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     
     $response = curl_exec($ch);
+    if ($response === false) {
+        // Этап 5: без лога ошибки проверить SSL было невозможно
+        error_log('OAuth token: curl error: ' . curl_error($ch));
+    }
+    curl_close($ch);  // Этап 5: ресурс не освобождался (утечка при частых запросах)
     $result = json_decode($response, true);
     
     return $result['access_token'] ?? null;
@@ -106,10 +138,13 @@ function sendFCMNotification($accessToken, $token, $title, $body, $type = 'info'
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($message));
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);  // Этап 5: проверка сертификата (MITM мог перехватить ключ FCM)
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if ($response === false) {
+        error_log('FCM send: curl error: ' . curl_error($ch));
+    }
     curl_close($ch);
     
     return $httpCode === 200;
@@ -152,6 +187,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // ========== TELEMETRY ==========
 if (isset($_GET['telemetry']) && $method === 'POST') {
+    checkApiKey($config);  // Этап 5: защита от поддельной телеметрии
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     
@@ -167,14 +203,14 @@ if (isset($_GET['telemetry']) && $method === 'POST') {
             $newLogs = $data['new_logs'];
             // Раскодируем \n обратно в переносы строк
             $newLogs = str_replace('\\n', "\n", $newLogs);
-            // Дописываем в файл
-            file_put_contents($logFile, $newLogs, FILE_APPEND);
+            // Дописываем в файл (LOCK_EX — этап 5: без блокировки параллельные записи перемешивались)
+            file_put_contents($logFile, $newLogs, FILE_APPEND | LOCK_EX);
             
             // Ограничиваем размер файла 100KB
             if (filesize($logFile) > 102400) {
                 $content = file_get_contents($logFile);
                 $content = substr($content, -81920); // Оставляем последние 80KB
-                file_put_contents($logFile, $content);
+                file_put_contents($logFile, $content, LOCK_EX);
             }
         }
         // ==========================
@@ -192,6 +228,7 @@ if (isset($_GET['telemetry']) && $method === 'POST') {
 
 // ========== SEND PUSH ==========
 if (isset($_GET['push']) && $method === 'POST') {
+    checkApiKey($config);  // Этап 5: пуш-рассылка не должна быть общедоступной
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     
@@ -207,6 +244,7 @@ if (isset($_GET['push']) && $method === 'POST') {
 
 // ========== REGISTER FCM TOKEN ==========
 if (isset($_GET['register_device']) && $method === 'POST') {
+    checkApiKey($config);  // Этап 5: нельзя позволять кому угодно добавлять устройства
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     
@@ -233,6 +271,7 @@ if (isset($_GET['register_device']) && $method === 'POST') {
 
 // ========== GET COMMANDS ==========
 if (isset($_GET['commands'])) {
+    checkApiKey($config);  // Этап 5: команды читает только ESP32 (он всегда с ключом)
     $commands = readJson($config['commands_file']);
     $pending = $commands['pending'] ?? [];
     $commands['pending'] = [];
@@ -258,6 +297,7 @@ if (isset($_GET['status'])) {
 
 // ========== POST COMMAND ==========
 if (isset($_GET['cmd']) && $method === 'POST') {
+    checkApiKey($config);  // Этап 5: очередь команд управляет клапанами — защита обязательна
     $cmd = $_GET['cmd'];
     $params = isset($_GET['params']) ? json_decode($_GET['params'], true) : [];
     
@@ -280,20 +320,51 @@ function checkAndSendAlerts($data) {
     $tsa = $data['tsa'] ?? 0;
     $tsar = $data['tsar'] ?? 0;
     
-    if ($safety >= 2) {
-        $title = '🚨 АВАРИЯ!';
-        $body = "TSA: {$tsa}°C | ДТ: {$tsar}°C";
-        broadcastNotification($title, $body, 'emergency');
+    // === Этап 5 (C4): ДЕБАУНС ПУШ-УВЕДОМЛЕНИЙ ===
+    // Как было: телеметрия приходит каждые 2 секунды, и при активной аварии
+    // пуш уходил на КАЖДЫЙ пакет — десятки уведомлений в минуту: спам,
+    // разрядка телефона, упор в лимиты FCM. Теперь: при ПЕРЕХОДЕ на новый
+    // уровень — пуш немедленно; повторные — не чаще раза в 60 с (авария)
+    // или 300 с (внимание). Возврат в норму просто очищает состояние.
+    $stateFile = dirname(__FILE__) . '/buhlo_alert_state.json';
+    $state = readJson($stateFile);
+    $now = time();
+    
+    // safety-уровень => минимальный интервал между повторами, сек
+    $minInterval = [2 => 60, 1 => 300];
+    $sentNow = false;
+    $prev = isset($state['last_safety']) ? (int)$state['last_safety'] : -1;
+    
+    if (isset($minInterval[$safety])) {
+        $key = 'alert' . $safety;
+        $lastSent = isset($state[$key]) ? (int)$state[$key] : 0;
+        $levelChanged = ($prev !== (int)$safety);
+        
+        if ($levelChanged || ($now - $lastSent) >= $minInterval[$safety]) {
+            if ($safety >= 2) {
+                $title = '🚨 АВАРИЯ!';
+                $body = "TSA: {$tsa}°C | ДТ: {$tsar}°C";
+                broadcastNotification($title, $body, 'emergency');
+            } else {
+                $title = '⚠️ ВНИМАНИЕ';
+                $body = "TSA: {$tsa}°C";
+                broadcastNotification($title, $body, 'warning');
+            }
+            $state[$key] = $now;
+            $sentNow = true;
+        }
     }
-    elseif ($safety == 1) {
-        $title = '⚠️ ВНИМАНИЕ';
-        $body = "TSA: {$tsa}°C";
-        broadcastNotification($title, $body, 'warning');
+    
+    $state['last_safety'] = $safety;
+    // Пишем файл состояния только при изменениях — не на каждый пакет телеметрии
+    if ($sentNow || $prev !== (int)$safety) {
+        writeJson($stateFile, $state);
     }
 }
 
 // ========== GET SETTINGS ==========
 if (isset($_GET['settings']) && $method === 'GET') {
+    checkApiKey($config);  // Этап 5: настройки читает ESP32 (с ключом)
     $settings = readJson($config['db_file']);
     echo json_encode([
         'settings_last_update' => $settings['settings_last_update'] ?? 0,
@@ -304,6 +375,7 @@ if (isset($_GET['settings']) && $method === 'GET') {
 
 // ========== SAVE SETTINGS ==========
 if (isset($_GET['settings']) && $method === 'POST') {
+    checkApiKey($config);  // Этап 5: запись настроек — критичная операция
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     

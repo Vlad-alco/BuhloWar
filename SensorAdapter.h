@@ -16,6 +16,9 @@ private:
     // BME280
     Adafruit_BME280 bme;
     bool bmeInitialized = false;
+    TwoWire* bmeWire = nullptr;            // Шина, на которой нашли BME (для повторной инициализации)
+    unsigned long lastBmeRetryMs = 0;      // Момент последней попытки восстановления BME
+    bool initBME();                        // Этап 6: выделенная инициализация/ретрай BME
     
     // DS18B20 менеджер
     SensorManager* dsManager = nullptr;

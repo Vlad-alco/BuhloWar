@@ -172,6 +172,37 @@ if (!SensorManager::getInstance()->isCalibrating(idx) && currentStatus.webCalibS
         currentStatus.processTimeSec = (millis() - processStartTime) / 1000;
         currentStatus.stageTimeSec = (millis() - stageStartTime) / 1000;
     }
+    
+    // === Этап 4 (C2): публикация снимка статуса для другого ядра ===
+    // В конце каждого update() статус ЦЕЛИКОМ копируется в «задний» буфер
+    // (вне мьютекса — копирование небыстрое), затем указатель «переднего»
+    // буфера атомарно переключается под мьютексом. Читатель на ядре 0
+    // (getStatusCopy) всегда видит только ЦЕЛИКОМ готовый снимок.
+    publishStatus();
+}
+
+// ==================== ПУБЛИКАЦИЯ СТАТУСА (этап 4, C2) ====================
+
+// Копирует текущий статус в задний буфер и переключает front-указатель.
+// Вызывается ТОЛЬКО из ProcessEngine::update() (ядро 1, писатель).
+void ProcessEngine::publishStatus() {
+    SystemStatus& back = (publishFront == &publishA) ? publishB : publishA;
+    back = currentStatus;              // Глубокая копия (String переиспользуют буферы — без аллокаций в установившемся режиме)
+    if (statusMutex && xSemaphoreTake(statusMutex, pdMS_TO_TICKS(10))) {
+        publishFront = &back;          // Атомарное переключение снимка (микросекунды)
+        xSemaphoreGive(statusMutex);
+    }
+}
+
+// Потокобезопасное чтение статуса (для Web-задачи на ядре 0).
+// Возвращает согласованную копию последнего опубликованного снимка.
+void ProcessEngine::getStatusCopy(SystemStatus& out) const {
+    if (statusMutex && xSemaphoreTake(statusMutex, pdMS_TO_TICKS(50))) {
+        out = *publishFront;           // Копия целиком готового снимка
+        xSemaphoreGive(statusMutex);
+    } else {
+        out = *publishFront;           // Фоллбек: мьютекс занят/не создан — читаем как есть
+    }
 }
 
 // ==================== SAFETY ====================
@@ -206,6 +237,25 @@ void ProcessEngine::checkSafety() {
     changeStage(Stage::FINISHING_WORK); 
     currentStatus.safety = SafetyState::EMERGENCY;
 }
+    } else if (alarmTSA_Active && !data.isTsaValid()) {
+        // === Этап 6: УДЕРЖАНИЕ ТРЕВОГИ при пропаже датчика TSA ===
+        // Как было: если во время аварии датчик кратковременно пропадал
+        // (isTsaValid() == false), ветка «температура в норме» мгновенно
+        // сбрасывала тревогу и ОБУНУЛЯЛА отсчёт VREAC. Дребезг контакта
+        // мог бесконечно откладывать аварийное завершение.
+        // Теперь: пока датчик не вернётся — тревога и отсчёт СОХРАНЯЮТСЯ,
+        // таймер продолжает тикать от исходной точки (alarmStartTime).
+        unsigned long limitSec = (unsigned long)cfg.emergencyTime * 60;
+        unsigned long elapsedSec = (millis() - alarmStartTime) / 1000;
+        currentStatus.alarmTimerSec = (elapsedSec < limitSec) ? (limitSec - elapsedSec) : 0;
+        
+        // Если время вышло, пока датчик пропал — завершаем по правилу VREAC
+        if (currentStatus.alarmTimerSec == 0 && currentStage != Stage::FINISHING_WORK) {
+            Serial.println("[Safety] VREAC time elapsed (TSA sensor lost)! -> FINISHING WORK");
+            logger.log("[Safety] VREAC time elapsed (TSA sensor lost)! -> FINISHING WORK");
+            changeStage(Stage::FINISHING_WORK);
+            currentStatus.safety = SafetyState::EMERGENCY;
+        }
     } else {
         // Температура в норме
         if (alarmTSA_Active) { 
@@ -323,10 +373,10 @@ EngineResponse ProcessEngine::handleCommand(UiCommand command, int param) {
         headTestStatus.active = true;
 headTestStatus.startTime = millis();
 headTestStatus.durationSec = cfg.active_test;
-headTestStatus.openSec = cfg.headOpenMs;
-headTestStatus.closeSec = cfg.headCloseMs;
+headTestStatus.openSec = cfg.headOpenSec;
+headTestStatus.closeSec = cfg.headCloseSec;
 headTestStatus.awaitingInput = false;
-outputManager->startHeadValveCycling(cfg.headOpenMs * 1000, cfg.headCloseMs * 1000);
+outputManager->startHeadValveCycling(cfg.headOpenSec * 1000, cfg.headCloseSec * 1000);
         Serial.println("[Process] HEAD Test Started");
         // === ЛОГИРОВАНИЕ ===
         logger.log("[Process] HEAD Test Started");
@@ -345,10 +395,10 @@ outputManager->startHeadValveCycling(cfg.headOpenMs * 1000, cfg.headCloseMs * 10
         bodyTestStatus.active = true;
 bodyTestStatus.startTime = millis();
 bodyTestStatus.durationSec = cfg.active_test;
-bodyTestStatus.openSec = cfg.bodyOpenMs;
-bodyTestStatus.closeSec = cfg.bodyCloseMs;
+bodyTestStatus.openSec = cfg.bodyOpenSec;
+bodyTestStatus.closeSec = cfg.bodyCloseSec;
 bodyTestStatus.awaitingInput = false;
-outputManager->startBodyValveCycling(cfg.bodyOpenMs * 1000, cfg.bodyCloseMs * 1000);
+outputManager->startBodyValveCycling(cfg.bodyOpenSec * 1000, cfg.bodyCloseSec * 1000);
         Serial.println("[Process] BODY Test Started");
         // === ЛОГИРОВАНИЕ ===
         logger.log("[Process] BODY Test Started");
@@ -715,13 +765,13 @@ void ProcessEngine::printStartupInfo() {
     // Головы
     Serial.print(F("  Use Head Valve : ")); Serial.println(cfg.useHeadValve ? "YES" : "NO");
     Serial.print(F("  Heads Type KSS : ")); Serial.println(cfg.headsTypeKSS ? "YES" : "NO");
-    Serial.print(F("  Head Open (s)  : ")); Serial.println(cfg.headOpenMs);
-    Serial.print(F("  Head Close (s) : ")); Serial.println(cfg.headCloseMs);
+    Serial.print(F("  Head Open (s)  : ")); Serial.println(cfg.headOpenSec);
+    Serial.print(F("  Head Close (s) : ")); Serial.println(cfg.headCloseSec);
     Serial.print(F("  Head Cap (ml/m): ")); Serial.println(cfg.valve_head_capacity);
     // Тело
     Serial.print(F("  Body Valve NC  : ")); Serial.println(cfg.bodyValveNC ? "NC" : "NO");
-    Serial.print(F("  Body Open (s)  : ")); Serial.println(cfg.bodyOpenMs);
-    Serial.print(F("  Body Close (s) : ")); Serial.println(cfg.bodyCloseMs);
+    Serial.print(F("  Body Open (s)  : ")); Serial.println(cfg.bodyOpenSec);
+    Serial.print(F("  Body Close (s) : ")); Serial.println(cfg.bodyCloseSec);
     Serial.print(F("  Body Cap (ml/m): ")); Serial.println(cfg.valve_body_capacity);
     Serial.print(F("  Body Cap0(NO)  : ")); Serial.println(cfg.valve0_body_capacity);
     
@@ -1397,7 +1447,7 @@ void ProcessEngine::handleTelo() {
         }
         // ==========================================
         
-        bodyOpenCor = cfg.bodyOpenMs * koff;
+        bodyOpenCor = cfg.bodyOpenSec * koff;
         speedShpora = 500.0 * koff; 
         lastShporaAdjustTime = millis(); 
         bodyVolDone = 0.0f;  // Сброс накопленного объёма тела

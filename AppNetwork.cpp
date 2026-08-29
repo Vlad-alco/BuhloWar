@@ -620,9 +620,14 @@ void AppNetwork::handleApiStatus() {
         return;
     }
 
-    const SystemStatus& status = processEngine->getStatus();
-    const SensorData& sensors = processEngine->getSensorData(); 
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): читаем СТАТУС и КОНФИГ через потокобезопасные копии.
+    // Web-задача крутится на ядре 0, процесс — на ядре 1; прямая ссылка на
+    // общие структуры могла «порваться» под одновременной записью.
+    SystemStatus status;                       // Локальная копия статуса
+    processEngine->getStatusCopy(status);      // Снимок целиком (двойной буфер)
+    SensorData sensors = processEngine->getSensorData(); // Копия датчиков (не ссылка!)
+    SystemConfig cfg;                          // Локальная копия конфига
+    configManager->getConfigCopy(cfg);
 
     // Формируем JSON вручную
     String json = "{";
@@ -763,9 +768,12 @@ String AppNetwork::buildTelemetryJson() {
         return "{}";
     }
 
-    const SystemStatus& status = processEngine->getStatus();
-    const SensorData& sensors = processEngine->getSensorData();
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): потокобезопасные копии статуса/конфига/датчиков (см. handleApiStatus)
+    SystemStatus status;
+    processEngine->getStatusCopy(status);
+    SensorData sensors = processEngine->getSensorData();
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
 
     float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f) : (cfg.asVolume * 0.10f);
 
@@ -815,10 +823,10 @@ String AppNetwork::buildTelemetryJson() {
     json += "\"heaterType\":" + String(cfg.heaterType) + ",";
     json += "\"power\":" + String(cfg.power) + ",";
     json += "\"asVolume\":" + String(cfg.asVolume) + ",";
-    json += "\"headOpenMs\":" + String(cfg.headOpenMs) + ",";
-    json += "\"headCloseMs\":" + String(cfg.headCloseMs) + ",";
-    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenMs) + ",";
-    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseMs) + ",";
+    json += "\"headOpenMs\":" + String(cfg.headOpenSec) + ",";
+    json += "\"headCloseMs\":" + String(cfg.headCloseSec) + ",";
+    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenSec) + ",";
+    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseSec) + ",";
     json += "\"valve_head_capacity\":" + String(cfg.valve_head_capacity) + ",";
     json += "\"valve_body_capacity\":" + String(cfg.valve_body_capacity) + ",";
     json += "\"minOpenTime\":" + String(cfg.minOpenTime) + ",";
@@ -926,7 +934,12 @@ void AppNetwork::handleApiSettings() {
         server->send(500, "application/json", "{\"error\":\"Config not ready\"}");
         return;
     }
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): Web-задача (ядро 0) пишет конфиг в ЛОКАЛЬНУЮ копию,
+    // в конце обработчика она целиком отправляется в configManager
+    // под мьютексом (setConfig). Прямое редактирование общей структуры
+    // гоняло процесс на ядре 1 с Web-потоком.
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
 
     auto getInt = [&](const char* key, int defaultVal) -> int {
         String searchKey = "\"" + String(key) + "\":";
@@ -1018,10 +1031,18 @@ void AppNetwork::handleApiSettings() {
     cfg.headsTypeKSS = getBool("headsTypeKSS", cfg.headsTypeKSS);
     cfg.calibration = getBool("calibration", cfg.calibration);
     
-    cfg.headOpenMs = getInt("headOpenMs", cfg.headOpenMs);
-    cfg.headCloseMs = getInt("headCloseMs", cfg.headCloseMs);
-    cfg.bodyOpenMs = getInt("bodyOpenMs", cfg.bodyOpenMs);
-    cfg.bodyCloseMs = getInt("bodyCloseMs", cfg.bodyCloseMs);
+    // Этап 3 (план A): поля renamed *Ms→*Sec; JSON-ключи НЕ менялись
+    // (совместимость с index.html и сохранёнными профилями).
+    cfg.headOpenSec = getInt("headOpenMs", cfg.headOpenSec);
+    cfg.headCloseSec = getInt("headCloseMs", cfg.headCloseSec);
+    cfg.bodyOpenSec = getInt("bodyOpenMs", cfg.bodyOpenSec);
+    cfg.bodyCloseSec = getInt("bodyCloseMs", cfg.bodyCloseSec);
+    // Клампы клапанных таймингов 1..60 сек (этап 3): отсекаем 0 и
+    // «миллисекундные» значения вроде 1200, пришедшие из старых профилей.
+    cfg.headOpenSec  = constrain(cfg.headOpenSec,  1, 60);
+    cfg.headCloseSec = constrain(cfg.headCloseSec, 1, 60);
+    cfg.bodyOpenSec  = constrain(cfg.bodyOpenSec,  1, 60);
+    cfg.bodyCloseSec = constrain(cfg.bodyCloseSec, 1, 60);
     cfg.active_test = getInt("active_test", cfg.active_test);
     cfg.valve_head_capacity = getInt("valve_head_capacity", cfg.valve_head_capacity);
     cfg.valve_body_capacity = getInt("valve_body_capacity", cfg.valve_body_capacity);
@@ -1046,7 +1067,28 @@ void AppNetwork::handleApiSettings() {
     };
     
     getString("cloudUrl", cfg.cloudUrl, sizeof(cfg.cloudUrl));
-    getString("cloudApiKey", cfg.cloudApiKey, sizeof(cfg.cloudApiKey));
+    // Этап 5 (C4): защита от «самозамены» ключа маской.
+    // Веб-клиент получает ключ замаскированным (см. buildCfgJson) и возвращает
+    // его в той же форме при сохранении настроек. Если записать маску как есть,
+    // настоящий ключ был бы безвозвратно затёрт звёздочками. Поэтому значение
+    // со звёздочками игнорируем — сохраняется только ПОЛНОСТЬЮ новый ключ.
+    {
+        String incomingKey;
+        {
+            String searchKey = "\"cloudApiKey\":\"";
+            int pos = body.indexOf(searchKey);
+            if (pos != -1) {
+                int start = pos + searchKey.length();
+                int end = body.indexOf("\"", start);
+                if (end == -1) end = body.indexOf("}", start);
+                incomingKey = body.substring(start, end);
+                incomingKey.trim();
+            }
+        }
+        if (incomingKey.length() > 0 && incomingKey.indexOf('*') == -1) {
+            incomingKey.toCharArray(cfg.cloudApiKey, sizeof(cfg.cloudApiKey));
+        }
+    }
     // ============================
 
     // === ИНЖЕНЕРНОЕ МЕНЮ ===
@@ -1068,6 +1110,9 @@ void AppNetwork::handleApiSettings() {
     // =========================
 
     Serial.println("[API] Saving config...");
+    // Этап 4 (C2): перед сохранением целиком записываем локальную копию
+    // в общий конфиг (под мьютексом внутри setConfig)
+    configManager->setConfig(cfg);
     configManager->saveConfig();
     configManager->saveDistConfig();
     configManager->saveRectConfig();
@@ -1196,7 +1241,9 @@ void AppNetwork::startTask() {
 
 String AppNetwork::buildCfgJson() {
     if (!configManager) return "{}";
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): потокобезопасная копия конфига
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
     
     String json = "{";
     json += "\"emergencyTime\":" + String(cfg.emergencyTime) + ",";
@@ -1224,10 +1271,10 @@ String AppNetwork::buildCfgJson() {
     json += "\"bodyValveNC\":" + String(cfg.bodyValveNC ? "true" : "false") + ",";
     json += "\"headsTypeKSS\":" + String(cfg.headsTypeKSS ? "true" : "false") + ",";
     json += "\"calibration\":" + String(cfg.calibration ? "true" : "false") + ",";
-    json += "\"headOpenMs\":" + String(cfg.headOpenMs) + ",";
-    json += "\"headCloseMs\":" + String(cfg.headCloseMs) + ",";
-    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenMs) + ",";
-    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseMs) + ",";
+    json += "\"headOpenMs\":" + String(cfg.headOpenSec) + ",";
+    json += "\"headCloseMs\":" + String(cfg.headCloseSec) + ",";
+    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenSec) + ",";
+    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseSec) + ",";
     json += "\"active_test\":" + String(cfg.active_test) + ",";
     json += "\"valve_head_capacity\":" + String(cfg.valve_head_capacity) + ",";
     json += "\"valve_body_capacity\":" + String(cfg.valve_body_capacity) + ",";
@@ -1237,7 +1284,19 @@ String AppNetwork::buildCfgJson() {
     json += "\"speedHeadCorr\":" + String(cfg.speedHeadCorr) + ",";
     json += "\"speedBodyCorr\":" + String(cfg.speedBodyCorr) + ",";
     json += "\"cloudUrl\":\"" + String(cfg.cloudUrl) + "\",";
-    json += "\"cloudApiKey\":\"" + String(cfg.cloudApiKey) + "\"";
+    // Этап 5 (C4): НЕ отдаём API-ключ веб-клиентам в открытом виде —
+    // страница могла быть открыта на чужом компьютере/в общей сети.
+    // Отправляем маску: первые 4 и последние 4 символа, середина — звёздочки.
+    {
+        String key = String(cfg.cloudApiKey);
+        String masked;
+        if (key.length() > 8) {
+            masked = key.substring(0, 4) + "****" + key.substring(key.length() - 4);
+        } else if (key.length() > 0) {
+            masked = "****";
+        } // пустой ключ — остаётся пустым
+        json += "\"cloudApiKey\":\"" + masked + "\"";
+    }
     json += ",\"eng\":{";
     json += "\"speedGolovyBase\":" + String(cfg.speedGolovyBase) + ",";
     json += "\"speedTeloBase\":" + String(cfg.speedTeloBase) + ",";
@@ -1345,7 +1404,9 @@ void AppNetwork::handleSaveProfile() {
     filename = "/profiles/" + filename + ".json";
     
     // Сохраняем текущий конфиг
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): потокобезопасная копия конфига
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
     
     String json = "{";
     json += "\"name\":\"" + name + "\",";
@@ -1373,10 +1434,10 @@ void AppNetwork::handleSaveProfile() {
     json += "\"bodyValveNC\":" + String(cfg.bodyValveNC ? "true" : "false") + ",";
     json += "\"headsTypeKSS\":" + String(cfg.headsTypeKSS ? "true" : "false") + ",";
     json += "\"calibration\":" + String(cfg.calibration ? "true" : "false") + ",";
-    json += "\"headOpenMs\":" + String(cfg.headOpenMs) + ",";
-    json += "\"headCloseMs\":" + String(cfg.headCloseMs) + ",";
-    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenMs) + ",";
-    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseMs) + ",";
+    json += "\"headOpenMs\":" + String(cfg.headOpenSec) + ",";
+    json += "\"headCloseMs\":" + String(cfg.headCloseSec) + ",";
+    json += "\"bodyOpenMs\":" + String(cfg.bodyOpenSec) + ",";
+    json += "\"bodyCloseMs\":" + String(cfg.bodyCloseSec) + ",";
     json += "\"active_test\":" + String(cfg.active_test) + ",";
     json += "\"valve_head_capacity\":" + String(cfg.valve_head_capacity) + ",";
     json += "\"valve_body_capacity\":" + String(cfg.valve_body_capacity) + ",";
@@ -1389,6 +1450,13 @@ void AppNetwork::handleSaveProfile() {
     
     // Сохраняем файл
     SDScopeLock lock;
+    // Этап 5: проверяем, что мьютекс реально захвачен. Без проверки при
+    // занятой SD (запись лога на ядре 1) мы бы открыли файл В ОБХОД мьютекса
+    // и могли повредить SPI-шину.
+    if (!lock.locked) {
+        server->send(503, "text/plain", "SD busy, try again");
+        return;
+    }
     File file = SD.open(filename.c_str(), FILE_WRITE);
     if (!file) {
         server->send(500, "text/plain", "Failed to create file");
@@ -1505,6 +1573,11 @@ void AppNetwork::handleLoadProfile() {
     filename = "/profiles/" + filename;
     
     SDScopeLock lock;
+    // Этап 5: без проверки lock.locked чтение шло бы В ОБХОД мьютекса
+    if (!lock.locked) {
+        server->send(503, "text/plain", "SD busy, try again");
+        return;
+    }
     File file = SD.open(filename.c_str());
     if (!file) {
         server->send(404, "text/plain", "Profile not found");
@@ -1523,7 +1596,10 @@ void AppNetwork::handleLoadProfile() {
     }
     
     // Парсим и применяем настройки
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): профиль применяется к ЛОКАЛЬНОЙ копии конфига, в конце
+    // обработчика она целиком записывается в configManager под мьютексом.
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
     
     auto getInt = [&](const char* key, int defaultVal) -> int {
         String searchKey = "\"" + String(key) + "\":";
@@ -1592,10 +1668,16 @@ void AppNetwork::handleLoadProfile() {
     cfg.bodyValveNC = getBool("bodyValveNC", cfg.bodyValveNC);
     cfg.headsTypeKSS = getBool("headsTypeKSS", cfg.headsTypeKSS);
     cfg.calibration = getBool("calibration", cfg.calibration);
-    cfg.headOpenMs = getInt("headOpenMs", cfg.headOpenMs);
-    cfg.headCloseMs = getInt("headCloseMs", cfg.headCloseMs);
-    cfg.bodyOpenMs = getInt("bodyOpenMs", cfg.bodyOpenMs);
-    cfg.bodyCloseMs = getInt("bodyCloseMs", cfg.bodyCloseMs);
+    // Этап 3: переименование полей, JSON-ключи профиля сохранены (совместимость)
+    cfg.headOpenSec = getInt("headOpenMs", cfg.headOpenSec);
+    cfg.headCloseSec = getInt("headCloseMs", cfg.headCloseSec);
+    cfg.bodyOpenSec = getInt("bodyOpenMs", cfg.bodyOpenSec);
+    cfg.bodyCloseSec = getInt("bodyCloseMs", cfg.bodyCloseSec);
+    // Клампы 1..60 сек (этап 3): старые профили могли хранить «миллисекунды»
+    cfg.headOpenSec  = constrain(cfg.headOpenSec,  1, 60);
+    cfg.headCloseSec = constrain(cfg.headCloseSec, 1, 60);
+    cfg.bodyOpenSec  = constrain(cfg.bodyOpenSec,  1, 60);
+    cfg.bodyCloseSec = constrain(cfg.bodyCloseSec, 1, 60);
     cfg.active_test = getInt("active_test", cfg.active_test);
     cfg.valve_head_capacity = getInt("valve_head_capacity", cfg.valve_head_capacity);
     cfg.valve_body_capacity = getInt("valve_body_capacity", cfg.valve_body_capacity);
@@ -1605,6 +1687,8 @@ void AppNetwork::handleLoadProfile() {
     cfg.speedHeadCorr = getInt("speedHeadCorr", cfg.speedHeadCorr);
     cfg.speedBodyCorr = getInt("speedBodyCorr", cfg.speedBodyCorr);
     
+    // Этап 4 (C2): целиком записываем локальную копию в общий конфиг
+    configManager->setConfig(cfg);
     configManager->saveConfig();
     configManager->saveDistConfig();
     configManager->saveRectConfig();
@@ -1656,12 +1740,15 @@ void AppNetwork::handleCalcValve() {
     float capacity = ml / (testDuration / 60.0f);  // мл/мин
     
     // Сохраняем в конфиг
-    SystemConfig& cfg = configManager->getConfig();
+    // Этап 4 (C2): правим локальную копию и целиком записываем под мьютексом
+    SystemConfig cfg;
+    configManager->getConfigCopy(cfg);
     if (type == "head") {
         cfg.valve_head_capacity = (int)capacity;
     } else {
         cfg.valve_body_capacity = (int)capacity;
     }
+    configManager->setConfig(cfg);
     configManager->saveRectConfig();
     
     Serial.printf("[CalcValve] type=%s, ml=%.1f, capacity=%.1f ml/min\n", type.c_str(), ml, capacity);

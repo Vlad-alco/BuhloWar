@@ -250,8 +250,11 @@ enum class EngineResponse {
 // ==================== КОНФИГУРАЦИОННЫЕ СТРУКТУРЫ ====================
 
 // Общая глобальная конфигурация (меню SETTINGS)
+// ПРИМЕЧАНИЕ (аудит): рабочая структура — SystemConfig (preferences.h). Эта
+// структура в коде не используется. Дефолт tsaLimit согласован с рабочим
+// диапазоном 40-55 °C (решение автора по Q1).
 struct GlobalConfig {
-    float tsaLimit = 95.0f;          // Макс. температура TSA
+    float tsaLimit = 45.0f;          // Макс. температура TSA (рабочий диапазон 40-55 °C)
     float boxMaxTemp = 45.0f;        // Макс. температура бокса
     int vreacDelay = 300;            // Время аварийной задержки (сек)
     float razgonTemp = 60.0f;        // Температура разгона
@@ -280,35 +283,9 @@ struct DistConfig {
     float stopStrength = 40.0f;      // Крепость для автоостановки
 };
 
-// Конфигурация процесса RECT (меню RECT_SETUP)
-struct RectConfig {
-    // Основные настройки
-    bool useHeadValve = true;        // Использовать отдельный клапан голов
-    bool bodyValveNC = true;         // Тип клапана тела: true=НЗ, false=НО
-    bool headsTypeKSS = false;       // Метод отбора голов: false=Standard, true=KSS
-    bool calibration = true;         // Требовать калибровку клапанов
-    int cycleLim = 3;                // Макс. количество циклов стабилизации
-    int nasebTime = 30;              // Время насыщения/стабилизации (мин)
-    int reklapTime = 10;             // Время рекламации (мин)
-    
-    // Температурные параметры
-    float histeresis = 0.5f;         // Гистерезис для метода Overhist
-    float delta = 0.2f;              // Дельта для метода Shpora
-    float correlation = 1.5f;        // Коэффициент корреляции для Shpora
-    
-    // Калибровка клапанов
-    int headOpenMs = 1000;           // Время открытия клапана голов (мс)
-    int headCloseMs = 5000;          // Время закрытия клапана голов (мс)
-    int bodyOpenMs = 2000;           // Время открытия клапана тела (мс)
-    int bodyCloseMs = 10000;         // Время закрытия клапана тела (мс)
-    float valveHeadCapacity = 0.0f;  // Пропускная способность клапана голов (мл/мин)
-    float valveBodyCapacity = 0.0f;  // Пропускная способность НЗ клапана тела
-    float valve0BodyCapacity = 0.0f; // Пропускная способность НО клапана тела
-    
-    // Расчетные параметры (заполняются в меню SET PW & AS)
-    float power = 2500.0f;           // Мощность нагрева (Вт)
-    float asVolume = 5000.0f;        // Объем абсолютного спирта (мл)
-};
+// ПРИМЕЧАНИЕ (аудит, этап 3): мёртвая структура RectConfig удалена.
+// Рабочая конфигурация — SystemConfig (preferences.h): в ней хранились
+// те же поля с ДРУГИМИ дефолтами и единицами — «ловушка для будущих правок».
 // ==================== МЕЖЗАДАЧНАЯ ОЧЕРЕДЬ КОМАНД ====================
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>

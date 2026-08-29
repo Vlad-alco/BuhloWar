@@ -199,11 +199,35 @@ void ConfigManager::loadConfig() {
   currentConfig.mixerOffTime = readInt(ADDR_MIXER_OFF_TIME, 300);
   currentConfig.mixerEnabled = readBool(ADDR_MIXER_ENABLED, true);
   
-  // Настройки клапанов
-  currentConfig.headOpenMs = readInt(ADDR_HEAD_OPEN_MS, 1200);
-  currentConfig.headCloseMs = readInt(ADDR_HEAD_CLOSE_MS, 2200);
-  currentConfig.bodyOpenMs = readInt(ADDR_BODY_OPEN_MS, 1100);
-  currentConfig.bodyCloseMs = readInt(ADDR_BODY_CLOSE_MS, 2100);
+  // Настройки клапанов (этап 3, план A: единицы — СЕКУНДЫ)
+  currentConfig.headOpenSec = readInt(ADDR_HEAD_OPEN_SEC, 1);
+  currentConfig.headCloseSec = readInt(ADDR_HEAD_CLOSE_SEC, 10);
+  currentConfig.bodyOpenSec = readInt(ADDR_BODY_OPEN_SEC, 2);
+  currentConfig.bodyCloseSec = readInt(ADDR_BODY_CLOSE_SEC, 10);
+  
+  // === ОДНОРАЗОВАЯ МИГРАЦИЯ ЕДИНИЦ (этап 3, план A) ===
+  // Как было: дефолты этой функции были 1200/2200/1100/2100 — «миллисекундная»
+  // эпоха, при том что рабочие значения хранятся в СЕКУНДАХ (меню, Web, процесс).
+  // Если старая прошивка успела записать в EEPROM миллисекунды (1200 и т.п.),
+  // они читались бы как «1200 секунд». Рабочий диапазон — 1..60 сек, поэтому
+  // всё, что больше 60 — остаток мс-эпохи: делим на 1000.
+  // ADDR_CONFIG_VERSION гарантирует: миграция выполняется ОДИН раз за жизнь
+  // EEPROM и больше никогда не трогает нормальные значения.
+  {
+    uint8_t cfgVer = EEPROM.read(ADDR_CONFIG_VERSION);
+    if (cfgVer == 0xFF) {  // Ячейка не инициализирована (новая/старая прошивка)
+      int* valveFields[4] = { &currentConfig.headOpenSec, &currentConfig.headCloseSec,
+                              &currentConfig.bodyOpenSec, &currentConfig.bodyCloseSec };
+      bool migrated = false;
+      for (int i = 0; i < 4; i++) {
+        if (*valveFields[i] > 60) { *valveFields[i] /= 1000; migrated = true; }  // мс → сек
+        if (*valveFields[i] < 1)  { *valveFields[i] = 1; migrated = true; }      // защита от 0
+      }
+      EEPROM.write(ADDR_CONFIG_VERSION, 1);  // Помечаем: формат теперь актуальный
+      EEPROM.commit();
+      if (migrated) Serial.println("[Config] Valve timing units migrated (ms -> sec)");
+    }
+  }
   
   // Безопасность
   currentConfig.emergencyTime = readInt(ADDR_EMERGENCY_TIME, 3);
@@ -295,10 +319,10 @@ void ConfigManager::saveConfig() {
   writeBool(ADDR_MIXER_ENABLED, currentConfig.mixerEnabled);
   
   // Настройки клапанов
-  writeInt(ADDR_HEAD_OPEN_MS, currentConfig.headOpenMs);
-  writeInt(ADDR_HEAD_CLOSE_MS, currentConfig.headCloseMs);
-  writeInt(ADDR_BODY_OPEN_MS, currentConfig.bodyOpenMs);
-  writeInt(ADDR_BODY_CLOSE_MS, currentConfig.bodyCloseMs);
+  writeInt(ADDR_HEAD_OPEN_SEC, currentConfig.headOpenSec);
+  writeInt(ADDR_HEAD_CLOSE_SEC, currentConfig.headCloseSec);
+  writeInt(ADDR_BODY_OPEN_SEC, currentConfig.bodyOpenSec);
+  writeInt(ADDR_BODY_CLOSE_SEC, currentConfig.bodyCloseSec);
   
   // Безопасность
   writeInt(ADDR_EMERGENCY_TIME, currentConfig.emergencyTime);
@@ -409,10 +433,10 @@ void ConfigManager::saveRectConfig() {
   writeInt(ADDR_VALVE0_BODY_CAP, currentConfig.valve0_body_capacity);
   writeInt(ADDR_VALVE_BODY_CAP_HEADS, currentConfig.valve_body_capacity_heads);
   // Сохраняем тайминги клапанов
-  writeInt(ADDR_HEAD_OPEN_MS, currentConfig.headOpenMs);
-  writeInt(ADDR_HEAD_CLOSE_MS, currentConfig.headCloseMs);
-  writeInt(ADDR_BODY_OPEN_MS, currentConfig.bodyOpenMs);
-  writeInt(ADDR_BODY_CLOSE_MS, currentConfig.bodyCloseMs);
+  writeInt(ADDR_HEAD_OPEN_SEC, currentConfig.headOpenSec);
+  writeInt(ADDR_HEAD_CLOSE_SEC, currentConfig.headCloseSec);
+  writeInt(ADDR_BODY_OPEN_SEC, currentConfig.bodyOpenSec);
+  writeInt(ADDR_BODY_CLOSE_SEC, currentConfig.bodyCloseSec);
   
   EEPROM.commit();
   currentConfig.localChangeTimestamp = millis();
@@ -424,8 +448,31 @@ SystemConfig& ConfigManager::getConfig() {
   return currentConfig;
 }
 
+// === Этап 4 (C2): потокобезопасная копия конфига ===
+// Как это работает (для новичка): Web-сервер работает в задаче на ядре 0,
+// а процесс — на ядре 1. Если ядро 0 читает конфиг прямо из общей памяти,
+// оно может поймать «недописанное» значение. Здесь мы под мьютексом
+// делаем ПОЛНУЮ копию конфига в буфер вызывающего — дальше ядро 0
+// работает со своей личной копией, и никакая запись не помешает чтению.
+// SystemConfig не содержит String — копия это быстрое побайтовое копирование.
+void ConfigManager::getConfigCopy(SystemConfig& out) {
+  if (configMutex && xSemaphoreTake(configMutex, pdMS_TO_TICKS(50))) {
+    out = currentConfig;
+    xSemaphoreGive(configMutex);
+  } else {
+    out = currentConfig;  // Мьютекс не готов (ранний старт) — читаем как есть
+  }
+}
+
 void ConfigManager::setConfig(const SystemConfig& newConfig) {
-  currentConfig = newConfig;
+  // Запись конфига из Web-задачи (ядро 0) — под мьютексом, чтобы
+  // getConfigCopy() не увидел промежуточное состояние.
+  if (configMutex && xSemaphoreTake(configMutex, pdMS_TO_TICKS(50))) {
+    currentConfig = newConfig;
+    xSemaphoreGive(configMutex);
+  } else {
+    currentConfig = newConfig;  // Фоллбек (ранний старт, мьютекс ещё не создан)
+  }
 }
 
 bool ConfigManager::startProcess(ProcessType process) {

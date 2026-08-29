@@ -25,10 +25,10 @@ enum EEPROMAddress {
   ADDR_MIXER_ON_TIME = 52,
   ADDR_MIXER_OFF_TIME = 56,
   ADDR_MIXER_ENABLED = 60,
-  ADDR_HEAD_OPEN_MS = 64,
-  ADDR_HEAD_CLOSE_MS = 68,
-  ADDR_BODY_OPEN_MS = 72,
-  ADDR_BODY_CLOSE_MS = 76,
+  ADDR_HEAD_OPEN_SEC = 64,   // Время открытия клапана голов (СЕКУНДЫ, план A)
+  ADDR_HEAD_CLOSE_SEC = 68,  // Время закрытия клапана голов (сек)
+  ADDR_BODY_OPEN_SEC = 72,   // Время открытия клапана тела (сек)
+  ADDR_BODY_CLOSE_SEC = 76,  // Время закрытия клапана тела (сек)
   
   ADDR_EMERGENCY_TIME = 96,
   ADDR_NASEB_TIME = 100,
@@ -86,7 +86,8 @@ enum EEPROMAddress {
   ADDR_ENG_COOLING_SEC = 466,        // coolingDurationSec (int) — default 300
   ADDR_ENG_BAKSTOP_DELAY = 470,      // bakstopDelaySec (int) — default 5
   ADDR_ENG_CALIB_DRY_SEC = 474,      // calibDrySec (int) — default 10
-  ADDR_ENG_CALIB_CAP_SEC = 478       // calibCapacitySec (int) — default 60
+  ADDR_ENG_CALIB_CAP_SEC = 478,      // calibCapacitySec (int) — default 60
+  ADDR_CONFIG_VERSION = 486          // Версия формата конфига (1 байт; миграция единиц *Ms→*Sec)
 };
 
 // Структура для хранения всех переменных
@@ -114,10 +115,13 @@ struct SystemConfig {
   bool mixerEnabled = true;
   
   // --- Калибровка клапанов (единицы измерения: СЕКУНДЫ) ---
-  int headOpenMs = 1;           // По ТЗ: 1 сек
-  int headCloseMs = 10;         // По ТЗ: 10 сек
-  int bodyOpenMs = 2;           // По ТЗ: 2 сек
-  int bodyCloseMs = 10;         // По ТЗ: 10 сек
+  // Этап 3 (план A): переименованы *Ms → *Sec — значения всегда были в секундах
+  // (меню, TEST_HEAD, Web передают секунды; основной процесс умножает на 1000).
+  // Старые имена обманывали: «миллисекунды» при значениях 1/10/2/10 сек.
+  int headOpenSec = 1;          // Время открытия клапана голов (сек), по ТЗ: 1
+  int headCloseSec = 10;        // Время закрытия клапана голов (сек), по ТЗ: 10
+  int bodyOpenSec = 2;          // Время открытия клапана тела (сек), по ТЗ: 2
+  int bodyCloseSec = 10;        // Время закрытия клапана тела (сек), по ТЗ: 10
 
   // Адреса датчиков температуры (по 8 байт каждый)
   uint8_t tsaAddress[8] = {0};
@@ -202,6 +206,9 @@ public:
   void saveConfig();
   
   SystemConfig& getConfig();
+  // Этап 4 (C2): потокобезопасная копия конфига для задачи на другом ядре.
+  // Копируется под мьютексом — читающий поток не увидит «половину» записи.
+  void getConfigCopy(SystemConfig& out);
   void setConfig(const SystemConfig& newConfig);
   
   bool startProcess(ProcessType process);

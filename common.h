@@ -28,4 +28,13 @@ enum EditMode {
 };
 
 extern bool needMainMenuRedraw;
+
+// === МЬЮТЕКСЫ ОБЩИХ ДАННЫХ (этап 4 аудита, C2) ===
+// statusMutex  — защищает SystemStatus (пишет ядро 1, читает ядро 0 через копию)
+// configMutex  — защищает SystemConfig (запись Web-потоком, чтение из процесса)
+// Объявлены здесь, создаются в setup() (BuhloWar.ino) — как sdMutex.
+#include <freertos/semphr.h>
+extern SemaphoreHandle_t statusMutex;
+extern SemaphoreHandle_t configMutex;
+// =================================================
 #endif

@@ -30,6 +30,13 @@ SDLogger logger; // Создание глобального объекта
 SemaphoreHandle_t sdMutex = nullptr;
 // ========================================
 
+// === МЬЮТЕКСЫ ОБЩИХ ДАННЫХ (этап 4, C2) ===
+// statusMutex — переключение/чтение снимка SystemStatus (ядро 0/ядро 1)
+// configMutex — копирование/запись SystemConfig между ядрами
+SemaphoreHandle_t statusMutex = nullptr;
+SemaphoreHandle_t configMutex = nullptr;
+// ==========================================
+
 bool needMainMenuRedraw = false;
 
 // ================= ГЛОБАЛЬНЫЕ ОБЪЕКТЫ =================
@@ -74,6 +81,13 @@ void setup() {
   }
   // =================================================
   
+  // === МЬЮТЕКСЫ ОБЩИХ ДАННЫХ (этап 4, C2) — создаются ДО начала задач ===
+  statusMutex = xSemaphoreCreateMutex();   // Снимки SystemStatus (Web/процесс)
+  configMutex = xSemaphoreCreateMutex();   // Копии SystemConfig (Web/процесс)
+  Serial.println(statusMutex && configMutex ? "[System] Shared-data mutexes created OK"
+                                            : "[ERROR] Shared-data mutex creation FAILED!");
+  // =====================================================================
+  
   // Создаём очередь команд (AppNetwork → loop)
   commandQueue = xQueueCreate(32, sizeof(CommandMessage));
 
@@ -109,12 +123,26 @@ void setup() {
   
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
+  // 1. ЗАГРУЗКА КОНФИГУРАЦИИ (этап 6: перенос РАНЬШЕ RTC-синка)
+  // Как было: DS3231 синхронизировал время ДО loadConfig(), из EEPROM брался
+  // не реальный часовой пояс пользователя, а дефолт структуры (UTC+3).
+  // У пользователя с другим поясом системное время (логи, веб, Telegram)
+  // уходило на разницу. Теперь конфиг загружается первым.
+  configManager.begin();
+  logger.log("Config loaded OK");
+  
+  // Проверка "призрачного" процесса
+  if (configManager.isProcessRunning()) {
+    configManager.stopProcess(); 
+    Serial.println("Cleared ghost process state on startup");
+  }
+
    // === СИНХРОНИЗАЦИЯ ВРЕМЕНИ С DS3231 ===
   RTC_DS3231 rtc;
   if (rtc.begin(&Wire)) {
     DateTime now = rtc.now();
     
-    // Получаем настройку часового пояса из конфига
+    // Получаем настройку часового пояса из конфига (теперь — реальную из EEPROM)
     // Часовой пояс хранится как смещение в часах (например, 3 для Москвы)
     int tzOffset = configManager.getConfig().timezoneOffset;
     
@@ -151,16 +179,6 @@ void setup() {
   lcd.init();
   lcd.backlight();
   lcd.clear();
-  
-  // 1. Загрузка конфигурации (ОБЯЗАТЕЛЬНО ПЕРВЫМ)
-  configManager.begin();
-  logger.log("Config loaded OK");
-  
-  // Проверка "призрачного" процесса
-  if (configManager.isProcessRunning()) {
-    configManager.stopProcess(); 
-    Serial.println("Cleared ghost process state on startup");
-  }
   
   // 2. Инициализация датчиков
   sensorManager = SensorManager::getInstance();

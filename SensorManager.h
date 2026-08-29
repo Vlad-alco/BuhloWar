@@ -60,6 +60,19 @@ private:
     DeviceAddress calibInitialAddrs[MAX_CALIBRATION_DEVICES];
     int calibDeviceCount = 0;
     // ==============================================================
+
+    // === Этап 6: НЕБЛОКИРУЮЩАЯ калибровка (скан шины и проверка дельты) ===
+    // Как было: startCalibration() и checkCalibrationDelta() делали блокирующую
+    // конвертацию (~750 мс каждый вызов) — ядро 1 замирало, меню и процесс
+    // подвисали. Теперь конвертация запускается асинхронно, а результаты
+    // читаются в update()/следующем опросе, когда она гарантированно готова.
+    bool calibScanPending = false;            // true = ждём окончания конвертации скана шины
+    unsigned long calibScanRequestTime = 0;   // millis() запроса конвертации скана
+    SensorIndex calibScanTarget = SENSOR_TSA; // какой слот калибруем
+    bool calibCheckPending = false;           // true = ждём окончания конвертации проверки дельты
+    unsigned long calibCheckRequestTime = 0;  // millis() запроса конвертации дельты
+    // =====================================================================
+    void finishCalibScan();
     
     void updateSensorData();
     void loadAddressesFromConfig();

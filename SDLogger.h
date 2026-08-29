@@ -59,6 +59,22 @@ public:
             // Первичная проверка - без мьютекса, т.к. вызывается только из Core 1
             sdAvailable = (SD.cardSize() > 0);
             sdChecked = true;
+            
+            // === Этап 6: восстанавливаем РЕАЛЬНЫЙ размер /system.log после ребута ===
+            // Как было: currentFileSize стартовал с 0, хотя файл мог содержать
+            // до 100 КБ лога. Ротация не срабатывала, пока не дописывалось ещё
+            // 100 КБ — файл распухал вдвое сверх лимита.
+            if (sdAvailable) {
+                SDScopeLock lock;
+                if (lock.locked) {
+                    File f = SD.open("/system.log", FILE_READ);
+                    if (f) {
+                        currentFileSize = f.size();
+                        f.close();
+                        Serial.printf("[SDLogger] Existing log size: %u bytes\n", (unsigned)currentFileSize);
+                    }
+                }
+            }
         }
         
         if (!sdAvailable) {
@@ -226,6 +242,9 @@ public:
         if (!sdAvailable) return "";
         
         SDScopeLock lock;
+        // Этап 5: без проверки lock.locked чтение шло бы В ОБХОД мьютекса —
+        // параллельный SPI-доступ с ядром 1 повреждает шину.
+        if (!lock.locked) return "";
         
         File file = SD.open("/system.log");
         if (!file) return "";

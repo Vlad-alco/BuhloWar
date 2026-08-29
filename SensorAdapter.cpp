@@ -21,27 +21,10 @@ bool SensorAdapter::begin(SensorManager* dsManager, TwoWire* wire) {
     Serial.println("[SensorAdapter] DS18B20 manager initialized");
     logger.log("[SensorAdapter] DS18B20 manager initialized");
     
-    // Инициализация BME280
-    bmeInitialized = bme.begin(BME280_ADDRESS_ALTERNATE, wire);
+    // Инициализация BME280 (этап 6: вынесена в initBME() для повторных попыток)
+    bmeWire = wire;            // Запоминаем шину — понадобится при восстановлении
+    bmeInitialized = initBME();
     
-    if (!bmeInitialized) {
-        Serial.println("[SensorAdapter] ERROR: Could not find BME280 sensor!");
-        logger.log("[SensorAdapter] ERROR: Could not find BME280 sensor!");
-        
-        bmeInitialized = false;
-    } else {
-        // Настройка BME280
-        bme.setSampling(
-            Adafruit_BME280::MODE_NORMAL,
-            Adafruit_BME280::SAMPLING_X1,
-            Adafruit_BME280::SAMPLING_X1,
-            Adafruit_BME280::SAMPLING_X1,
-            Adafruit_BME280::FILTER_OFF,
-            Adafruit_BME280::STANDBY_MS_1000
-        );
-        Serial.println("[SensorAdapter] BME280 initialized successfully");
-        logger.log("[SensorAdapter] BME280 initialized successfully");
-    }
     
     // Инициализация структуры данных
     currentData.tsa.name = "TSA";
@@ -74,6 +57,30 @@ bool SensorAdapter::begin(SensorManager* dsManager, TwoWire* wire) {
     return true;
 }
 
+// ==================== BME280: ИНИЦИАЛИЗАЦИЯ/ВОССТАНОВЛЕНИЕ (этап 6) ====
+// Выделено из begin(), чтобы вызывать ПОВТОРНО при отвале датчика
+// (ретрай раз в 30 секунд из update()). Возвращает true при успехе.
+bool SensorAdapter::initBME() {
+    bool ok = bme.begin(BME280_ADDRESS_ALTERNATE, bmeWire);
+    if (!ok) {
+        Serial.println("[SensorAdapter] ERROR: Could not find BME280 sensor!");
+        logger.log("[SensorAdapter] ERROR: Could not find BME280 sensor!");
+        return false;
+    }
+    // Настройка BME280
+    bme.setSampling(
+        Adafruit_BME280::MODE_NORMAL,
+        Adafruit_BME280::SAMPLING_X1,
+        Adafruit_BME280::SAMPLING_X1,
+        Adafruit_BME280::SAMPLING_X1,
+        Adafruit_BME280::FILTER_OFF,
+        Adafruit_BME280::STANDBY_MS_1000
+    );
+    Serial.println("[SensorAdapter] BME280 initialized successfully");
+    logger.log("[SensorAdapter] BME280 initialized successfully");
+    return true;
+}
+
 // ==================== ОСНОВНОЙ ЦИКЛ ====================
 
 void SensorAdapter::update() {
@@ -89,6 +96,19 @@ void SensorAdapter::update() {
     if (bmeInitialized && (currentTime - lastBME280Update >= BME280_UPDATE_INTERVAL)) {
         updateBME280Data();
         lastBME280Update = currentTime;
+    }
+    // === Этап 6: автоматическое ВОССТАНОВЛЕНИЕ BME280 ===
+    // Как было: если BME отсутствовал при старте или отвалился после ошибки
+    // чтения (bmeInitialized=false), он никогда не проверялся снова —
+    // давление/влажность оставались «замороженными» до перезагрузки.
+    // Теперь: раз в 30 сек пробуем инициализировать заново. При успехе
+    // датчик сам вернётся в работу без перезагрузки устройства.
+    if (!bmeInitialized && (currentTime - lastBmeRetryMs >= 30000)) {
+        lastBmeRetryMs = currentTime;
+        if (initBME()) {
+            Serial.println("[SensorAdapter] BME280 RESTORED after retry!");
+            logger.log("[SensorAdapter] BME280 restored after retry");
+        }
     }
     
     // Обновление общей структуры данных

@@ -15,8 +15,8 @@ struct TestStatus {
     unsigned long startTime = 0;
     int durationSec = 0;
     // Снимок параметров на момент старта теста (для расчёта после завершения)
-    int openSec = 0;    // headOpenMs или bodyOpenMs
-    int closeSec = 0;   // headCloseMs или bodyCloseMs
+    int openSec = 0;    // headOpenSec или bodyOpenSec (секунды)
+    int closeSec = 0;   // headCloseSec или bodyCloseSec (секунды)
     bool awaitingInput = false;  // тест завершён, ждём мл от оператора
 };
 class ProcessEngine {
@@ -26,6 +26,12 @@ public:
     void update(); 
     EngineResponse handleCommand(UiCommand command, int param = 0);  // param для команд калибровки
     const SystemStatus& getStatus() const;
+    // === Этап 4 (C2): потокобезопасное чтение статуса из другого ядра ===
+    // Web-задача (ядро 0) обязана читать статус ТОЛЬКО через этот метод:
+    // он возвращает согласованную копию из опубликованного снимка.
+    // Прямая ссылка getStatus() остаётся для использования на ядре 1
+    // (меню, loop) — там писатель и читатель в одной задаче.
+    void getStatusCopy(SystemStatus& out) const;
     const SensorData& getSensorData() { return sensorAdapter->getData(); } // Геттер датчиков
     bool startProcess(ProcessType type);
     bool stopCurrentProcess();
@@ -83,10 +89,23 @@ private:
     SetPwAsMenu* setPwAsMenu;
     TestStatus headTestStatus;
     TestStatus bodyTestStatus;
-    DistConfig distConfig;
-    RectConfig rectConfig;
+    DistConfig distConfig;  // ПРИМЕЧАНИЕ (аудит): не используется — кандидат на удаление (отдельное согласование)
     
     SystemStatus currentStatus;
+    
+    // === Этап 4 (C2): двойной буфер статуса ===
+    // Как это работает (для новичка): ядро 1 непрерывно пишет в currentStatus.
+    // Если ядро 0 читает те же поля в этот момент (String внутри!), можно
+    // получить «порванное» значение и упасть. Поэтому в конце update()
+    // готовый статус целиком копируется в один из двух буферов-снимков,
+    // и указатель front переключается под мьютексом (микросекунды).
+    // Читатель (ядро 0) всегда забирает ЦЕЛИКОМ готовый снимок.
+    SystemStatus publishA;             // Снимок A
+    SystemStatus publishB;             // Снимок B
+    const SystemStatus* publishFront = &publishB;  // Текущий «передний» снимок для читателей
+    void publishStatus();              // Публикация снимка в конце update() (ядро 1)
+    // =========================================
+    
     ProcessType activeProcess = PROCESS_NONE;
     
     bool processRunning = false;
@@ -139,7 +158,7 @@ private:
     int teloLastCloseMs = -1;
     
     // Переменные для метода Шпора
-    float bodyOpenCor = 0.0f;      // Скорректированное время открытия клапана тела (мс)
+    float bodyOpenCor = 0.0f;      // Скорректированное время открытия клапана тела (СЕКУНДЫ × koff)
     float speedShpora = 0.0f;      // Текущая скорость отбора для Шпоры (л/ч)
     
     // Вспомогательные переменные расчета

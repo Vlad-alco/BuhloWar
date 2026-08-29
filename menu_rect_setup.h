@@ -65,10 +65,10 @@ private:
       case 7: return cfg.bodyValveNC ? 1 : 0; // 1=NC, 0=NO
       case 8: return cfg.headsTypeKSS ? 1 : 0; // 1=KSS, 0=ST
       case 9: return cfg.calibration ? 1 : 0;
-      case 10: return cfg.headOpenMs;
-      case 11: return cfg.headCloseMs;
-      case 12: return cfg.bodyOpenMs;
-      case 13: return cfg.bodyCloseMs;
+      case 10: return cfg.headOpenSec;
+      case 11: return cfg.headCloseSec;
+      case 12: return cfg.bodyOpenSec;
+      case 13: return cfg.bodyCloseSec;
       case 14: return cfg.active_test;
       case 15: return cfg.valve_head_capacity;
       case 16: return cfg.valve_body_capacity;
@@ -97,10 +97,10 @@ private:
       case 7: cfg.bodyValveNC = (value == 1); break; // Сохраняем NC/NO
       case 8: cfg.headsTypeKSS = (value == 1); break;
       case 9: cfg.calibration = (value == 1); break;
-      case 10: cfg.headOpenMs = value; break;
-      case 11: cfg.headCloseMs = value; break;
-      case 12: cfg.bodyOpenMs = value; break;
-      case 13: cfg.bodyCloseMs = value; break;
+      case 10: cfg.headOpenSec = value; break;
+      case 11: cfg.headCloseSec = value; break;
+      case 12: cfg.bodyOpenSec = value; break;
+      case 13: cfg.bodyCloseSec = value; break;
       case 14: cfg.active_test = value; break;
       case 15: cfg.valve_head_capacity = value; break;
       case 16: cfg.valve_body_capacity = value; break;
