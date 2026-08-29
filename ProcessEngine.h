@@ -157,7 +157,15 @@ private:
     Stage previousStage = Stage::IDLE;
     
     int counter = 0;
+    int nasebTimeOverride = 0;    // Одноразовая подмена времени стабилизации (мин).
+                                  // 0 = использовать cfg.nasebTime. Ставится при залёте
+                                  // (повторная стабилизация = reklapTime), сбрасывается
+                                  // в startProcess(). Нужна, чтобы НЕ портить общий
+                                  // конфиг: старый код писал reklapTime прямо в
+                                  // cfg.nasebTime, и искажённое значение попадало
+                                  // в EEPROM при любом последующем сохранении.
     float initialTsarTemp = 0.0f;
+    bool waitingRefCaptured = false; // Точка отсчёта этапа WAITING захвачена валидным замером
     bool razgonMixerStarted = false;
     bool midtermHandled = false;
     

@@ -598,6 +598,7 @@ bool ProcessEngine::startProcess(ProcessType type) {
     processRunning = true;
     processStartTime = millis();
     counter = 0;
+    nasebTimeOverride = 0;   // ФИКС L1: сброс одноразовой подмены от прошлого процесса
     
     emergencyState = false; alarmTSA_Active = false; alarmBOX_Active = false;
     outputManager->stopAlarm(); outputManager->resetEmergency();
@@ -817,10 +818,15 @@ void ProcessEngine::handleWaiting() {
     if (activeProcess == PROCESS_RECT && !cfg.bodyValveNC) outputManager->closeBodyValve();
 
     if (previousStage != Stage::WAITING) { 
+        waitingRefCaptured = false;   // Новый заход в этап: точку отсчёта берём заново
         if (data.isTsarValid()) {
-            initialTsarTemp = data.tsar.value;
+            initialTsarTemp = data.tsar.value;   // Датчик исправен — точка отсчёта сразу
+            waitingRefCaptured = true;
         } else {
-            initialTsarTemp = 0.0f;
+            // ФИКС L2: НЕ ставим initialTsarTemp = 0.0f (старый код).
+            // Порог выхода был бы 0 + 5 = 5 °C, и этап завершился бы сразу
+            // после восстановления датчика: любая горячая колонна выше 5 °C,
+            // реальный прогрев не проверялся бы вовсе.
             logger.log("WARNING: TSAR not valid at WAITING start! Waiting for sensor...");
             Serial.println("[WAITING] TSAR invalid at start, waiting for sensor recovery.");
         }
@@ -829,8 +835,17 @@ void ProcessEngine::handleWaiting() {
         previousStage = Stage::WAITING; 
     }
 
-    // Выход только если TSAR валиден и прогрелся на 5°C от начальной точки
-    if (data.isTsarValid() && data.tsar.value >= (initialTsarTemp + 5.0f)) {
+    // Динамический захват точки отсчёта: если на входе датчик был не готов,
+    // берём ПЕРВЫЙ валидный замер как точку отсчёта (выполняется один раз).
+    if (!waitingRefCaptured && data.isTsarValid()) {
+        initialTsarTemp = data.tsar.value;
+        waitingRefCaptured = true;
+        logger.log("WAITING: TSAR ready. Reference captured: " + String(initialTsarTemp, 1) + "C");
+        Serial.println("[WAITING] TSAR ready, reference captured: " + String(initialTsarTemp, 1) + "C");
+    }
+
+    // Выход только если точка отсчёта захвачена, датчик валиден и прогрелся на 5°C
+    if (waitingRefCaptured && data.isTsarValid() && data.tsar.value >= (initialTsarTemp + 5.0f)) {
         logger.log("WAITING: complete. TSAR: " + String(data.tsar.value, 1) + "C"
                  + "  time: " + String(currentStatus.stageTimeSec / 60) + "min");
         if (activeProcess == PROCESS_DIST) changeStage(Stage::OTBOR);
@@ -941,12 +956,15 @@ void ProcessEngine::handleNasebya() {
 
     if (previousStage != Stage::NASEBYA) {
         const SensorData& data = sensorAdapter->getData();
+        // ФИКС L1: показываем фактическую цель этапа (после залёта это reklapTime)
+        int effNaseb = (nasebTimeOverride > 0) ? nasebTimeOverride : cfg.nasebTime;
         logger.log("NASEBYA: start. TSAR: " + String(data.tsar.value, 1) + "C"
-                 + "  target: " + String(cfg.nasebTime) + "min");
+                 + "  target: " + String(effNaseb) + "min");
         previousStage = Stage::NASEBYA;
     }
     
-    unsigned long targetSeconds = (unsigned long)cfg.nasebTime * 60;
+    // ФИКС L1: таймер этапа использует одноразовую подмену, если она активна
+    unsigned long targetSeconds = (unsigned long)((nasebTimeOverride > 0) ? nasebTimeOverride : cfg.nasebTime) * 60;
     
     // === ЛОГИКА ЗАВЕРШЕНИЯ СТАБИЛИЗАЦИИ ===
     if (currentStatus.stageTimeSec >= targetSeconds) {
@@ -1396,6 +1414,15 @@ void ProcessEngine::handleTelo() {
         logger.log("  bodyOpenCor: " + String(bodyOpenCor, 1) + "s"
                  + "  Initial Speed: " + String(speedShpora, 1) + "ml/h");
         // ==============================
+
+        // ФИКС C1: помечаем, что вход в этап ТЕЛО обработан.
+        // Без этой строки условие ре-инициализации (previousStage != Stage::TELO)
+        // было истинным на КАЖДОМ обороте loop(): инициализация (сброс rtsarM,
+        // speedShpora, bodyVolDone) выполнялась сотни раз в секунду, из-за чего
+        // адаптивная логика Шпора/Стандарт не работала, а объём тела не
+        // накапливался. Остальные обработчики этапов (handleWaiting,
+        // handleDistOtbor, handleDistBakstop, handleNasebya) делают то же самое.
+        previousStage = Stage::TELO;
         
         
     }
@@ -1538,7 +1565,11 @@ void ProcessEngine::handleTelo() {
             } else {
                 // Повторная стабилизация
                 
-                cfg.nasebTime = cfg.reklapTime;
+                // ФИКС L1: время повторной стабилизации берём из reklapTime,
+                // но НЕ записываем его в общий конфиг (см. nasebTimeOverride):
+                // искажённый cfg.nasebTime иначе попал бы в EEPROM при
+                // любом последующем сохранении настроек.
+                nasebTimeOverride = cfg.reklapTime;   // подмена только на этот заход
                 changeStage(Stage::NASEBYA);
             }
             return;
@@ -1781,7 +1812,8 @@ void ProcessEngine::updateDisplayData() {
                  currentStatus.line1 = String(buf);
             } 
             else if (currentStage == Stage::NASEBYA) {
-                 int totalSec = cfg.nasebTime * 60;
+                 // ФИКС L1: остаток стабилизации считаем от фактической цели
+                 int totalSec = ((nasebTimeOverride > 0) ? nasebTimeOverride : cfg.nasebTime) * 60;
                  int elapsedSec = currentStatus.stageTimeSec;
                  int remainSec = (elapsedSec < totalSec) ? (totalSec - elapsedSec) : 0;
                  int remainMinNas = (remainSec + 59) / 60;
