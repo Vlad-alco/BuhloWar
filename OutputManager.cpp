@@ -128,6 +128,9 @@ void OutputManager::closeBodyValve() {
 }
 void OutputManager::powerOffBodyValve() {
    // Принудительно снимаем питание с реле (LOW)
+   // ПРИМЕЧАНИЕ (аудит L3, согласовано с автором): для НО-клапана (bodyValveNC == false)
+   // LOW = «питание снято» = клапан ФИЗИЧЕСКИ ОТКРЫТ, а не закрыт. Это сознательно:
+   // вызов происходит при завершении работы, когда система уже обесточена и отбора нет.
     digitalWrite(valveBody.pin, LOW);
     Serial.println("[OutputManager] Body Valve Safe Close");
     logger.log("[OutputManager] Body Valve Safe Close");
