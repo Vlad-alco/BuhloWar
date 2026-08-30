@@ -683,10 +683,11 @@ String procName = getProcessName();
     // Ключевые параметры конфигурации
     SystemConfig& cfg = configManager->getConfig();
     if (type == PROCESS_DIST) {
-        // Сессия 10: midterm в десятых долях — лог с одним знаком + крепость отбора
+        // Сессия 10: midterm в десятых долях — лог с одним знаком + крепость отбора.
+        // Сессия 11: уставка приведена к 760 мм рт.ст. (указываем в логе для ясности)
         logger.log("  razgonTemp: " + String(cfg.razgonTemp) + "C"
                  + "  bakStopTemp: " + String(cfg.bakStopTemp) + "C"
-                 + "  midterm: " + String(cfg.midterm * 0.1f, 1) + "C"
+                 + "  midterm: " + String(cfg.midterm * 0.1f, 1) + "C ref760"
                  + " (" + String(cfg.midterm_abv * 0.1f, 1) + "%)" );
     } else {
         logger.log("  razgonTemp: " + String(cfg.razgonTemp) + "C"
@@ -908,9 +909,17 @@ void ProcessEngine::handleWaiting() {
 // ==================== DIST LOGIC ====================
 
 // Статические переменные для Midterm (смена тары)
-static bool distBmeReferenceCaptured = false;
-static bool distBmeWasAvailable = true;
-static float distMidtermPressureMmHg = 760.0f; // Замороженное давление для Midterm
+// Сессия 11: уставка cfg.midterm хранится как температура куба, ПРИВЕДЁННАЯ к 760 мм рт.ст.
+// (эталон таблицы крепостей). Поэтому триггер использует ЖИВОЕ давление на всём протяжении
+// этапа OTBOR: оно обновляется при каждом доступном опросе BME; при пропаче датчика
+// остаётся последнее известное значение (data.pressure хранит последний корректный отсчёт);
+// если BME не было доступно ни разу — используется 760 (коррекция отсутствует).
+// Раньше давление замораживалось на старте OTBOR, а уставка в web считалась по давлению
+// в момент сохранения настроек — при их рассогласовании сдвиг срабатывания доходил
+// до 0.037*C на каждый мм рт.ст. (~1.1C при 30 мм рт.ст.).
+static bool distBmeReferenceCaptured = false;   // BME был доступен хотя бы раз за этап
+static bool distBmeWasAvailable = true;         // состояние на предыдущей итерации
+static float distMidtermPressureMmHg = 760.0f;  // ЖИВОЕ (или последнее известное) давление, мм рт.ст.
 
 void ProcessEngine::handleDistOtbor() {
     currentStatus.stageName = "OTBOR";
@@ -921,34 +930,35 @@ void ProcessEngine::handleDistOtbor() {
         logger.log("OTBOR: start. TANK: " + String(data.tank.value, 1) + "C");
         previousStage = Stage::OTBOR;
         
-        // === ЗАХВАТ РЕФЕРЕНСА ДАВЛЕНИЯ ДЛЯ MIDTERM ===
+        // === СТАРТ ОТСЛЕЖИВАНИЯ ДАВЛЕНИЯ ДЛЯ MIDTERM (Сессия 11: живое давление) ===
         if (currentStatus.bmeAvailable) {
             distMidtermPressureMmHg = data.pressure * 0.75006f; // гПа -> мм рт.ст.
             distBmeReferenceCaptured = true;
             distBmeWasAvailable = true;
-            logger.log("OTBOR: BME reference captured for Midterm. Pressure: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+            logger.log("OTBOR: BME pressure tracking for Midterm. Pressure: " + String(distMidtermPressureMmHg, 1) + " mmHg");
         } else {
-            distMidtermPressureMmHg = 760.0f;
+            distMidtermPressureMmHg = 760.0f; // коррекция без BME невозможна — считаем уставку эталонной
             distBmeReferenceCaptured = false;
             distBmeWasAvailable = false;
-            logger.log("WARNING: BME280 not available at OTBOR start! Midterm correction DISABLED.");
+            logger.log("WARNING: BME280 not available at OTBOR start! Midterm correction DISABLED (P=760).");
         }
-        // =============================================
+        // ===========================================================================
     }
     
-    // Мониторинг BME во время OTBOR
-    if (distBmeReferenceCaptured) {
-        if (distBmeWasAvailable && !currentStatus.bmeAvailable) {
-            // BME пропал - замораживаем давление
-            distMidtermPressureMmHg = data.pressure * 0.75006f;
-            logger.log("OTBOR: BME lost! Midterm pressure frozen at: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+    // Живое давление: обновляем на КАЖДОЙ итерации при доступном BME (Сессия 11).
+    // При пропаче датчика просто перестаём обновлять — переменная хранит последнее
+    // известное значение (заморозка). При восстановлении/первом появлении — продолжаем.
+    if (currentStatus.bmeAvailable) {
+        bool bmeJustCameOnline = !distBmeWasAvailable;
+        distMidtermPressureMmHg = data.pressure * 0.75006f; // гПа -> мм рт.ст.
+        distBmeReferenceCaptured = true;
+        distBmeWasAvailable = true;
+        if (bmeJustCameOnline) {
+            logger.log("OTBOR: BME online. Midterm pressure: " + String(distMidtermPressureMmHg, 1) + " mmHg");
         }
-        else if (!distBmeWasAvailable && currentStatus.bmeAvailable) {
-            // BME восстановился - обновляем давление
-            distMidtermPressureMmHg = data.pressure * 0.75006f;
-            logger.log("OTBOR: BME restored. Midterm pressure updated to: " + String(distMidtermPressureMmHg, 1) + " mmHg");
-        }
-        distBmeWasAvailable = currentStatus.bmeAvailable;
+    } else if (distBmeWasAvailable && distBmeReferenceCaptured) {
+        logger.log("OTBOR: BME lost! Midterm pressure frozen at: " + String(distMidtermPressureMmHg, 1) + " mmHg");
+        distBmeWasAvailable = false;
     }
 
     if (cfg.mixerEnabled) {
@@ -957,22 +967,24 @@ void ProcessEngine::handleDistOtbor() {
 
         // Логика Midterm (Смена посуды)
     if (!midtermHandled) {
-        // Сессия 10: уставка хранится x10 — рабочий порог float без округления до целого
+        // Сессия 10: уставка хранится x10 — рабочий порог float без округления до целого.
+        // Сессия 11: уставка — температура куба, приведённая к 760 мм рт.ст.; сравниваем
+        // с ней ЖИВУЮ приведённую температуру. Поправка: T_прив = T_изм + (760 - P)*0.037,
+        // т.е. при давлении ниже 760 срабатывание происходит при более НИЗКОЙ сырой
+        // температуре куба (та же концентрация — кипение ниже). Предварительный фильтр
+        // по сырой T убран: при P<760 он блокировал коррекцию (поправка положительная,
+        // но фильтр не пропускал, пока сырая T не дойдёт до уставки — поправка инертна).
         float midtermSet = cfg.midterm * 0.1f;
-        if (data.tank.value >= midtermSet) { 
-            
-            // === УЧЕТ ДАВЛЕНИЯ ===
-            // Используем захваченное/замороженное давление
-            float tankCorrected = data.tank.value + (760.0 - distMidtermPressureMmHg) * 0.037;
 
-            // Сравниваем приведенную температуру с уставкой
-            if (tankCorrected >= midtermSet) {
-                if (cfg.valveuse) outputManager->closeBodyValve();
-                midtermHandled = true;
-                logger.log("OTBOR: midterm reached. T=" + String(data.tank.value, 1) + "C (Corrected: " + String(tankCorrected, 1) + "C, set " + String(midtermSet, 1) + "C/" + String(cfg.midterm_abv * 0.1f, 1) + "%)");
-                changeStage(Stage::REPLACEMENT);
-                return;
-            }
+        // Приведённая к 760 мм рт.ст. температура куба (живое/последнее известное давление)
+        float tankCorrected = data.tank.value + (760.0 - distMidtermPressureMmHg) * 0.037;
+
+        if (tankCorrected >= midtermSet) {
+            if (cfg.valveuse) outputManager->closeBodyValve();
+            midtermHandled = true;
+            logger.log("OTBOR: midterm reached. T=" + String(data.tank.value, 1) + "C (Reduced to 760: " + String(tankCorrected, 1) + "C, set " + String(midtermSet, 1) + "C/" + String(cfg.midterm_abv * 0.1f, 1) + "%, P=" + String(distMidtermPressureMmHg, 0) + " mmHg)");
+            changeStage(Stage::REPLACEMENT);
+            return;
         }
     }
 

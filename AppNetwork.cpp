@@ -1004,24 +1004,29 @@ void AppNetwork::handleApiSettings() {
     // Midterm логика (Сессия 10): хранение x10 (десятые доли), JSON — °C/% с одним знаком.
     // Десятые доли дают точный момент смены тары по крепости отбора (целые градусы
     // давали ошибку крепости до ±2.3% об. в рабочей зоне). Ключи отсутствуют = не менять.
+    //
+    // Сессия 11: уставка — температура куба, ПРИВЕДЁННАЯ к 760 мм рт.ст. Конверсия
+    // крепость<->температура идёт по эталонной таблице (P=760) БЕЗ поправки на текущее
+    // давление: триггер в ProcessEngine сам приводит живую температуру куба к 760 по
+    // формуле T_прив = T_изм + (760 - P)*0.037. Раньше уставка считалась по давлению
+    // в момент сохранения настроек, а триггер использовал давление, замороженное на
+    // старте OTBOR, — при их рассогласовании сдвиг срабатывания доходил до ~1.1C.
+    const float midtermRefPressure = 760.0f; // эталонное давление таблицы крепостей
     float newMidtermAbvF = getFloat("midterm_abv", -1.0f);
     float newMidtermF = getFloat("midterm", -1.0f);
-    
-    const SensorData& sensors = processEngine->getSensorData();
-    float pressure_mmHg = sensors.getPressureMmHg(); // С fallback на 760 при неработающем BME
 
     // Перевод в x10 с округлением до 0.1; отрицательное = «не передано»
     int newMidterm = (newMidtermF >= 0.0f) ? (int)round(newMidtermF * 10.0f) : -1;
     int newMidtermAbv = (newMidtermAbvF >= 0.0f) ? (int)round(newMidtermAbvF * 10.0f) : -1;
 
     if (newMidterm != -1 && newMidterm != cfg.midterm) {
-        cfg.midterm = constrain(newMidterm, 0, 980); // 0..98.0°C (x10)
-        int calcAbv = (int)round(configManager->getOutputABVForTemp(cfg.midterm * 0.1f, pressure_mmHg) * 10.0f);
+        cfg.midterm = constrain(newMidterm, 0, 980); // 0..98.0°C (x10) — приведённая к 760
+        int calcAbv = (int)round(configManager->getOutputABVForTemp(cfg.midterm * 0.1f, midtermRefPressure) * 10.0f);
         cfg.midterm_abv = constrain(calcAbv, 0, 980);
     } 
     else if (newMidtermAbv != -1 && newMidtermAbv > 0) {
         cfg.midterm_abv = constrain(newMidtermAbv, 0, 980); // 0..98.0% (x10)
-        cfg.midterm = (int)round(configManager->getTempForOutputABV(cfg.midterm_abv * 0.1f, pressure_mmHg) * 10.0f);
+        cfg.midterm = (int)round(configManager->getTempForOutputABV(cfg.midterm_abv * 0.1f, midtermRefPressure) * 10.0f);
         cfg.midterm = constrain(cfg.midterm, 0, 980);
     }
     // Если ключи не переданы — НЕ меняем cfg.midterm и cfg.midterm_abv
