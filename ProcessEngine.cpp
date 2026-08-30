@@ -1233,7 +1233,11 @@ void ProcessEngine::handleGolovyOk() {
 
 // --- Standard ---
 void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
-    float headVol = cfg.asVolume * cfg.headsShareStd; 
+    // Сессия 14: явный объём голов (web «ГОЛОВЫ (ml)»). Если задан (>0) — отбираем
+    // ровно его, без привязки к АС. Скорость прежняя (от мощности: speedGolovy = koff*base).
+    // 0 = авто — прежний расчёт от АС. KSS этот параметр не использует (см. updateRectWebInfo).
+    float headVol = (cfg.headsManualMl > 0) ? (float)cfg.headsManualMl
+                                            : cfg.asVolume * cfg.headsShareStd;
     float vHeadMin = (headVol / speedGolovy) * 60.0f;
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
 
@@ -2019,7 +2023,10 @@ void ProcessEngine::updateRectWebInfo() {
         } else {
             // Standard Logic
             currentStatus.rectSubStage = "Main";
-            targetVol = asVol * cfg.headsShareStd; // Standard
+            // Сессия 14: явный объём голов (web). Должен совпадать с расчётом в
+            // startStandardGolovy() — иначе цель на экране и реальная цель разойдутся.
+            targetVol = (cfg.headsManualMl > 0) ? (float)cfg.headsManualMl
+                                                : asVol * cfg.headsShareStd; // Standard
         }
         
         currentStatus.rectVolumeTarget = (int)targetVol;

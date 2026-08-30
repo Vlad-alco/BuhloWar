@@ -716,7 +716,10 @@ void AppNetwork::handleApiStatus() {
     json += "\"adPressM\":" + String(processEngine->getAdPressM(), 1) + ",";
     
     // === Общий объём голов ===
-    float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f) : (cfg.asVolume * 0.10f);
+    // Сессия 14: в ST при заданном ручном объёме показываем его (иначе шапка
+    // «ГОЛОВЫ X/Y» показывает 10% АС, а реальная цель — ручная)
+    float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f)
+                                              : (cfg.headsManualMl > 0 ? (float)cfg.headsManualMl : (cfg.asVolume * 0.10f));
     json += "\"headsTotalTarget\":" + String((int)headsTotalTarget) + ",";
 
     // --- Настройки ---
@@ -779,7 +782,8 @@ String AppNetwork::buildTelemetryJson() {
     SystemConfig cfg;
     configManager->getConfigCopy(cfg);
 
-    float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f) : (cfg.asVolume * 0.10f);
+    float headsTotalTarget = cfg.headsTypeKSS ? (cfg.asVolume * 0.20f)
+                                              : (cfg.headsManualMl > 0 ? (float)cfg.headsManualMl : (cfg.asVolume * 0.10f));
 
     String json = "{";
     json += "\"time\":" + String(status.processTimeSec) + ",";
@@ -996,6 +1000,9 @@ void AppNetwork::handleApiSettings() {
     cfg.boxMaxTemp = getInt("boxMaxTemp", cfg.boxMaxTemp);
     cfg.power = getInt("power", cfg.power);
     cfg.asVolume = getInt("asVolume", cfg.asVolume);
+    // Сессия 14: явный объём голов (мл), 0 = авто. Кламп 0..3000 — защита от
+    // случайного значения из чужого клиента (web сам клампит тем же диапазоном).
+    cfg.headsManualMl = constrain(getInt("headsManualMl", cfg.headsManualMl), 0, 3000);
     cfg.chekwifi = getInt("chekwifi", cfg.chekwifi);
 
     cfg.razgonTemp = getInt("razgonTemp", cfg.razgonTemp);
@@ -1268,6 +1275,7 @@ String AppNetwork::buildCfgJson() {
     json += "\"boxMaxTemp\":" + String(cfg.boxMaxTemp) + ",";
     json += "\"power\":" + String(cfg.power) + ",";
     json += "\"asVolume\":" + String(cfg.asVolume) + ",";
+    json += "\"headsManualMl\":" + String(cfg.headsManualMl) + ","; // Сессия 14: явный объём голов (0 = авто)
     json += "\"chekwifi\":" + String(cfg.chekwifi) + ",";
     json += "\"razgonTemp\":" + String(cfg.razgonTemp) + ",";
     json += "\"bakStopTemp\":" + String(cfg.bakStopTemp) + ",";
@@ -1433,6 +1441,7 @@ void AppNetwork::handleSaveProfile() {
     json += "\"boxMaxTemp\":" + String(cfg.boxMaxTemp) + ",";
     json += "\"power\":" + String(cfg.power) + ",";
     json += "\"asVolume\":" + String(cfg.asVolume) + ",";
+    json += "\"headsManualMl\":" + String(cfg.headsManualMl) + ","; // Сессия 14: в профиле, как asVolume
     json += "\"razgonTemp\":" + String(cfg.razgonTemp) + ",";
     json += "\"bakStopTemp\":" + String(cfg.bakStopTemp) + ",";
     // Сессия 10: в профиле midterm/midterm_abv тоже в °C/% с одним знаком;
@@ -1669,6 +1678,9 @@ void AppNetwork::handleLoadProfile() {
     cfg.boxMaxTemp = getInt("boxMaxTemp", cfg.boxMaxTemp);
     cfg.power = getInt("power", cfg.power);
     cfg.asVolume = getInt("asVolume", cfg.asVolume);
+    // Сессия 14: явный объём голов в профиле. В старых профилях ключа нет —
+    // getInt вернёт текущее значение (не сбрасываем), кламп тот же 0..3000.
+    cfg.headsManualMl = constrain(getInt("headsManualMl", cfg.headsManualMl), 0, 3000);
     cfg.razgonTemp = getInt("razgonTemp", cfg.razgonTemp);
     cfg.bakStopTemp = getInt("bakStopTemp", cfg.bakStopTemp);
     // Сессия 10: midterm/midterm_abv в профиле — °C/% (один знак); хранение x10.

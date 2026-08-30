@@ -677,6 +677,9 @@
                          <div class="setting-row"><label>МАХ Т.СИСТЕМЫ (C)</label><div class="setting-inputs"><button onclick="adjCfg('boxMaxTemp', -1)">-</button><span id="cfg-boxMaxTemp">60</span><button onclick="adjCfg('boxMaxTemp', 1)">+</button></div></div>
                          <div class="setting-row"><label>МОЩНОСТЬ (W)</label><div class="setting-inputs"><button onclick="adjCfg('power', -100)">-</button><span id="cfg-power">3000</span><button onclick="adjCfg('power', 100)">+</button></div></div>
                          <div class="setting-row"><label>КОЛ-ВО АС (ml)</label><div class="setting-inputs"><button onclick="adjCfg('asVolume', -100)">-</button><span id="cfg-asVolume">1000</span><button onclick="adjCfg('asVolume', 100)">+</button></div></div>
+                         <!-- Сессия 14: явный объём голов (0 = авто — расчёт от АС, только метод ST) -->
+                         <div class="setting-row"><label>ГОЛОВЫ (ml)</label><div class="setting-inputs"><button onclick="adjCfg('headsManualMl', -50)">-</button><span id="cfg-headsManualMl">0</span><button onclick="adjCfg('headsManualMl', 50)">+</button></div></div>
+                         <div class="text-xs text-gray-400" style="margin:-4px 0 8px 2px;">0 = авто (10% от АС); ручной объём действует только в методе ST</div>
                          <div class="setting-row"><label>WIFI ЧЕК (min)</label><div class="setting-inputs"><button onclick="adjCfg('chekwifi', -1)">-</button><span id="cfg-chekwifi">5</span><button onclick="adjCfg('chekwifi', 1)">+</button></div></div>
                           <div class="mt-3 pt-3 border-t border-gray-700">
                               <div class="flex items-center justify-between mb-2">
@@ -1675,6 +1678,7 @@
             setVal('cfg-boxMaxTemp', cfg.boxMaxTemp);
             setVal('cfg-power', cfg.power);
             setVal('cfg-asVolume', cfg.asVolume);
+            setVal('cfg-headsManualMl', cfg.headsManualMl || 0); // Сессия 14: явный объём голов
             setVal('cfg-chekwifi', cfg.chekwifi);
             
             setVal('cfg-razgonTemp', cfg.razgonTemp);
@@ -1802,11 +1806,20 @@
                 let p = currentData.cfg ? currentData.cfg.power : '??';
                 let v = currentData.cfg ? currentData.cfg.asVolume : '??';
                 
+                // Сессия 14: редактируемый объём голов прямо в диалоге старта.
+                // Шаг 50, диапазон 0..3000, 0 = авто (10% от АС). В методе KSS значение не используется.
+                let h = currentData.cfg ? (currentData.cfg.headsManualMl || 0) : 0;
+                let hNote = (currentData.cfg && currentData.cfg.headsTypeKSS) ? '<span class="text-gray-400">метод KSS — не используется</span>' : '';
+                
                 document.getElementById('dialog-text').innerHTML = 
                     '<div class="text-left">' +
                     '<p class="mb-2">Текущие настройки процесса:</p>' +
                     '<p class="font-bold text-white">Мощность: <span class="text-yellow-400">' + p + ' W</span></p>' +
                     '<p class="font-bold text-white mb-2">Объем АС: <span class="text-yellow-400">' + v + ' ml</span></p>' +
+                    '<div class="flex items-center gap-2 mb-1 flex-wrap"><span class="font-bold text-white">Головы: <span class="text-yellow-400">' + h + ' ml</span></span>' +
+                    '<button onclick="adjCfg(&quot;headsManualMl&quot;, -50)" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded">&minus;</button>' +
+                    '<button onclick="adjCfg(&quot;headsManualMl&quot;, 50)" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded">+</button>' +
+                    '<span class="text-xs text-gray-400">0 = авто (10% от АС) ' + hNote + '</span></div>' +
                     '<p class="text-xs text-gray-400 mt-2">Если значения неверны, нажмите "ОТМЕНА", измените в Настройках и нажмите "ДАЛЕЕ" в шапке.</p>' +
                     '</div>';
                 
@@ -1895,10 +1908,15 @@
                 if (currentData.cfg[key] < 10) currentData.cfg[key] = 10;
                 if (currentData.cfg[key] > 1000) currentData.cfg[key] = 1000;
             }
+            // Сессия 14: явный объём голов (0..3000 мл, 0 = авто)
+            if (key === 'headsManualMl') {
+                if (currentData.cfg[key] < 0) currentData.cfg[key] = 0;
+                if (currentData.cfg[key] > 3000) currentData.cfg[key] = 3000;
+            }
             updateConfigDisplay();
             
-            // Автосохранение при изменении коррекции скорости или minOpenTime
-            if (key === 'speedHeadCorr' || key === 'speedBodyCorr' || key === 'minOpenTime') {
+            // Автосохранение при изменении коррекции скорости, minOpenTime или объёма голов
+            if (key === 'speedHeadCorr' || key === 'speedBodyCorr' || key === 'minOpenTime' || key === 'headsManualMl') {
                 autoSaveSetting(key, currentData.cfg[key]);
             }
         }

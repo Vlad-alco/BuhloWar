@@ -87,7 +87,8 @@ enum EEPROMAddress {
   ADDR_ENG_BAKSTOP_DELAY = 470,      // bakstopDelaySec (int) — default 5
   ADDR_ENG_CALIB_DRY_SEC = 474,      // calibDrySec (int) — default 10
   ADDR_ENG_CALIB_CAP_SEC = 478,      // calibCapacitySec (int) — default 60
-  ADDR_CONFIG_VERSION = 486          // Версия формата конфига (1 байт; миграция единиц *Ms→*Sec)
+  ADDR_CONFIG_VERSION = 486,         // Версия формата конфига (1 байт; миграция единиц *Ms→*Sec)
+  ADDR_HEADS_MANUAL_ML = 487         // Сессия 14: явный объём голов, мл (0 = авто; 487..490, EEPROM 512)
 };
 
 // Структура для хранения всех переменных
@@ -96,6 +97,10 @@ struct SystemConfig {
   int heaterType = 0;
   int power = 3500;
   int asVolume = 5000;
+  // Сессия 14: явный объём голов для ректификации (мл). Задаётся только через web.
+  // 0 = авто — считать от АС как раньше (ST: АС*headsShareStd; KSS: доли KSS).
+  // Используется ТОЛЬКО в методе ST (startStandardGolovy / updateRectWebInfo).
+  int headsManualMl = 0;
   int tsaLimit = 40;
   float histeresis = 0.24f;
   float correlation = 1.13f;

@@ -252,6 +252,10 @@ void ConfigManager::loadConfig() {
   currentConfig.midterm_abv = readInt(ADDR_MIDTERM_ABV, 0);
   currentConfig.calibration = readBool(ADDR_CALIBRATION, true);
   currentConfig.active_test = readInt(ADDR_ACTIVE_TEST, 60);
+  // Сессия 14: явный объём голов (мл). Адрес новый — на старой/чистой EEPROM
+  // readInt вернёт дефолт 0 (защита от 0xFF уже внутри readInt). Миграция версии
+  // конфига не нужна: поле добавляется, существующие данные не переинтерпретируются.
+  currentConfig.headsManualMl = readInt(ADDR_HEADS_MANUAL_ML, 0);
 
   // === ОДНОРАЗОВАЯ МИГРАЦИЯ v1 -> v2 (Сессия 10): midterm/midterm_abv в десятых долях ===
   // Как было: целые градусы (35, 92) и целые проценты (43) — округление не давало
@@ -319,6 +323,8 @@ void ConfigManager::saveConfig() {
   writeInt(ADDR_HEATER_TYPE, currentConfig.heaterType);
   writeInt(ADDR_POWER, currentConfig.power);
   writeInt(ADDR_AS_VOLUME, currentConfig.asVolume);
+  // Сессия 14: явный объём голов (мл), 0 = авто
+  writeInt(ADDR_HEADS_MANUAL_ML, currentConfig.headsManualMl);
   writeInt(ADDR_TSA_LIMIT, currentConfig.tsaLimit);
   writeFloat(ADDR_HISTERESIS, currentConfig.histeresis);
   writeFloat(ADDR_CORRELATION, currentConfig.correlation);

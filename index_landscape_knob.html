@@ -1824,6 +1824,9 @@
                                 <div class="s-row"><label>МАХ Т.СИСТ (C)</label><div class="s-inputs"><button onclick="adjCfg('boxMaxTemp',-1)">-</button><span id="cfg-boxMaxTemp">60</span><button onclick="adjCfg('boxMaxTemp',1)">+</button></div></div>
                                 <div class="s-row"><label>МОЩНОСТЬ (W)</label><div class="s-inputs"><button onclick="adjCfg('power',-100)">-</button><span id="cfg-power">3000</span><button onclick="adjCfg('power',100)">+</button></div></div>
                                 <div class="s-row"><label>КОЛ-ВО АС (ml)</label><div class="s-inputs"><button onclick="adjCfg('asVolume',-100)">-</button><span id="cfg-asVolume">1000</span><button onclick="adjCfg('asVolume',100)">+</button></div></div>
+                                <!-- Сессия 14: явный объём голов (0 = авто — расчёт от АС, только метод ST) -->
+                                <div class="s-row"><label>ГОЛОВЫ (ml)</label><div class="s-inputs"><button onclick="adjCfg('headsManualMl',-50)">-</button><span id="cfg-headsManualMl">0</span><button onclick="adjCfg('headsManualMl',50)">+</button></div></div>
+                                <div style="font-size:9px;color:#4a5568;margin:-2px 0 6px;">0 = авто (10% от АС); ручной объём действует только в методе ST</div>
                             </div>
                             <div>
                                 <div class="s-row"><label>WIFI ЧЕК (min)</label><div class="s-inputs"><button onclick="adjCfg('chekwifi',-1)">-</button><span id="cfg-chekwifi">5</span><button onclick="adjCfg('chekwifi',1)">+</button></div></div>
@@ -2876,7 +2879,7 @@
             const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
             const sb=(id,v,t,f)=>{const e=document.getElementById(id);if(e){e.textContent=v?t:f;e.className='bool-toggle '+(v?'on':'off');}};
             sv('cfg-emergencyTime',cfg.emergencyTime);sv('cfg-nasebTime',cfg.nasebTime);sv('cfg-reklapTime',cfg.reklapTime);
-            sv('cfg-boxMaxTemp',cfg.boxMaxTemp);sv('cfg-power',cfg.power);sv('cfg-asVolume',cfg.asVolume);sv('cfg-chekwifi',cfg.chekwifi);
+            sv('cfg-boxMaxTemp',cfg.boxMaxTemp);sv('cfg-power',cfg.power);sv('cfg-asVolume',cfg.asVolume);sv('cfg-headsManualMl',cfg.headsManualMl||0);sv('cfg-chekwifi',cfg.chekwifi);
             // PowerKnob SVG удалён по запросу — мощность отображается только текстом в темп-панели
             sv('cfg-razgonTemp',cfg.razgonTemp);sv('cfg-bakStopTemp',cfg.bakStopTemp);sv('cfg-midterm',(cfg.midterm||0).toFixed(1));sv('cfg-midterm_abv',(cfg.midterm_abv||0).toFixed(1));
             sb('btn-heaterType',cfg.heaterType==1,'IND','TEN');sb('btn-fullPwr',cfg.fullPwr,'YES','NO');sb('btn-valveuse',cfg.valveuse,'YES','NO');
@@ -2949,13 +2952,14 @@
         const cfgRanges = {
             emergencyTime:[1,10],
             nasebTime:[1,30], reklapTime:[1,30], boxMaxTemp:[50,70], power:[100,7000], asVolume:[1000,10000],
+            headsManualMl:[0,3000], // Сессия 14: явный объём голов, 0 = авто
             speedHeadCorr:[10,200], speedBodyCorr:[10,200], minOpenTime:[50,2000], chekwifi:[1,5],
             razgonTemp:[40,99], bakStopTemp:[50,100], midterm:[0,98], midterm_abv:[0,98],
             mixerOnTime:[5,300], mixerOffTime:[1,120],
             tsaLimit:[40,55], cycleLim:[1,5], histeresis:[0.06,1.00], delta:[0.06,1.00]
         };
         // Параметры с автосохранением при изменении
-        const cfgAutoSave = ['speedHeadCorr','speedBodyCorr','minOpenTime','emergencyTime','nasebTime','reklapTime','boxMaxTemp','power','asVolume','chekwifi'];
+        const cfgAutoSave = ['speedHeadCorr','speedBodyCorr','minOpenTime','emergencyTime','nasebTime','reklapTime','boxMaxTemp','power','asVolume','headsManualMl','chekwifi'];
 
         function adjCfg(key,delta){
             if(!currentData.cfg)return;configDirty=true;
@@ -3057,7 +3061,12 @@
                 dPanel.style.display='flex';
                 document.getElementById('dialog-title').textContent='НАСТРОЙКА ПАРАМЕТРОВ';
                 let p=currentData.cfg?currentData.cfg.power:'??';let v=currentData.cfg?currentData.cfg.asVolume:'??';
-                document.getElementById('dialog-text').innerHTML='<div style="text-align:left;"><p style="margin-bottom:6px;">Текущие настройки процесса:</p><p style="font-weight:700;color:#fff;">Мощность: <span style="color:var(--neon-amber);">'+p+' W</span></p><p style="font-weight:700;color:#fff;margin-bottom:6px;">Объём АС: <span style="color:var(--neon-amber);">'+v+' ml</span></p><p style="font-size:10px;color:#4a5568;margin-top:8px;">Если значения неверны, нажмите "ОТМЕНА", измените в Настройках и нажмите "ДАЛЕЕ" в шапке.</p></div>';
+                // Сессия 14: редактируемый объём голов прямо в диалоге старта.
+                // Шаг 50, диапазон 0..3000, 0 = авто (10% от АС). В методе KSS значение не используется.
+                let h=currentData.cfg?(currentData.cfg.headsManualMl||0):0;
+                let hNote=(currentData.cfg&&currentData.cfg.headsTypeKSS)?'<span style="color:#b9c6d2;">метод KSS — не используется</span>':'';
+                const hBtn='style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);color:#fff;border-radius:4px;padding:1px 10px;font-size:13px;cursor:pointer;font-family:inherit;"';
+                document.getElementById('dialog-text').innerHTML='<div style="text-align:left;"><p style="margin-bottom:6px;">Текущие настройки процесса:</p><p style="font-weight:700;color:#fff;">Мощность: <span style="color:var(--neon-amber);">'+p+' W</span></p><p style="font-weight:700;color:#fff;margin-bottom:6px;">Объём АС: <span style="color:var(--neon-amber);">'+v+' ml</span></p><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;"><span style="font-weight:700;color:#fff;">Головы: <span style="color:var(--neon-amber);">'+h+' ml</span></span><button onclick="adjCfg(\'headsManualMl\',-50)" '+hBtn+'>&minus;</button><button onclick="adjCfg(\'headsManualMl\',50)" '+hBtn+'>+</button><span style="font-size:10px;color:#4a5568;">0 = авто (10% от АС) '+hNote+'</span></div><p style="font-size:10px;color:#4a5568;margin-top:8px;">Если значения неверны, нажмите "ОТМЕНА", измените в Настройках и нажмите "ДАЛЕЕ" в шапке.</p></div>';
                 document.getElementById('dialog-buttons').innerHTML='<button onclick="closeSetPwAsPanel()" class="dialog-btn dialog-btn-gray">ОТМЕНА</button><button onclick="sendCommand(\'NEXT_STAGE\')" class="dialog-btn dialog-btn-green">ДАЛЕЕ</button>';
             }else{dPanel.style.display='none';}
         }
