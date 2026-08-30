@@ -165,10 +165,14 @@ public:
     }
 
     // === НОВЫЙ МЕТОД: последние N строк лога как JSON-массив ===
-    // Читает только ~1KB (вместо 16KB у readLastLog) — быстро, не нагружает SD.
-    // Вызывается каждую секунду из handleApiStatus() — оптимизирован для частых вызовов.
+    // Сессия 9: окно чтения 1KB → 4KB, лимит по умолчанию 10 → 30 строк.
+    // Зачем: старт этапа пишет 4-6 строк подряд, окно в 10 строк «выталкивало»
+    // важные записи (Stage change) за секунды, а серии >10 строк между опросами
+    // /api/status вообще не доходили до веб-интерфейса. 4KB вмещает ~30-40 строк.
+    // Нагрузка: чтение 4KB с SD на каждый опрос остаётся быстрым (полный
+    // readLastLog для кнопки ЛОГИ и так читает 16KB по требованию).
     // Возвращает: ["строка1","строка2",...] (новые сверху, старые внизу)
-    String getLastLogLinesJson(int maxLines = 10) {
+    String getLastLogLinesJson(int maxLines = 30) {
         if (!sdAvailable) return "[]";
         
         SDScopeLock lock;
@@ -177,12 +181,15 @@ public:
         File file = SD.open("/system.log");
         if (!file) return "[]";
         
-        // Читаем только последний 1KB — хватит на 10-15 строк
-        const int readSize = 1024;
+        // Читаем последнее окно 4KB — хватит на maxLines строк с запасом
+        const int readSize = 4096;
+        // Флаг: файл обрезан с начала (окно меньше файла) → первая строка
+        // в окне может быть неполной («надкусанной» посередине).
+        bool fileCut = (file.size() > (unsigned long)readSize);
         String content = "";
         content.reserve(readSize);
         
-        if (file.size() > readSize) {
+        if (fileCut) {
             file.seek(file.size() - readSize);
         }
         
@@ -191,12 +198,28 @@ public:
         }
         file.close();
         
-        // Разбиваем на строки, собираем последние maxLines (новые сверху)
+        // === Фикс «надкусанной» первой строки (Сессия 9) ===
+        // Если файл больше окна, чтение начинается с середины строки.
+        // Пропускаем неполный фрагмент до первого '\n' — в JSON попадают
+        // только целые строки. Если '\n' нет вовсе — фрагмент мусорный целиком.
+        // При fileCut=false файл прочитан с начала — ничего не пропускаем.
+        int startIdx = 0;
+        if (fileCut) {
+            int nl = content.indexOf('\n');
+            startIdx = (nl >= 0) ? (nl + 1) : content.length();
+        }
+        
+        // Разбиваем на строки, собираем ПОСЛЕДНИЕ maxLines (новые сверху).
+        // Сканируем ВСЕ строки в окне без остановки по maxLines: каждая новая
+        // строка сдвигает предыдущие вниз — после прохода lines[0..lineCount-1] =
+        // последние maxLines строки, новейшая в index 0.
+        // (Раньше цикл останавливался на maxLines, а всё, что оставалось после
+        // него, приклеивалось в «хвост» одной склейкой из нескольких строк —
+        // с окном 4KB и длинными строками это становилось достижимо.)
         String lines[maxLines];
         int lineCount = 0;
-        int startIdx = 0;
         
-        for (int i = 0; i < content.length() && lineCount < maxLines; i++) {
+        for (int i = startIdx; i < content.length(); i++) {
             if (content.charAt(i) == '\n') {
                 String line = content.substring(startIdx, i);
                 line.trim();
@@ -214,12 +237,12 @@ public:
         if (startIdx < content.length()) {
             String line = content.substring(startIdx);
             line.trim();
-            if (line.length() > 0 && lineCount < maxLines) {
+            if (line.length() > 0) {
                 for (int j = maxLines - 1; j > 0; j--) {
                     lines[j] = lines[j - 1];
                 }
                 lines[0] = line;
-                lineCount++;
+                if (lineCount < maxLines) lineCount++;
             }
         }
         

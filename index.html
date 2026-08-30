@@ -1294,7 +1294,7 @@
             const setS = (id, temp, calibrated) => {
                 const tEl = document.getElementById('sensor-' + id + '-temp');
                 const sEl = document.getElementById('sensor-' + id + '-status');
-                if (tEl) tEl.textContent = (temp && temp > -100) ? temp.toFixed(1) + '°C' : '--°C';
+                if (tEl) tEl.textContent = (temp && temp > -100) ? temp.toFixed(2) + '°C' : '--°C';
                 if (sEl) { sEl.textContent = calibrated ? '✓ определён' : '? не определён'; sEl.className = 'text-xs mt-1 ' + (calibrated ? 'text-green-400' : 'text-gray-500'); }
             };
             if (currentData.cfg) {
@@ -1391,10 +1391,10 @@
                 }
             }
 
-            document.getElementById('val-tsa-m').textContent = currentData.tsa ? currentData.tsa.toFixed(1) : '--';
-            document.getElementById('val-tsar-m').textContent = currentData.tsar ? currentData.tsar.toFixed(1) : '--';
-            document.getElementById('val-tank-m').textContent = currentData.tank ? currentData.tank.toFixed(1) : '--';
-            document.getElementById('val-aqua-m').textContent = currentData.aqua ? currentData.aqua.toFixed(1) : '--';
+            document.getElementById('val-tsa-m').textContent = currentData.tsa ? currentData.tsa.toFixed(2) : '--';
+            document.getElementById('val-tsar-m').textContent = currentData.tsar ? currentData.tsar.toFixed(2) : '--';
+            document.getElementById('val-tank-m').textContent = currentData.tank ? currentData.tank.toFixed(2) : '--';
+            document.getElementById('val-aqua-m').textContent = currentData.aqua ? currentData.aqua.toFixed(2) : '--';
 
             document.getElementById('desc-tsa-m').textContent = `ТСА/Лимит ${tsaLimit}`;
             document.getElementById('desc-tank-m').textContent = `БАК/Стоп ${currentData.cfg ? currentData.cfg.bakStopTemp : '--'}`;
