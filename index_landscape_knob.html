@@ -1181,10 +1181,10 @@
                                 </filter>
                                 <clipPath id="tubeClip"><rect x="168" y="150" width="64" height="322" rx="14"></rect></clipPath>
                                 <clipPath id="coilClip"><rect x="164" y="46" width="72" height="104" rx="18"></rect></clipPath>
-<clipPath id="coilClipDist"><rect x="64" y="400" width="72" height="104" rx="18"></rect></clipPath>
+<clipPath id="coilClipDist"><rect x="64" y="142" width="72" height="104" rx="18"></rect></clipPath>
 
                                 <!-- Path для движения пара по П-трубе (dist-режим) -->
-                                <path id="pipePath" d="M290 440 L290 334 Q290 320 276 320 L114 320 Q100 320 100 334 L100 400" fill="none"></path>
+                                <path id="pipePath" d="M238 388 L238 80 Q238 66 224 66 L114 66 Q100 66 100 80 L100 142" fill="none"></path>
                             </defs>
 
                             <!-- =========================================================== -->
@@ -1325,75 +1325,75 @@
                                 <rect class="heat-bar heat-on" x="150" y="632" width="100" height="9" rx="4.5" fill="url(#heatg)"></rect>
                                 <rect class="heat-bar heat-off" x="150" y="632" width="100" height="9" rx="4.5" fill="#3a4248" style="display:none;"></rect>
 
-                                <!-- ===== ТЕМПЕРАТУРЫ НА SVG (ректификация) ===== -->
+                                <!-- ===== ТЕМПЕРАТУРЫ НА SVG (ректификация) — шрифты увеличены (Сессия 13) ===== -->
                                 <!-- TSA + лимит: над дефлегматором, по центру -->
-                                <text id="svg-rect-tsa" x="200" y="30" text-anchor="middle" font-size="22" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-rect-tsa-limit" x="200" y="42" text-anchor="middle" font-size="11" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
-                                <!-- ВОДА: справа от правого патрубка воды дефлегматора -->
-                                <text id="svg-rect-aqua" x="315" y="52" text-anchor="start" font-size="22" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="315" y="63" text-anchor="start" font-size="11" fill="#6b7688" font-family="system-ui">ВОДА</text>
+                                <text id="svg-rect-tsa" x="200" y="28" text-anchor="middle" font-size="28" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-rect-tsa-limit" x="200" y="42" text-anchor="middle" font-size="13" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
+                                <!-- ВОДА: правый верхний угол у патрубка воды дефлегматора; якорь по правому краю, чтобы "99.99°" не вышло за viewBox -->
+                                <text id="svg-rect-aqua" x="398" y="36" text-anchor="end" font-size="28" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="398" y="52" text-anchor="end" font-size="13" fill="#6b7688" font-family="system-ui">ВОДА</text>
                                 <!-- ЦАРГА: слева от колонны, по середине -->
-                                <text id="svg-rect-tsar" x="162" y="308" text-anchor="end" font-size="22" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="162" y="320" text-anchor="end" font-size="11" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
-                                <!-- БАК + стоп: на баке, по центру; T куба — контрастный синий с тёмной обводкой (читаемо на светлой браш-стали) -->
-                                <text id="svg-rect-tank" x="200" y="575" text-anchor="middle" font-size="22" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-rect-tank-stop" x="200" y="588" text-anchor="middle" font-size="11" fill="#b9c6d2" stroke="#0d1420" stroke-width="2" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
+                                <text id="svg-rect-tsar" x="162" y="310" text-anchor="end" font-size="28" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="162" y="326" text-anchor="end" font-size="13" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
+                                <!-- БАК + стоп: на баке; T куба — контрастный синий с тёмной обводкой (читаемо на светлой браш-стали); x=212 — правее цифрового термометра на корпусе (150..160) -->
+                                <text id="svg-rect-tank" x="212" y="577" text-anchor="middle" font-size="28" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-rect-tank-stop" x="212" y="593" text-anchor="middle" font-size="13" fill="#b9c6d2" stroke="#0d1420" stroke-width="2" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
                             </g>
 
                             <!-- ================================================================== -->
                             <!-- === ДИСТИЛЛЯЦИЯ: перевёрнутый дефлегматор слева, П-труба, бак === -->
                             <!-- ================================================================== -->
                             <g id="apparatusDist" style="display:none">
-                                <!-- П-образная труба (24px, верх на y=320) — входит по центру дефлегматора (x=100) -->
-                                <path d="M290 440 L290 334 Q290 320 276 320 L114 320 Q100 320 100 334 L100 400"
+                                <!-- П-образная труба (24px, верх на y=66) — поднята в верхнюю зону (Сессия 13), входит по центру дефлегматора (x=100) -->
+                                <path d="M238 388 L238 80 Q238 66 224 66 L114 66 Q100 66 100 80 L100 142"
                                       fill="none" stroke="url(#pipeSteel)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M290 440 L290 334 Q290 320 276 320 L114 320 Q100 320 100 334 L100 400"
+                                <path d="M238 388 L238 80 Q238 66 224 66 L114 66 Q100 66 100 80 L100 142"
                                       fill="none" stroke="#e8eef2" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".55"></path>
-                                <path d="M290 440 L290 334 Q290 320 276 320 L114 320 Q100 320 100 334 L100 400"
+                                <path d="M238 388 L238 80 Q238 66 224 66 L114 66 Q100 66 100 80 L100 142"
                                       fill="none" stroke="#1a2028" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".4" transform="translate(3, 3)"></path>
-                                <!-- Феррул на стыке П-трубы с баком -->
-                                <rect x="278" y="438" width="24" height="18" fill="url(#tankLid)" stroke="#1a2028" stroke-width="1"></rect>
-                                <ellipse cx="290" cy="438" rx="12" ry="4" fill="#d8e0e8" stroke="#1a2028" stroke-width=".8"></ellipse>
+                                <!-- Феррул на стыке П-трубы с баком (верх бака y=400) -->
+                                <rect x="226" y="388" width="24" height="18" fill="url(#tankLid)" stroke="#1a2028" stroke-width="1"></rect>
+                                <ellipse cx="238" cy="388" rx="12" ry="4" fill="#d8e0e8" stroke="#1a2028" stroke-width=".8"></ellipse>
                                 <g class="pipe-vapor-layer"></g>
 
-                                <!-- Дефлегматор (центр x=100, верх y=400, низ y=504) — нарисован напрямую без rotate
-                                     Вода: синий ввод слева снизу (y=490), оранжевый вывод слева сверху (y=410) -->
+                                <!-- Дефлегматор (центр x=100, верх y=142, низ y=246) — поднят под верхнюю П-трубу (Сессия 13)
+                                     Вода: синий ввод слева снизу (y=232), оранжевый вывод слева сверху (y=152) -->
                                 <g>
                                     <g stroke-linecap="round" fill="none">
                                         <!-- Синий ввод воды (нижний патрубок слева) — путь от порта к дефлегматору (вода течёт В дефлегматор) -->
-                                        <path d="M28 476 C 40 484 50 490 64 490" stroke="#22415a" stroke-width="10"></path>
-                                        <path d="M28 476 C 40 484 50 490 64 490" stroke="url(#coolFlow)" stroke-width="6" class="coilflow"></path>
+                                        <path d="M28 218 C 40 226 50 232 64 232" stroke="#22415a" stroke-width="10"></path>
+                                        <path d="M28 218 C 40 226 50 232 64 232" stroke="url(#coolFlow)" stroke-width="6" class="coilflow"></path>
                                         <!-- Оранжевый вывод воды (верхний патрубок слева) -->
-                                        <path d="M64 410 C 50 410 40 416 28 424" stroke="#4a2a1e" stroke-width="10"></path>
-                                        <path d="M64 410 C 50 410 40 416 28 424" stroke="url(#coolFlow)" stroke-width="6" class="coilflow" style="animation-delay:.55s"></path>
+                                        <path d="M64 152 C 50 152 40 158 28 166" stroke="#4a2a1e" stroke-width="10"></path>
+                                        <path d="M64 152 C 50 152 40 158 28 166" stroke="url(#coolFlow)" stroke-width="6" class="coilflow" style="animation-delay:.55s"></path>
                                     </g>
                                     <!-- Штуцеры на концах патрубков -->
-                                    <rect x="18" y="471" width="14" height="10" rx="3" fill="#7db4d8" stroke="#22415a" stroke-width="1"></rect>
-                                    <rect x="18" y="419" width="14" height="10" rx="3" fill="#e08a5a" stroke="#4a2a1e" stroke-width="1"></rect>
+                                    <rect x="18" y="213" width="14" height="10" rx="3" fill="#7db4d8" stroke="#22415a" stroke-width="1"></rect>
+                                    <rect x="18" y="161" width="14" height="10" rx="3" fill="#e08a5a" stroke="#4a2a1e" stroke-width="1"></rect>
                                     <!-- Корпус дефлегматора (стеклянный) -->
-                                    <rect x="64" y="400" width="72" height="104" rx="18" fill="url(#glass)" stroke="#3a5674" stroke-width="1.6"></rect>
+                                    <rect x="64" y="142" width="72" height="104" rx="18" fill="url(#glass)" stroke="#3a5674" stroke-width="1.6"></rect>
                                     <!-- Змеевик Dimroth (6 дуг) — clip по корпусу -->
                                     <g clip-path="url(#coilClipDist)" fill="none" stroke-linecap="round">
-                                        <path d="M72 416 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path d="M72 432 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path d="M72 448 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path d="M72 464 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path d="M72 480 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path d="M72 494 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
-                                        <path class="coilflow" d="M72 416 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6"></path>
-                                        <path class="coilflow" d="M72 432 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.12s"></path>
-                                        <path class="coilflow" d="M72 448 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.24s"></path>
-                                        <path class="coilflow" d="M72 464 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.36s"></path>
-                                        <path class="coilflow" d="M72 480 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.48s"></path>
-                                        <path class="coilflow" d="M72 494 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.60s"></path>
+                                        <path d="M72 158 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path d="M72 174 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path d="M72 190 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path d="M72 206 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path d="M72 222 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path d="M72 236 a28 7 0 0 0 56 0" stroke="#1c4361" stroke-width="7"></path>
+                                        <path class="coilflow" d="M72 158 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6"></path>
+                                        <path class="coilflow" d="M72 174 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.12s"></path>
+                                        <path class="coilflow" d="M72 190 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.24s"></path>
+                                        <path class="coilflow" d="M72 206 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.36s"></path>
+                                        <path class="coilflow" d="M72 222 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.48s"></path>
+                                        <path class="coilflow" d="M72 236 a28 9 0 0 1 56 0" stroke="url(#coolFlow)" stroke-width="6" style="animation-delay:-0.60s"></path>
                                     </g>
-                                    <rect x="72" y="406" width="7" height="92" rx="3.5" fill="url(#tubeHi)"></rect>
+                                    <rect x="72" y="148" width="7" height="92" rx="3.5" fill="url(#tubeHi)"></rect>
                                     <!-- Носик-капельник по центру дефлегматора (x=100, соосен горлу бутыли) -->
-                                    <path d="M94 504 h12 l-3 14 h-6 z" fill="#33506e"></path>
+                                    <path d="M94 246 h12 l-3 14 h-6 z" fill="#33506e"></path>
                                 </g>
 
-                                <!-- Бутыль под дефлегматором (центр x=100, выровнена под носиком-капельником) -->
-                                <g transform="translate(-188, 165)">
+                                <!-- Бутыль под дефлегматором (центр x=100, выровнена под носиком-капельником; поднята вместе с дефлегматором, Сессия 13) -->
+                                <g transform="translate(-188, -86)">
                                     <clipPath id="bottleClipDist"><path d="M281 378 q-17 6 -17 28 v46 a24 12 0 0 0 48 0 v-46 q0 -22 -17 -28 z"></path></clipPath>
                                     <rect x="279" y="356" width="18" height="7" rx="3" fill="#33506e"></rect>
                                     <rect x="281" y="360" width="14" height="20" rx="3" fill="url(#glass)" stroke="#3a5674" stroke-width="1.4"></rect>
@@ -1407,8 +1407,8 @@
                                     <g class="product-layer-dist"></g>
                                 </g>
 
-                                <!-- Бак Domspirt ×1.7 (центр x=260, верх y=440) — увеличен по запросу; центр сдвинут влево, чтобы бак и сливной кран не выходили за viewBox -->
-                                <g class="tank-domspirt" transform="translate(260, 440) scale(1.7)">
+                                <!-- Бак Domspirt ×2.0 (центр x=238, верх y=400) — увеличен по запросу (Сессия 13): труба/дефлегматор/бутыль подняты вверх, баку освобождена вся ширина; правый край с краном 394 < 400, низ 660 -->
+                                <g class="tank-domspirt" transform="translate(238, 400) scale(2)">
                                     <path d="M-62 115 L62 115 L70 130 L-70 130 Z" fill="url(#tankBase)" stroke="#1a2028" stroke-width="1"></path>
                                     <rect x="-62" y="25" width="124" height="90" fill="url(#tankBody)" stroke="#1a2028" stroke-width="1"></rect>
                                     <rect x="-50" y="25" width="3" height="90" fill="#ffffff" opacity=".08"></rect>
@@ -1436,29 +1436,30 @@
                                     <rect x="68" y="91" width="6" height="8" rx="1" fill="#2a6fc9"></rect>
                                     <path d="M70 95 L78 95" stroke="#2a6fc9" stroke-width="3" stroke-linecap="round"></path>
                                 </g>
-                                <!-- Нагрев: оранжевый (виден при heaterOn) + серый (виден при !heaterOn) — опущен ниже и расширен под увеличенный бак (низ бака y=661) -->
-                                <ellipse class="heatglow heat-on" cx="260" cy="678" rx="112" ry="13" fill="url(#heatg)" filter="url(#softlg)" opacity=".7"></ellipse>
-                                <ellipse class="heatglow heat-off" cx="260" cy="678" rx="112" ry="13" fill="#3a4248" filter="url(#softlg)" opacity=".3" style="display:none;"></ellipse>
-                                <rect class="heat-bar heat-on" x="155" y="666" width="210" height="12" rx="6" fill="url(#heatg)"></rect>
-                                <rect class="heat-bar heat-off" x="155" y="666" width="210" height="12" rx="6" fill="#3a4248" style="display:none;"></rect>
+                                <!-- Нагрев: оранжевый (виден при heaterOn) + серый (виден при !heaterOn) — расширен под бак ×2.0 (низ бака y=660, центр 238) -->
+                                <ellipse class="heatglow heat-on" cx="238" cy="678" rx="125" ry="13" fill="url(#heatg)" filter="url(#softlg)" opacity=".7"></ellipse>
+                                <ellipse class="heatglow heat-off" cx="238" cy="678" rx="125" ry="13" fill="#3a4248" filter="url(#softlg)" opacity=".3" style="display:none;"></ellipse>
+                                <rect class="heat-bar heat-on" x="118" y="666" width="240" height="12" rx="6" fill="url(#heatg)"></rect>
+                                <rect class="heat-bar heat-off" x="118" y="666" width="240" height="12" rx="6" fill="#3a4248" style="display:none;"></rect>
 
-                                <!-- ===== ЗАГОЛОВОК: СМЕНА ТАРЫ (верхняя строка, только дистилляция) ===== -->
-                                <!-- Значения обновляются в updateApparatusSVG() из cfg.midterm_abv (крепость отбора) и cfg.midterm (T куба, приведённая к 760 мм рт.ст.). Скрывается, если уставка не задана (midterm=0) -->
-                                <text id="svg-dist-midterm" x="200" y="28" text-anchor="middle" font-family="system-ui" style="display:none;font-variant-numeric:tabular-nums"><tspan fill="#8b95a5" font-size="12.5" font-weight="650" letter-spacing=".06em">СМЕНА ТАРЫ</tspan><tspan fill="#4a5568" font-size="12"> · </tspan><tspan fill="#8b95a5" font-size="11.5">ОТБОР </tspan><tspan id="svg-dist-midterm-abv" fill="#facc15" font-size="15" font-weight="700">--%</tspan><tspan fill="#4a5568" font-size="12"> · </tspan><tspan fill="#8b95a5" font-size="11.5">КУБ </tspan><tspan id="svg-dist-midterm-temp" fill="#4da3ff" font-size="15" font-weight="700">--°</tspan><tspan fill="#5a6675" font-size="10"> (прив. 760)</tspan></text>
+                                <!-- ===== ЗАГОЛОВОК: СМЕНА ТАРЫ (верхние строки, только дистилляция) ===== -->
+                                <!-- Значения обновляются в updateApparatusSVG() из cfg.midterm_abv (крепость отбора) и cfg.midterm (T куба, приведённая к 760 мм рт.ст.). Скрывается, если уставка не задана (midterm=0).
+                                     Две строки: в одну крупный шрифт не помещается (ширина холста 400) -->
+                                <text id="svg-dist-midterm" x="200" y="22" text-anchor="middle" font-family="system-ui" style="display:none;font-variant-numeric:tabular-nums"><tspan fill="#98a2b3" font-size="18" font-weight="700" letter-spacing=".08em">СМЕНА ТАРЫ</tspan><tspan x="200" y="45" fill="#8b95a5" font-size="15" font-weight="600">ОТБОР </tspan><tspan id="svg-dist-midterm-abv" fill="#facc15" font-size="21" font-weight="700">--%</tspan><tspan fill="#4a5568" font-size="15"> · </tspan><tspan fill="#8b95a5" font-size="15" font-weight="600">КУБ </tspan><tspan id="svg-dist-midterm-temp" fill="#4da3ff" font-size="21" font-weight="700">--°</tspan><tspan fill="#5a6675" font-size="12.5"> (прив. 760)</tspan></text>
 
-                                <!-- ===== ТЕМПЕРАТУРЫ НА SVG (дистилляция) ===== -->
-                                <!-- БАК + стоп: на баке, по центру нового бака (x=260); T куба — контрастный синий с тёмной обводкой (читаемо на светлой браш-стали) -->
-                                <text id="svg-dist-tank" x="260" y="546" text-anchor="middle" font-size="28" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-dist-tank-stop" x="260" y="563" text-anchor="middle" font-size="12" fill="#b9c6d2" stroke="#0d1420" stroke-width="2.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
-                                <!-- TSA + лимит: слева от носика-капельника; 24 — максимум, который влезает в левую колонку (шире — обрезка по краю viewBox) -->
-                                <text id="svg-dist-tsa" x="89" y="525" text-anchor="end" font-size="24" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-dist-tsa-limit" x="89" y="540" text-anchor="end" font-size="12" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
-                                <!-- ЦАРГА: над П-трубой, по центру -->
-                                <text id="svg-dist-tsar" x="200" y="306" text-anchor="middle" font-size="28" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="200" y="321" text-anchor="middle" font-size="12" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
-                                <!-- ВОДА: слева от верхнего патрубка воды (оранжевый вывод); 24 — максимум по ширине левой колонки -->
-                                <text id="svg-dist-aqua" x="87" y="395" text-anchor="end" font-size="24" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="87" y="409" text-anchor="end" font-size="12" fill="#6b7688" font-family="system-ui">ВОДА</text>
+                                <!-- ===== ТЕМПЕРАТУРЫ НА SVG (дистилляция) — шрифты увеличены (Сессия 13) ===== -->
+                                <!-- T куба: крупно на баке; контрастный синий с тёмной обводкой (читаемо на светлой браш-стали) -->
+                                <text id="svg-dist-tank" x="238" y="542" text-anchor="middle" font-size="42" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-dist-tank-stop" x="238" y="568" text-anchor="middle" font-size="15" fill="#b9c6d2" stroke="#0d1420" stroke-width="2.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
+                                <!-- ЦАРГА (пар в П-трубе): правая колонка показаний, у горизонтальной трубы -->
+                                <text id="svg-dist-tsar" x="394" y="104" text-anchor="end" font-size="30" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="394" y="121" text-anchor="end" font-size="14" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
+                                <!-- ВОДА: правая колонка, напротив патрубков воды дефлегматора -->
+                                <text id="svg-dist-aqua" x="394" y="180" text-anchor="end" font-size="30" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="394" y="197" text-anchor="end" font-size="14" fill="#6b7688" font-family="system-ui">ВОДА</text>
+                                <!-- TSA + лимит: правая колонка, напротив носика-капельника -->
+                                <text id="svg-dist-tsa" x="394" y="256" text-anchor="end" font-size="30" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-dist-tsa-limit" x="394" y="273" text-anchor="end" font-size="14" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
                             </g>
                         </svg>
                     </div>
