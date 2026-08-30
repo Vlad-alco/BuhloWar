@@ -683,9 +683,11 @@ String procName = getProcessName();
     // Ключевые параметры конфигурации
     SystemConfig& cfg = configManager->getConfig();
     if (type == PROCESS_DIST) {
+        // Сессия 10: midterm в десятых долях — лог с одним знаком + крепость отбора
         logger.log("  razgonTemp: " + String(cfg.razgonTemp) + "C"
                  + "  bakStopTemp: " + String(cfg.bakStopTemp) + "C"
-                 + "  midterm: " + String(cfg.midterm) + "C");
+                 + "  midterm: " + String(cfg.midterm * 0.1f, 1) + "C"
+                 + " (" + String(cfg.midterm_abv * 0.1f, 1) + "%)" );
     } else {
         logger.log("  razgonTemp: " + String(cfg.razgonTemp) + "C"
                  + "  asVolume: " + String(cfg.asVolume) + "L"
@@ -743,7 +745,7 @@ void ProcessEngine::printStartupInfo() {
     // --- БЛОК 2: ДИСТИЛЛЯЦИЯ (DIST) ---
     Serial.println(F("\n--- DISTILLATION SETTINGS ---"));
     Serial.print(F("  Valve Use      : ")); Serial.println(cfg.valveuse ? "YES" : "NO");
-    Serial.print(F("  Midterm Temp   : ")); Serial.print(cfg.midterm); Serial.println(" C");
+    Serial.print(F("  Midterm Temp   : ")); Serial.print(cfg.midterm * 0.1f, 1); Serial.println(" C");
     Serial.print(F("  BakStop Temp   : ")); Serial.print(cfg.bakStopTemp); Serial.println(" C");
     Serial.print(F("  Mixer Enabled  : ")); Serial.println(cfg.mixerEnabled ? "YES" : "NO");
     if (cfg.mixerEnabled) {
@@ -955,17 +957,19 @@ void ProcessEngine::handleDistOtbor() {
 
         // Логика Midterm (Смена посуды)
     if (!midtermHandled) {
-        if (data.tank.value >= cfg.midterm) { 
+        // Сессия 10: уставка хранится x10 — рабочий порог float без округления до целого
+        float midtermSet = cfg.midterm * 0.1f;
+        if (data.tank.value >= midtermSet) { 
             
             // === УЧЕТ ДАВЛЕНИЯ ===
             // Используем захваченное/замороженное давление
             float tankCorrected = data.tank.value + (760.0 - distMidtermPressureMmHg) * 0.037;
 
             // Сравниваем приведенную температуру с уставкой
-            if (tankCorrected >= cfg.midterm) {
+            if (tankCorrected >= midtermSet) {
                 if (cfg.valveuse) outputManager->closeBodyValve();
                 midtermHandled = true;
-                logger.log("OTBOR: midterm reached. T=" + String(data.tank.value, 1) + "C (Corrected: " + String(tankCorrected, 1) + "C)");
+                logger.log("OTBOR: midterm reached. T=" + String(data.tank.value, 1) + "C (Corrected: " + String(tankCorrected, 1) + "C, set " + String(midtermSet, 1) + "C/" + String(cfg.midterm_abv * 0.1f, 1) + "%)");
                 changeStage(Stage::REPLACEMENT);
                 return;
             }
@@ -1782,7 +1786,7 @@ void ProcessEngine::updateDisplayData() {
         
         // --- Строка 0: TSA, DIST, Крепость куба ---
         char strAbvBak[8];
-        if (showStrength && currentStatus.strengthBakValid) snprintf(strAbvBak, sizeof(strAbvBak), "%%%.0f", currentStatus.currentStrengthBak);
+        if (showStrength && currentStatus.strengthBakValid) snprintf(strAbvBak, sizeof(strAbvBak), "%%%.1f", currentStatus.currentStrengthBak);
         else snprintf(strAbvBak, sizeof(strAbvBak), "%%--");
         
         // Используем символы W / A / X для статуса сети
@@ -1791,7 +1795,7 @@ void ProcessEngine::updateDisplayData() {
         
         // --- Строка 1: AQUA, Этап, Крепость в отборе ---
         char strAbvOut[8];
-        if (showStrength && currentStatus.strengthOutValid) snprintf(strAbvOut, sizeof(strAbvOut), "%%%.0f", currentStatus.currentStrength);
+        if (showStrength && currentStatus.strengthOutValid) snprintf(strAbvOut, sizeof(strAbvOut), "%%%.1f", currentStatus.currentStrength);
         else snprintf(strAbvOut, sizeof(strAbvOut), "%%--");
         
         snprintf(buf, sizeof(buf), "%5.2f %-8.8s%6s", data.aqua.value, currentStatus.stageName.c_str(), strAbvOut);

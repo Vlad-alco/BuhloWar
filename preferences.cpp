@@ -244,12 +244,32 @@ void ConfigManager::loadConfig() {
   currentConfig.syncInProgress = readBool(ADDR_SYNC_IN_PROGRESS, false);
 
   // --- НОВЫЕ ПЕРЕМЕННЫЕ ---
+  // Сессия 10: дефолты midterm/midterm_abv заданы в СТАРОМ формате (целые) —
+  // миграция ниже переводит их (и сохранённые значения) в десятые доли (x10).
   currentConfig.chekwifi = readInt(ADDR_CHEKWIFI, 5);
   currentConfig.valveuse = readBool(ADDR_VALVE_USE, true);
   currentConfig.midterm = readInt(ADDR_MIDTERM, 35);
   currentConfig.midterm_abv = readInt(ADDR_MIDTERM_ABV, 0);
   currentConfig.calibration = readBool(ADDR_CALIBRATION, true);
   currentConfig.active_test = readInt(ADDR_ACTIVE_TEST, 60);
+
+  // === ОДНОРАЗОВАЯ МИГРАЦИЯ v1 -> v2 (Сессия 10): midterm/midterm_abv в десятых долях ===
+  // Как было: целые градусы (35, 92) и целые проценты (43) — округление не давало
+  // задать точный момент смены тары по крепости в отборе.
+  // Стало: x10 (350, 920, 430). Для свежей EEPROM миграция клапанов выше уже
+  // записала v1, поэтому сюда попадают и старые, и чистые платы: 35 -> 350, 92 -> 920.
+  // Даунгрейд на прошивку до Сессии 10 прочитает 920 как «920°C» — уставку
+  // потребуется переустановить (см. CHANGELOG, Сессия 10).
+  {
+    uint8_t midtermVer = EEPROM.read(ADDR_CONFIG_VERSION);
+    if (midtermVer < 2) {
+      currentConfig.midterm *= 10;      // целые °C -> десятые °C (35 -> 350)
+      currentConfig.midterm_abv *= 10;  // целые %  -> десятые %  (43 -> 430)
+      EEPROM.write(ADDR_CONFIG_VERSION, 2);
+      EEPROM.commit();
+      Serial.println("[Config] Midterm units migrated to tenths (x10)");
+    }
+  }
   
   currentConfig.valve_head_capacity = readInt(ADDR_VALVE_HEAD_CAP, 100);
   currentConfig.valve_body_capacity = readInt(ADDR_VALVE_BODY_CAP, 100);
@@ -341,8 +361,8 @@ void ConfigManager::saveConfig() {
   // --- НОВЫЕ ПЕРЕМЕННЫЕ ---
   writeInt(ADDR_CHEKWIFI, currentConfig.chekwifi);
   writeBool(ADDR_VALVE_USE, currentConfig.valveuse);
-  writeInt(ADDR_MIDTERM, currentConfig.midterm);
-  writeInt(ADDR_MIDTERM_ABV, currentConfig.midterm_abv);
+  writeInt(ADDR_MIDTERM, currentConfig.midterm);          // x10 (Сессия 10)
+  writeInt(ADDR_MIDTERM_ABV, currentConfig.midterm_abv);  // x10 (Сессия 10)
   writeBool(ADDR_CALIBRATION, currentConfig.calibration);
   writeInt(ADDR_ACTIVE_TEST, currentConfig.active_test);
   
@@ -405,8 +425,8 @@ void ConfigManager::saveDistConfig() {
   
   // Сохраняем новые настройки DIST
   writeBool(ADDR_VALVE_USE, currentConfig.valveuse);
-  writeInt(ADDR_MIDTERM, currentConfig.midterm);
-  writeInt(ADDR_MIDTERM_ABV, currentConfig.midterm_abv);
+  writeInt(ADDR_MIDTERM, currentConfig.midterm);          // x10 (Сессия 10)
+  writeInt(ADDR_MIDTERM_ABV, currentConfig.midterm_abv);  // x10 (Сессия 10)
   EEPROM.commit();
   currentConfig.localChangeTimestamp = millis();
   currentConfig.configChangedLocally = true;

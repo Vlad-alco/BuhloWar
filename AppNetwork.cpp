@@ -672,9 +672,9 @@ void AppNetwork::handleApiStatus() {
     json += "\"aqua\":" + String(status.currentAqua) + ",";
     json += "\"tank\":" + String(status.currentTank) + ",";
     
-    // --- Крепость ---
-    json += "\"str_bak\":" + String(status.currentStrengthBak) + ",";
-    json += "\"str_out\":" + String(status.currentStrength) + ",";
+    // --- Крепость (Сессия 10: один знак после запятой — согласовано с уставкой 0.1%) ---
+    json += "\"str_bak\":" + String(status.currentStrengthBak, 1) + ",";
+    json += "\"str_out\":" + String(status.currentStrength, 1) + ",";
     json += "\"str_bak_valid\":" + String(status.strengthBakValid ? "true" : "false") + ",";
     json += "\"str_out_valid\":" + String(status.strengthOutValid ? "true" : "false") + ",";
     json += "\"pressure\":" + String(sensors.pressure * 0.75) + ",";
@@ -789,8 +789,8 @@ String AppNetwork::buildTelemetryJson() {
     json += "\"tsar\":" + String(status.currentTsar) + ",";
     json += "\"aqua\":" + String(status.currentAqua) + ",";
     json += "\"tank\":" + String(status.currentTank) + ",";
-    json += "\"str_bak\":" + String(status.currentStrengthBak) + ",";
-    json += "\"str_out\":" + String(status.currentStrength) + ",";
+    json += "\"str_bak\":" + String(status.currentStrengthBak, 1) + ",";
+    json += "\"str_out\":" + String(status.currentStrength, 1) + ",";
     json += "\"str_bak_valid\":" + String(status.strengthBakValid ? "true" : "false") + ",";
     json += "\"str_out_valid\":" + String(status.strengthOutValid ? "true" : "false") + ",";
     json += "\"safety\":" + String((int)status.safety) + ",";
@@ -1001,21 +1001,28 @@ void AppNetwork::handleApiSettings() {
     cfg.razgonTemp = getInt("razgonTemp", cfg.razgonTemp);
     cfg.bakStopTemp = getInt("bakStopTemp", cfg.bakStopTemp);
 
-    // Midterm логика — используем -1 как маркер "не передано" вместо 0
-    int newMidtermAbv = getInt("midterm_abv", -1);
-    int newMidterm = getInt("midterm", -1);
+    // Midterm логика (Сессия 10): хранение x10 (десятые доли), JSON — °C/% с одним знаком.
+    // Десятые доли дают точный момент смены тары по крепости отбора (целые градусы
+    // давали ошибку крепости до ±2.3% об. в рабочей зоне). Ключи отсутствуют = не менять.
+    float newMidtermAbvF = getFloat("midterm_abv", -1.0f);
+    float newMidtermF = getFloat("midterm", -1.0f);
     
     const SensorData& sensors = processEngine->getSensorData();
     float pressure_mmHg = sensors.getPressureMmHg(); // С fallback на 760 при неработающем BME
 
+    // Перевод в x10 с округлением до 0.1; отрицательное = «не передано»
+    int newMidterm = (newMidtermF >= 0.0f) ? (int)round(newMidtermF * 10.0f) : -1;
+    int newMidtermAbv = (newMidtermAbvF >= 0.0f) ? (int)round(newMidtermAbvF * 10.0f) : -1;
+
     if (newMidterm != -1 && newMidterm != cfg.midterm) {
-        cfg.midterm = newMidterm;
-        int calcAbv = (int)round(configManager->getOutputABVForTemp((float)newMidterm, pressure_mmHg));
-        cfg.midterm_abv = calcAbv; 
+        cfg.midterm = constrain(newMidterm, 0, 980); // 0..98.0°C (x10)
+        int calcAbv = (int)round(configManager->getOutputABVForTemp(cfg.midterm * 0.1f, pressure_mmHg) * 10.0f);
+        cfg.midterm_abv = constrain(calcAbv, 0, 980);
     } 
     else if (newMidtermAbv != -1 && newMidtermAbv > 0) {
-        cfg.midterm_abv = newMidtermAbv;
-        cfg.midterm = (int)round(configManager->getTempForOutputABV((float)newMidtermAbv, pressure_mmHg));
+        cfg.midterm_abv = constrain(newMidtermAbv, 0, 980); // 0..98.0% (x10)
+        cfg.midterm = (int)round(configManager->getTempForOutputABV(cfg.midterm_abv * 0.1f, pressure_mmHg) * 10.0f);
+        cfg.midterm = constrain(cfg.midterm, 0, 980);
     }
     // Если ключи не переданы — НЕ меняем cfg.midterm и cfg.midterm_abv
 
@@ -1259,8 +1266,9 @@ String AppNetwork::buildCfgJson() {
     json += "\"chekwifi\":" + String(cfg.chekwifi) + ",";
     json += "\"razgonTemp\":" + String(cfg.razgonTemp) + ",";
     json += "\"bakStopTemp\":" + String(cfg.bakStopTemp) + ",";
-    json += "\"midterm\":" + String(cfg.midterm) + ",";
-    json += "\"midterm_abv\":" + String(cfg.midterm_abv) + ",";
+    // Сессия 10: midterm/midterm_abv хранятся x10 — в JSON отдаём °C/% с одним знаком
+    json += "\"midterm\":" + String(cfg.midterm * 0.1f, 1) + ",";
+    json += "\"midterm_abv\":" + String(cfg.midterm_abv * 0.1f, 1) + ",";
     json += "\"heaterType\":" + String(cfg.heaterType) + ",";
     json += "\"fullPwr\":" + String(cfg.fullPwr ? "true" : "false") + ",";
     json += "\"valveuse\":" + String(cfg.valveuse ? "true" : "false") + ",";
@@ -1422,8 +1430,10 @@ void AppNetwork::handleSaveProfile() {
     json += "\"asVolume\":" + String(cfg.asVolume) + ",";
     json += "\"razgonTemp\":" + String(cfg.razgonTemp) + ",";
     json += "\"bakStopTemp\":" + String(cfg.bakStopTemp) + ",";
-    json += "\"midterm\":" + String(cfg.midterm) + ",";
-    json += "\"midterm_abv\":" + String(cfg.midterm_abv) + ",";
+    // Сессия 10: в профиле midterm/midterm_abv тоже в °C/% с одним знаком;
+    // старые профили (целые) совместимы — парсер переводит их в x10 (см. handleLoadProfile)
+    json += "\"midterm\":" + String(cfg.midterm * 0.1f, 1) + ",";
+    json += "\"midterm_abv\":" + String(cfg.midterm_abv * 0.1f, 1) + ",";
     json += "\"heaterType\":" + String(cfg.heaterType) + ",";
     json += "\"fullPwr\":" + String(cfg.fullPwr ? "true" : "false") + ",";
     json += "\"valveuse\":" + String(cfg.valveuse ? "true" : "false") + ",";
@@ -1656,8 +1666,10 @@ void AppNetwork::handleLoadProfile() {
     cfg.asVolume = getInt("asVolume", cfg.asVolume);
     cfg.razgonTemp = getInt("razgonTemp", cfg.razgonTemp);
     cfg.bakStopTemp = getInt("bakStopTemp", cfg.bakStopTemp);
-    cfg.midterm = getInt("midterm", cfg.midterm);
-    cfg.midterm_abv = getInt("midterm_abv", cfg.midterm_abv);
+    // Сессия 10: midterm/midterm_abv в профиле — °C/% (один знак); хранение x10.
+    // Старые профили с целыми значениями совместимы: 92 -> 920, 43 -> 430.
+    cfg.midterm = constrain((int)round(getFloat("midterm", cfg.midterm * 0.1f) * 10.0f), 0, 980);
+    cfg.midterm_abv = constrain((int)round(getFloat("midterm_abv", cfg.midterm_abv * 0.1f) * 10.0f), 0, 980);
     cfg.heaterType = getInt("heaterType", cfg.heaterType);
     cfg.fullPwr = getBool("fullPwr", cfg.fullPwr);
     cfg.valveuse = getBool("valveuse", cfg.valveuse);

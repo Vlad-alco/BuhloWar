@@ -28,10 +28,12 @@ private:
   };
   
   // Всего 9 параметров
+  // Сессия 10: MIDTERM хранится в десятых долях °C (x10) — диапазон 35.0..96.0,
+  // шаг 1 = 0.1°C; вывод с одним знаком через printTenths (см. isTenthsItem)
   SettingsItem settingsItems[9] = {
     {"RAZGON", 30, 80, 1, "C"},       // 0
     {"BAKSTOP", 50, 100, 1, "C"},      // 1
-    {"MIDTERM", 35, 96, 1, "C"},      // 2 (НОВЫЙ ПУНКТ)
+    {"MIDTERM", 350, 960, 1, "C"},    // 2 (x10: 35.0..96.0°C, шаг 0.1°C)
     {"NAGREV", 0, 1, 1, ""},          // 3 (0=TEN, 1=GAS/Индукция)
     {"FULL PWR", 0, 1, 1, ""},        // 4 (Bool)
     {"VALVE USE", 0, 1, 1, ""},       // 5 (Bool)
@@ -101,6 +103,8 @@ public:
           // Для булевых выводим YES/NO внутри скобок
           if (isBoolItem(itemIndex)) {
              lcd->print(tempEditValue == 1 ? "YES" : "NO");
+          } else if (isTenthsItem(itemIndex)) {
+             printTenths(tempEditValue);   // x10 -> "92.5" (Сессия 10)
           } else {
              lcd->print(tempEditValue);
           }
@@ -112,7 +116,8 @@ public:
           if (isBoolItem(itemIndex)) {
              lcd->print(currentValue == 1 ? "YES" : "NO");
           } else {
-             lcd->print(currentValue);
+             if (isTenthsItem(itemIndex)) printTenths(currentValue);   // x10 (Сессия 10)
+             else lcd->print(currentValue);
              lcd->print(" ");
              lcd->print(settingsItems[itemIndex].unit);
           }
@@ -125,6 +130,18 @@ public:
   bool isBoolItem(int index) {
     // item 4, 5, 6 - bool
     return (index == 4 || index == 5 || index == 6);
+  }
+
+  // Сессия 10: пункт хранится в десятых долях (x10) — вывод с одним знаком
+  bool isTenthsItem(int index) {
+    return (index == 2);   // MIDTERM
+  }
+
+  void printTenths(int v10) {
+    // 925 -> "92.5" (значения всегда положительные: минимум 350)
+    lcd->print(v10 / 10);
+    lcd->print('.');
+    lcd->print(v10 % 10);
   }
   
   void handleUpButton() {

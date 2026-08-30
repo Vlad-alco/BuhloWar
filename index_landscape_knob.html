@@ -1637,10 +1637,10 @@
                             <div>
                                 <div class="s-row"><label>РАЗГОН ДО</label><div class="s-inputs"><button onclick="adjCfg('razgonTemp',-1)">-</button><span id="cfg-razgonTemp">78</span><button onclick="adjCfg('razgonTemp',1)">+</button></div></div>
                                 <div class="s-row"><label>БАКСТОП</label><div class="s-inputs"><button onclick="adjCfg('bakStopTemp',-1)">-</button><span id="cfg-bakStopTemp">99</span><button onclick="adjCfg('bakStopTemp',1)">+</button></div></div>
-                                <div class="s-row"><label>СМЕНА ТАРЫ КУБ</label><div class="s-inputs"><button onclick="adjCfg('midterm',-1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm',1)">+</button></div></div>
+                                <div class="s-row"><label>СМЕНА ТАРЫ КУБ</label><div class="s-inputs"><button onclick="adjCfg('midterm',-0.1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm',0.1)">+</button></div></div>
                             </div>
                             <div>
-                                <div class="s-row"><label>СМЕНА ТАРЫ ОТБОР</label><div class="s-inputs"><button onclick="adjCfg('midterm_abv',-1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv',1)">+</button></div></div>
+                                <div class="s-row"><label>СМЕНА ТАРЫ ОТБОР</label><div class="s-inputs"><button onclick="adjCfg('midterm_abv',-0.1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv',0.1)">+</button></div></div>
                                 <div class="s-row"><label>ТИП НАГРЕВА</label><button id="btn-heaterType" onclick="toggleCfg('heaterType')" class="bool-toggle off">TEN</button></div>
                                 <div class="s-row"><label>РАЗГОН НА ВСЮ</label><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-toggle off">NO</button></div>
                             </div>
@@ -2873,7 +2873,7 @@
             sv('cfg-emergencyTime',cfg.emergencyTime);sv('cfg-nasebTime',cfg.nasebTime);sv('cfg-reklapTime',cfg.reklapTime);
             sv('cfg-boxMaxTemp',cfg.boxMaxTemp);sv('cfg-power',cfg.power);sv('cfg-asVolume',cfg.asVolume);sv('cfg-chekwifi',cfg.chekwifi);
             // PowerKnob SVG удалён по запросу — мощность отображается только текстом в темп-панели
-            sv('cfg-razgonTemp',cfg.razgonTemp);sv('cfg-bakStopTemp',cfg.bakStopTemp);sv('cfg-midterm',cfg.midterm);sv('cfg-midterm_abv',cfg.midterm_abv);
+            sv('cfg-razgonTemp',cfg.razgonTemp);sv('cfg-bakStopTemp',cfg.bakStopTemp);sv('cfg-midterm',(cfg.midterm||0).toFixed(1));sv('cfg-midterm_abv',(cfg.midterm_abv||0).toFixed(1));
             sb('btn-heaterType',cfg.heaterType==1,'IND','TEN');sb('btn-fullPwr',cfg.fullPwr,'YES','NO');sb('btn-valveuse',cfg.valveuse,'YES','NO');
             sb('btn-mixerEnabled',cfg.mixerEnabled,'YES','NO');
             sv('cfg-mixerOnTime',cfg.mixerOnTime);sv('cfg-mixerOffTime',cfg.mixerOffTime);
@@ -2957,6 +2957,10 @@
             const range = cfgRanges[key];
             if(key==='histeresis'||key==='delta'){
                 currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(2));
+                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+            } else if(key==='midterm'||key==='midterm_abv'){
+                // Сессия 10: уставка смены тары с шагом 0.1 (°C / %), диапазон 0..98
+                currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(1));
                 if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
             } else {
                 currentData.cfg[key]+=delta;

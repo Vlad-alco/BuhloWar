@@ -486,8 +486,8 @@
                         <div class="space-y-2">
                              <div class="setting-row"><label>PAЗГОН ДО (°C)</label><div class="setting-inputs"><button onclick="adjCfg('razgonTemp', -1)">-</button><span id="cfg-razgonTemp">78</span><button onclick="adjCfg('razgonTemp', 1)">+</button></div></div>
                              <div class="setting-row"><label>БАКСТОП (°C)</label><div class="setting-inputs"><button onclick="adjCfg('bakStopTemp', -1)">-</button><span id="cfg-bakStopTemp">99</span><button onclick="adjCfg('bakStopTemp', 1)">+</button></div></div>
-                             <div class="setting-row"><label>СМЕНА ТАРЫ В КУБЕ (°C)</label><div class="setting-inputs"><button onclick="adjCfg('midterm', -1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm', 1)">+</button></div></div>
-                             <div class="setting-row"><label>СМЕНА ТАРЫ В ОТБОРЕ (%)</label><div class="setting-inputs"><button onclick="adjCfg('midterm_abv', -1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv', 1)">+</button></div></div>
+                             <div class="setting-row"><label>СМЕНА ТАРЫ В КУБЕ (°C)</label><div class="setting-inputs"><button onclick="adjCfg('midterm', -0.1)">-</button><span id="cfg-midterm">0</span><button onclick="adjCfg('midterm', 0.1)">+</button></div></div>
+                             <div class="setting-row"><label>СМЕНА ТАРЫ В ОТБОРЕ (%)</label><div class="setting-inputs"><button onclick="adjCfg('midterm_abv', -0.1)">-</button><span id="cfg-midterm_abv">0</span><button onclick="adjCfg('midterm_abv', 0.1)">+</button></div></div>
                              <div class="setting-row"><label>ТИП НАГРЕВА</label><div class="setting-inputs"><button id="btn-heaterType" onclick="toggleCfg('heaterType')" class="bool-btn">TEN</button></div></div>
                              <div class="setting-row"><label>РАЗГОН НА ВСЮ</label><div class="setting-inputs"><button id="btn-fullPwr" onclick="toggleCfg('fullPwr')" class="bool-btn">NO</button></div></div>
                              <div class="setting-row"><label>ИСП.КЛ.ОТБОРА</label><div class="setting-inputs"><button id="btn-valveuse" onclick="toggleCfg('valveuse')" class="bool-btn">NO</button></div></div>
@@ -1679,8 +1679,9 @@
             
             setVal('cfg-razgonTemp', cfg.razgonTemp);
             setVal('cfg-bakStopTemp', cfg.bakStopTemp);
-            setVal('cfg-midterm', cfg.midterm);
-            setVal('cfg-midterm_abv', cfg.midterm_abv);
+            // Сессия 10: уставка смены тары с точностью 0.1 (°C и %)
+            setVal('cfg-midterm', (cfg.midterm || 0).toFixed(1));
+            setVal('cfg-midterm_abv', (cfg.midterm_abv || 0).toFixed(1));
             setBool('btn-heaterType', cfg.heaterType == 1, 'IND', 'TEN');
             setBool('btn-fullPwr', cfg.fullPwr, 'YES', 'NO');
             setBool('btn-valveuse', cfg.valveuse, 'YES', 'NO');
@@ -1876,6 +1877,11 @@
             if (typeof currentData.cfg[key] === 'boolean') return;
             if (key === 'histeresis' || key === 'delta') {
                  currentData.cfg[key] = parseFloat((currentData.cfg[key] + delta).toFixed(2));
+            } else if (key === 'midterm' || key === 'midterm_abv') {
+                 // Сессия 10: уставка смены тары с шагом 0.1 (°C / %), диапазон 0..98
+                 currentData.cfg[key] = parseFloat((currentData.cfg[key] + delta).toFixed(1));
+                 if (currentData.cfg[key] < 0) currentData.cfg[key] = 0;
+                 if (currentData.cfg[key] > 98) currentData.cfg[key] = 98;
             } else {
                  currentData.cfg[key] += delta;
             }
