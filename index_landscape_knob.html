@@ -1335,9 +1335,9 @@
                                 <!-- ЦАРГА: слева от колонны, по середине -->
                                 <text id="svg-rect-tsar" x="162" y="308" text-anchor="end" font-size="22" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
                                 <text x="162" y="320" text-anchor="end" font-size="11" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
-                                <!-- БАК + стоп: на баке, по центру -->
-                                <text id="svg-rect-tank" x="200" y="575" text-anchor="middle" font-size="22" font-weight="660" fill="#ff7a2f" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-rect-tank-stop" x="200" y="588" text-anchor="middle" font-size="11" fill="#6b7688" font-family="system-ui">Стоп 99°</text>
+                                <!-- БАК + стоп: на баке, по центру; T куба — контрастный синий с тёмной обводкой (читаемо на светлой браш-стали) -->
+                                <text id="svg-rect-tank" x="200" y="575" text-anchor="middle" font-size="22" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-rect-tank-stop" x="200" y="588" text-anchor="middle" font-size="11" fill="#b9c6d2" stroke="#0d1420" stroke-width="2" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
                             </g>
 
                             <!-- ================================================================== -->
@@ -1407,8 +1407,8 @@
                                     <g class="product-layer-dist"></g>
                                 </g>
 
-                                <!-- Бак Domspirt ×1.45 (центр x=290, верх y=440) -->
-                                <g class="tank-domspirt" transform="translate(290, 440) scale(1.45)">
+                                <!-- Бак Domspirt ×1.7 (центр x=260, верх y=440) — увеличен по запросу; центр сдвинут влево, чтобы бак и сливной кран не выходили за viewBox -->
+                                <g class="tank-domspirt" transform="translate(260, 440) scale(1.7)">
                                     <path d="M-62 115 L62 115 L70 130 L-70 130 Z" fill="url(#tankBase)" stroke="#1a2028" stroke-width="1"></path>
                                     <rect x="-62" y="25" width="124" height="90" fill="url(#tankBody)" stroke="#1a2028" stroke-width="1"></rect>
                                     <rect x="-50" y="25" width="3" height="90" fill="#ffffff" opacity=".08"></rect>
@@ -1436,25 +1436,29 @@
                                     <rect x="68" y="91" width="6" height="8" rx="1" fill="#2a6fc9"></rect>
                                     <path d="M70 95 L78 95" stroke="#2a6fc9" stroke-width="3" stroke-linecap="round"></path>
                                 </g>
-                                <!-- Нагрев: оранжевый (виден при heaterOn) + серый (виден при !heaterOn) -->
-                                <ellipse class="heatglow heat-on" cx="290" cy="650" rx="95" ry="20" fill="url(#heatg)" filter="url(#softlg)" opacity=".7"></ellipse>
-                                <ellipse class="heatglow heat-off" cx="290" cy="650" rx="95" ry="20" fill="#3a4248" filter="url(#softlg)" opacity=".3" style="display:none;"></ellipse>
-                                <rect class="heat-bar heat-on" x="200" y="642" width="180" height="12" rx="6" fill="url(#heatg)"></rect>
-                                <rect class="heat-bar heat-off" x="200" y="642" width="180" height="12" rx="6" fill="#3a4248" style="display:none;"></rect>
+                                <!-- Нагрев: оранжевый (виден при heaterOn) + серый (виден при !heaterOn) — опущен ниже и расширен под увеличенный бак (низ бака y=661) -->
+                                <ellipse class="heatglow heat-on" cx="260" cy="678" rx="112" ry="13" fill="url(#heatg)" filter="url(#softlg)" opacity=".7"></ellipse>
+                                <ellipse class="heatglow heat-off" cx="260" cy="678" rx="112" ry="13" fill="#3a4248" filter="url(#softlg)" opacity=".3" style="display:none;"></ellipse>
+                                <rect class="heat-bar heat-on" x="155" y="666" width="210" height="12" rx="6" fill="url(#heatg)"></rect>
+                                <rect class="heat-bar heat-off" x="155" y="666" width="210" height="12" rx="6" fill="#3a4248" style="display:none;"></rect>
+
+                                <!-- ===== ЗАГОЛОВОК: СМЕНА ТАРЫ (верхняя строка, только дистилляция) ===== -->
+                                <!-- Значения обновляются в updateApparatusSVG() из cfg.midterm_abv (крепость отбора) и cfg.midterm (T куба, приведённая к 760 мм рт.ст.). Скрывается, если уставка не задана (midterm=0) -->
+                                <text id="svg-dist-midterm" x="200" y="28" text-anchor="middle" font-family="system-ui" style="display:none;font-variant-numeric:tabular-nums"><tspan fill="#8b95a5" font-size="12.5" font-weight="650" letter-spacing=".06em">СМЕНА ТАРЫ</tspan><tspan fill="#4a5568" font-size="12"> · </tspan><tspan fill="#8b95a5" font-size="11.5">ОТБОР </tspan><tspan id="svg-dist-midterm-abv" fill="#facc15" font-size="15" font-weight="700">--%</tspan><tspan fill="#4a5568" font-size="12"> · </tspan><tspan fill="#8b95a5" font-size="11.5">КУБ </tspan><tspan id="svg-dist-midterm-temp" fill="#4da3ff" font-size="15" font-weight="700">--°</tspan><tspan fill="#5a6675" font-size="10"> (прив. 760)</tspan></text>
 
                                 <!-- ===== ТЕМПЕРАТУРЫ НА SVG (дистилляция) ===== -->
-                                <!-- БАК + стоп: на баке, по центру -->
-                                <text id="svg-dist-tank" x="290" y="540" text-anchor="middle" font-size="22" font-weight="660" fill="#ff7a2f" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-dist-tank-stop" x="290" y="553" text-anchor="middle" font-size="11" fill="#6b7688" font-family="system-ui">Стоп 99°</text>
-                                <!-- TSA + лимит: слева от носика-капельника, опущена ниже чтобы не залезать -->
-                                <text id="svg-dist-tsa" x="85" y="525" text-anchor="end" font-size="22" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text id="svg-dist-tsa-limit" x="85" y="537" text-anchor="end" font-size="11" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
+                                <!-- БАК + стоп: на баке, по центру нового бака (x=260); T куба — контрастный синий с тёмной обводкой (читаемо на светлой браш-стали) -->
+                                <text id="svg-dist-tank" x="260" y="546" text-anchor="middle" font-size="28" font-weight="660" fill="#4da3ff" stroke="#0d1420" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-dist-tank-stop" x="260" y="563" text-anchor="middle" font-size="12" fill="#b9c6d2" stroke="#0d1420" stroke-width="2.5" paint-order="stroke" stroke-linejoin="round" font-family="system-ui">Стоп 99°</text>
+                                <!-- TSA + лимит: слева от носика-капельника; 24 — максимум, который влезает в левую колонку (шире — обрезка по краю viewBox) -->
+                                <text id="svg-dist-tsa" x="89" y="525" text-anchor="end" font-size="24" font-weight="660" fill="#ffb24d" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text id="svg-dist-tsa-limit" x="89" y="540" text-anchor="end" font-size="12" fill="#6b7688" font-family="system-ui">Лимит 92°</text>
                                 <!-- ЦАРГА: над П-трубой, по центру -->
-                                <text id="svg-dist-tsar" x="200" y="308" text-anchor="middle" font-size="22" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="200" y="320" text-anchor="middle" font-size="11" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
-                                <!-- ВОДА: слева от верхнего патрубка воды (оранжевый вывод), поднята выше чтобы не залезать -->
-                                <text id="svg-dist-aqua" x="85" y="395" text-anchor="end" font-size="22" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
-                                <text x="85" y="407" text-anchor="end" font-size="11" fill="#6b7688" font-family="system-ui">ВОДА</text>
+                                <text id="svg-dist-tsar" x="200" y="306" text-anchor="middle" font-size="28" font-weight="660" fill="#35e0d0" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="200" y="321" text-anchor="middle" font-size="12" fill="#6b7688" font-family="system-ui">ЦАРГА</text>
+                                <!-- ВОДА: слева от верхнего патрубка воды (оранжевый вывод); 24 — максимум по ширине левой колонки -->
+                                <text id="svg-dist-aqua" x="87" y="395" text-anchor="end" font-size="24" font-weight="660" fill="#8fd4ff" font-family="system-ui" style="font-variant-numeric:tabular-nums;letter-spacing:-0.02em">--°</text>
+                                <text x="87" y="409" text-anchor="end" font-size="12" fill="#6b7688" font-family="system-ui">ВОДА</text>
                             </g>
                         </svg>
                     </div>
@@ -3601,6 +3605,24 @@
         if(dTankS)dTankS.textContent='Стоп '+bakStop+'°';
         const dAqua=document.getElementById('svg-dist-aqua');
         if(dAqua)dAqua.textContent=fmtT(currentData.aqua);
+
+        // --- Заголовок «СМЕНА ТАРЫ» (верхняя строка, только дистилляция) ---
+        // cfg.midterm — T куба при 760 мм рт.ст. (°C), cfg.midterm_abv — крепость отбора (%).
+        // Оба приходят из телеметрии уже в готовом виде (один знак после запятой).
+        // При незаданной уставке (midterm=0) строка скрывается — как кольцо TARA в темп-панели.
+        const mtHdr=document.getElementById('svg-dist-midterm');
+        if(mtHdr){
+            const mt=cfg.midterm||0, mta=cfg.midterm_abv||0;
+            const mtAbv=document.getElementById('svg-dist-midterm-abv');
+            const mtTemp=document.getElementById('svg-dist-midterm-temp');
+            if(mt>0){
+                mtHdr.style.display='';
+                if(mtAbv)mtAbv.textContent=mta.toFixed(1)+'%';
+                if(mtTemp)mtTemp.textContent=mt.toFixed(1)+'°';
+            }else{
+                mtHdr.style.display='none';
+            }
+        }
     }
     </script>
 </body>
