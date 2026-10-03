@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuhloWar — Руководство оператора с нуля</title>
+<style>
+:root{
+  --bg:#f6f8fb; --card:#ffffff; --ink:#1c2733; --muted:#5b6b7c;
+  --brand:#1a5fb4; --brand-soft:#e7f0fc;
+  --ok:#1d7a45; --ok-soft:#e6f5ec;
+  --warn:#9a6700; --warn-soft:#fff4d6;
+  --danger:#c01c28; --danger-soft:#fdecee;
+  --violet:#6639ba; --violet-soft:#f1eafd;
+  --line:#dde5ee; --code:#f0f3f8;
+  --sidebar-w:292px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  color:var(--ink);background:var(--bg);line-height:1.62;font-size:16px}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+/* ---------- progress bar ---------- */
+#pbar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--brand);z-index:1000;transition:width .15s linear}
+/* ---------- top bar ---------- */
+#topbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;padding:0 14px;z-index:900}
+#burger{display:none;border:1px solid var(--line);background:var(--brand-soft);color:var(--brand);font-size:18px;
+  border-radius:8px;width:38px;height:34px;cursor:pointer;flex:none}
+#topbar .title{font-weight:700;color:var(--brand);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#searchwrap{margin-left:auto;position:relative;flex:1;max-width:340px}
+#search{width:100%;padding:7px 30px 7px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fbfcfe}
+#search:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+#searchclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;
+  color:var(--muted);font-size:15px;display:none}
+#expandAll{border:1px solid var(--line);background:#fbfcfe;color:var(--muted);border-radius:8px;font-size:12px;
+  padding:6px 10px;cursor:pointer;white-space:nowrap}
+/* ---------- sidebar ---------- */
+#sidebar{position:fixed;top:52px;left:0;bottom:0;width:var(--sidebar-w);background:var(--card);border-right:1px solid var(--line);
+  overflow-y:auto;padding:14px 10px 40px;z-index:850}
+#sidebar .cap{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:14px 8px 6px}
+#toc{list-style:none;margin:0;padding:0}
+#toc li{margin:2px 0}
+#toc a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink);font-size:14px;line-height:1.35}
+#toc a:hover{background:var(--brand-soft);text-decoration:none}
+#toc a.active{background:var(--brand);color:#fff;font-weight:600}
+#toc a .n{display:inline-block;min-width:22px;color:var(--muted);font-weight:700;font-size:12px}
+#toc a.active .n{color:#cfe2fa}
+#sidebar .foot{margin-top:18px;padding:10px 12px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+/* ---------- content ---------- */
+#content{margin-left:var(--sidebar-w);padding:76px 26px 90px;max-width:1060px}
+.hero{background:linear-gradient(135deg,#123c7a,#1a5fb4 60%,#2b7bd4);color:#fff;border-radius:16px;padding:30px 30px 24px;margin-bottom:26px}
+.hero h1{margin:0 0 8px;font-size:27px;line-height:1.25}
+.hero p{margin:6px 0;opacity:.95}
+.hero .meta{font-size:13px;opacity:.85;margin-top:14px;border-top:1px solid rgba(255,255,255,.25);padding-top:10px}
+/* sections as collapsible cards */
+details.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0 0 18px;overflow:hidden}
+details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:16px 20px;
+  font-size:19px;font-weight:700;user-select:none}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary .num{flex:none;width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand);
+  display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800}
+details.sec>summary .chev{margin-left:auto;color:var(--muted);transition:transform .2s;font-size:14px}
+details.sec[open]>summary .chev{transform:rotate(90deg)}
+details.sec>summary:hover{background:#fbfdff}
+.secbody{padding:2px 22px 22px;border-top:1px solid var(--line)}
+h3{font-size:17px;margin:22px 0 8px;color:#123c7a}
+h4{font-size:15.5px;margin:18px 0 6px}
+p{margin:9px 0}
+ul,ol{margin:8px 0 10px;padding-left:24px}
+li{margin:5px 0}
+code{background:var(--code);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13.5px;
+  font-family:Consolas,"Courier New",monospace;color:#0b3a75}
+.step{display:flex;gap:12px;margin:12px 0}
+.step .sn{flex:none;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+.step .sc{flex:1}
+.step .sc b{color:#123c7a}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px;background:#fff}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--brand-soft);color:#123c7a;font-size:13.5px}
+tr:nth-child(even) td{background:#fbfcfe}
+td code{white-space:nowrap}
+.tbl-note{font-size:12.5px;color:var(--muted);margin-top:-6px}
+.box{border:1px solid;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:14.5px}
+.box b.tag{display:inline-block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:1px 8px;margin-bottom:4px}
+.tip{background:var(--ok-soft);border-color:#bfe4cd}
+.tip b.tag{background:#d3efdd;color:var(--ok)}
+.warn{background:var(--warn-soft);border-color:#f0dca8}
+.warn b.tag{background:#f7e6b2;color:var(--warn)}
+.danger{background:var(--danger-soft);border-color:#f3c2c8}
+.danger b.tag{background:#f8d3d7;color:var(--danger)}
+.info{background:var(--brand-soft);border-color:#c6dbf6}
+.info b.tag{background:#d4e5fa;color:#123c7a}
+.violet{background:var(--violet-soft);border-color:#ddd0f5}
+.violet b.tag{background:#e6dcf8;color:var(--violet)}
+kbd{background:#fff;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;
+  font-size:13px;font-family:Consolas,monospace}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.chip{display:inline-block;background:var(--brand-soft);color:#123c7a;border-radius:20px;padding:2px 12px;
+  font-size:13px;font-weight:600;margin:2px 4px 2px 0}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow .st{background:#123c7a;color:#fff;border-radius:8px;padding:5px 11px;font-size:13px;font-weight:600}
+.flow .st.opt{background:#7f93ad}
+.flow .ar{color:var(--muted);font-size:14px}
+#toTop{position:fixed;right:18px;bottom:18px;border:1px solid var(--line);background:var(--card);color:var(--brand);
+  border-radius:12px;width:44px;height:44px;font-size:19px;cursor:pointer;box-shadow:0 3px 10px rgba(20,50,90,.12);display:none;z-index:800}
+/* search highlight */
+mark{background:#ffe9a8;padding:0 2px;border-radius:3px}
+.search-hide{display:none !important}
+/* print */
+@media print{
+  #sidebar,#topbar,#toTop,#pbar{display:none !important}
+  #content{margin:0;padding:0;max-width:none}
+  body{background:#fff;font-size:12px}
+  details.sec{border:1px solid #ccc;border-radius:8px;page-break-inside:avoid}
+  .hero{background:#123c7a !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media(max-width:1050px){
+  #sidebar{transform:translateX(-105%);transition:transform .22s;box-shadow:0 6px 24px rgba(0,0,0,.14)}
+  #sidebar.open{transform:translateX(0)}
+  #burger{display:block}
+  #content{margin-left:0;padding:72px 14px 80px}
+}
+@media(max-width:760px){
+  body{font-size:15px}
+  th,td{padding:6px 8px;font-size:13px}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  details.sec>summary{font-size:17px;padding:13px 14px}
+  .secbody{padding:2px 14px 16px}
+  .hero{padding:22px 18px 18px}
+  .hero h1{font-size:22px}
+  code{font-size:12.5px;white-space:normal}
+  td code{white-space:normal}
+}
+</style>
+</head>
+<body>
+<div id="pbar"></div>
+<header id="topbar">
+  <button id="burger" title="Меню">☰</button>
+  <div class="title">BuhloWar · Руководство оператора</div>
+  <div id="searchwrap">
+    <input id="search" type="text" placeholder="Поиск по руководству…" autocomplete="off">
+    <button id="searchclear" title="Очистить">✕</button>
+  </div>
+  <button id="expandAll">Развернуть всё</button>
+</header>
+
+<nav id="sidebar">
+  <div class="cap">Содержание</div>
+  <ul id="toc">
+    <li><a href="#s1"><span class="n">1</span>О системе и как пользоваться руководством</a></li>
+    <li><a href="#s2"><span class="n">2</span>Безопасность — прочитать до включения</a></li>
+    <li><a href="#s3"><span class="n">3</span>Из чего состоит система</a></li>
+    <li><a href="#s4"><span class="n">4</span>Первое включение и подключение к Web</a></li>
+    <li><a href="#s5"><span class="n">5</span>Калибровка датчиков температуры</a></li>
+    <li><a href="#s6"><span class="n">6</span>Клапаны: типы, тайминги, пропускная способность</a></li>
+    <li><a href="#s7"><span class="n">7</span>Общие настройки (SETTINGS)</a></li>
+    <li><a href="#s8"><span class="n">8</span>Инженерное меню (⚙)</a></li>
+    <li><a href="#s9"><span class="n">9</span>Профили настроек</a></li>
+    <li><a href="#s10"><span class="n">10</span>Процесс «Дистилляция» — пошагово</a></li>
+    <li><a href="#s11"><span class="n">11</span>Процесс «Ректификация» — пошагово</a></li>
+    <li><a href="#s12"><span class="n">12</span>Мониторинг и веб-интерфейс</a></li>
+    <li><a href="#s13"><span class="n">13</span>Аварии, сигналы и защита</a></li>
+    <li><a href="#s14"><span class="n">14</span>Завершение работы и обслуживание</a></li>
+    <li><a href="#s15"><span class="n">15</span>Частые проблемы (FAQ)</a></li>
+    <li><a href="#s16"><span class="n">16</span>Шпаргалка: краткая справка</a></li>
+  </ul>
+  <div class="foot">
+    Актуально для прошивки <b>BuhloWar v2.0</b><br>
+    (сессии 15–16, коммит 64db728)<br>
+    Файл автономный: работает без интернета.
+  </div>
+</nav>
+
+<button id="toTop" title="Наверх">↑</button>
+
+<main id="content">
+<div class="hero">
+  <h1>BuhloWar — подробное руководство для новичка</h1>
+  <p>От первого включения до конца первого процесса: что настроить, зачем, на что это влияет и какие результаты ожидать.</p>
+  <p>Нажимайте на разделы в меню слева (на телефоне — кнопка ☰ сверху). Все разделы можно раскрывать и сворачивать, есть поиск по тексту.</p>
+  <div class="meta">Прошивка: <b>BuhloWar v2.0</b> · Контроллер: ESP32-S3 · Интерфейсы: LCD 20×4 + Web · Дистилляция и ректификация</div>
+</div>
+
+<!-- ============ 1. О СИСТЕМЕ ============ -->
+<details class="sec" id="s1" open>
+<summary><span class="num">1</span>О системе и как пользоваться руководством<span class="chev">▶</span></summary>
+<div class="secbody">
+<p><b>BuhloWar</b> — это автоматика для домашнего самогонного аппарата на контроллере ESP32-S3. Она берёт на себя рутинный контроль перегонки: управляет нагревом, водой охлаждения, клапанами отбора и мешалкой, следит за температурами и атмосферным давлением, автоматически проходит все этапы процесса и вовремя останавливает отбор. От вас требуется правильно настроить систему один раз, залить брагу и запускать процесс — остальное система сделает сама.</p>
+<p>Система поддерживает два основных процесса:</p>
+<ul>
+<li><b>Дистилляция (DIST)</b> — обычная перегонка браги на спирт-сырец. Быстро, просто, с автоматической сменой тары и остановкой по температуре куба.</li>
+<li><b>Ректификация (RECT)</b> — работа с колонной: автоматическая стабилизация «на себя», отбор голов по методу (Стандарт или КСС), отбор тела с двумя методами регулировки (Шпора или Стандарт/Overhist) и автоматическим финишем.</li>
+</ul>
+<p>Управлять системой можно двумя способами — они равноправны и синхронизированы между собой:</p>
+<ul>
+<li><b>Дисплей 20×4 с 4 кнопками</b> (ВВЕРХ, ВНИЗ, SET, BACK) — меню на корпусе: запуск, настройки, калибровка датчиков, экран процесса.</li>
+<li><b>Веб-интерфейс в браузере</b> — с телефона или компьютера: большие цифры, графики-схема аппарата, мониторинг в реальном времени, калибровочные мастера, профили и инженерное меню.</li>
+</ul>
+<h3>Как устроено это руководство</h3>
+<p>Разделы 1–9 — подготовка (железо, первое включение, калибровки и все настройки с пояснениями «что это и на что влияет»). Разделы 10–11 — пошаговые сценарии обоих процессов «от заливки браги до выключения». Разделы 12–16 — мониторинг, аварийные ситуации, обслуживание, частые проблемы и краткая шпаргалка. Если вы уже настроили систему, для повседневной работы вам достаточно разделов 10–11 и 16.</p>
+<div class="box info"><b class="tag">Условные обозначения</b><br>
+Плашка <span class="chip">СОВЕТ</span> — полезный практический приём. <span class="chip">ВАЖНО</span> — от этого зависит результат. <span class="chip">ОПАСНО</span> — риск для оборудования или человека. Значения по умолчанию указаны так: <code>параметр (по умолчанию)</code>.
+</div>
+<div class="box warn"><b class="tag">Важно о данных</b>Все настройки хранятся в памяти контроллера (EEPROM) и переживают выключение питания. Калибровки датчиков и клапанов хранятся там же. Сброс настроек к заводским происходит только при намеренной очистке EEPROM.</div>
+</div>
+</details>
+
+<!-- ============ 2. БЕЗОПАСНОСТЬ ============ -->
+<details class="sec" id="s2">
+<summary><span class="num">2</span>Безопасность — прочитать до включения<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Система автоматизирует процесс, но <b>не отменяет элементарных правил работы с самогонным аппаратом</b>. Автоматика — помощник, а не замена вашей ответственности.</p>
+<div class="box danger"><b class="tag">Опасно — обязательно к исполнению</b>
+<ul>
+<li>Никогда не оставляйте работающий аппарат полностью без присмотра на длительное время. Система следит за датчиками, но физические проблемы (протечки, засор, обрыв трубки) датчики не видят.</li>
+<li>Проверяйте подачу охлаждающей воды <b>до</b> начала нагрева. Система открывает водяной клапан и показывает экран «WATER TEST» именно для этого — не пропускайте проверку.</li>
+<li>Электрика: силовая часть 220 В должна быть собрана на реле/контакторах с опторазвязкой, корпус аппарата — заземлён. Не трогайте силовые клеммы во время работы.</li>
+<li>Не герметизируйте систему наглухо — в кубе всегда должен быть безопасный путь сброса давления, предусмотренный вашим аппаратом.</li>
+<li>Помещение — с вентиляцией. Пары спирта горючи; никаких открытых огней рядом.</li>
+</ul>
+</div>
+<h3>Что система делает сама, если что-то идёт не так</h3>
+<ul>
+<li><b>Перегрев по датчику TSA</b> (температура выше выставленного лимита <code>tsaLimit</code>) — зуммер подаёт сигнал (3 коротких сигнала каждые 30 секунд), на экране начинается обратный отсчёт «ALARMTSA». Если за время <code>VREAC</code> (по умолчанию 3 мин) температура не вернулась в норму, система сама переходит к процедуре завершения: гасит нагрев, закрывает клапаны, оставляет воду охлаждения открытой.</li>
+<li><b>Перегрев корпуса/бокса</b> (датчик BME280, температура выше <code>BOX_TPR</code>) — внимание: 2 коротких сигнала каждые 30 секунд и надпись «ATTENT». Аварийного отключения нет — но вам стоит проверить охлаждение электроники.</li>
+<li><b>Нерабочий датчик</b> — запуск процесса блокируется с указанием проблемных датчиков, пока вы не откалибруете/не почините их.</li>
+<li><b>Пропажа датчика во время аварии TSA</b> — тревога не сбрасывается, отсчёт VREAC продолжается: система завершит процесс по правилам аварии.</li>
+</ul>
+<div class="box tip"><b class="tag">Совет</b>Первые 2–3 процесса наблюдайте за системой рядом. Автоматика отлично держит процесс, но именно первые запуски покажут, правильно ли собрана обвязка, верно ли стоят датчики и совпадают ли ваши ожидания с настройками.</div>
+</div>
+</details>
+
+<!-- ============ 3. СОСТАВ СИСТЕМЫ ============ -->
+<details class="sec" id="s3">
+<summary><span class="num">3</span>Из чего состоит система<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Коротко о «железе», которым управляет прошивка. Понимание состава поможет вам правильно подключить оборудование и понять, о чём система сообщает.</p>
+<h3>Контроллер и индикация</h3>
+<table>
+<tr><th>Компонент</th><th>Что делает</th><th>Комментарий</th></tr>
+<tr><td><b>ESP32-S3</b></td><td>Мозг системы: логика процессов, веб-сервер, WiFi</td><td>Плата ESP32-S3-DevKitC-1 (N16R8)</td></tr>
+<tr><td><b>LCD 20×4</b></td><td>Меню и экран процесса</td><td>Подключение по I2C (адрес 0x27 или 0x3F)</td></tr>
+<tr><td><b>4 кнопки</b></td><td>ВВЕРХ / ВНИЗ / SET / BACK</td><td>Навигация по всем меню</td></tr>
+<tr><td><b>Зуммер</b></td><td>Сигналы тревоги и внимания</td><td>3 коротких — тревога TSA, 2 коротких — внимание BOX</td></tr>
+<tr><td><b>Карта microSD</b></td><td>Файлы веб-интерфейса (папка <code>/www</code>), WiFi-конфиг, журналы процессов, профили</td><td>Без карты веб-интерфейс не откроется</td></tr>
+<tr><td><b>Часы DS3231</b></td><td>Реальное время (при наличии интернета сверяется с NTP)</td><td>На той же шине I2C</td></tr>
+</table>
+<h3>Датчики</h3>
+<table>
+<tr><th>Имя</th><th>Типовая точка установки</th><th>Для чего используется в процессах</th></tr>
+<tr><td><b>TANK</b></td><td>Куб (брага)</td><td>Разгон до уставки <code>RAZGON</code>, смена тары (<code>MIDTERM</code>), аварийный стоп <code>BAKSTOP</code>, расчёт крепости в кубе</td></tr>
+<tr><td><b>TSAR</b></td><td>Царга / колонна</td><td>Прогрев колонны (WAITING), стабилизация (NASEBYA), опорная температура тела <code>rtsarM</code>, реакции Δ и «Залёт», крепость отбора при RECT</td></tr>
+<tr><td><b>TSA</b></td><td>Верх колонны / паровая зона</td><td>Аварийный контроль: превышение <code>TSA ЛИМИТ</code> запускает отсчёт VREAC и аварийное завершение</td></tr>
+<tr><td><b>AQUA</b></td><td>Вода охлаждения / выход дефлегматора</td><td>Мониторинг охлаждения (отображается на экране процесса)</td></tr>
+<tr><td><b>BME280</b></td><td>В корпусе электроники</td><td>Атмосферное давление (поправки порогов и крепости), температура и влажность в боксе (контроль перегрева)</td></tr>
+</table>
+<div class="box info"><b class="tag">Инфо</b>Все четыре DS18B20 подключаются на одну шину 1-Wire (резистор 4,7 кОм на +3,3 В). Какой датчик какую роль выполняет — решаете вы при калибровке (раздел 5): система различает их по нагреву.</div>
+<h3>Исполнительные механизмы (выходы)</h3>
+<table>
+<tr><th>Выход</th><th>Нагрузка</th><th>Пояснение</th></tr>
+<tr><td><b>Контактор</b></td><td>Главное силовое реле 220 В</td><td>Подача питания на нагрев</td></tr>
+<tr><td><b>ТЭН, канал 1</b></td><td>Реле «рабочего» нагрева</td><td>Держит температуру после разгона</td></tr>
+<tr><td><b>ТЭН, канал 2</b></td><td>Реле «полной» мощности</td><td>Включается на разгоне (если <code>FULL PWR</code>/RECT) для быстрого выхода на режим</td></tr>
+<tr><td><b>Клапан ГОЛОВЫ</b></td><td>Электромагнитный клапан 220 В (НЗ)</td><td>Отбор головных фракций</td></tr>
+<tr><td><b>Клапан ТЕЛО</b></td><td>Электромагнитный клапан 220 В (НЗ или НО — настраивается)</td><td>Отбор тела и (при отсутствии клапана голов) отбор голов</td></tr>
+<tr><td><b>Клапан ВОДА</b></td><td>Соленоид 12 В</td><td>Подача охлаждающей воды</td></tr>
+<tr><td><b>Мешалка</b></td><td>Реле 12 В</td><td>Периодическое перемешивание браги в кубе (работает циклами вкл/выкл)</td></tr>
+</table>
+<div class="box warn"><b class="tag">Важно про НЗ и НО</b>НЗ (NC — normally closed) клапан закрыт, когда на реле нет напряжения, и открывается при подаче. НО (NO — normally open) — наоборот. Тип клапана тела задаётся настройкой <code>VALVEBODY</code> (NC/NO). Если указать тип неверно, клапан будет «работать наоборот» — закрыт во время отбора и открыт в паузах. При первом запуске проверьте реакцию клапана кнопками ручного управления или тестом клапана.</div>
+<h3>Конфигурации клапанов, которые понимает система</h3>
+<ul>
+<li><b>Конфиг 1:</b> есть клапан голов + клапан тела (НЗ) — полный автомат, оба отбора импульсные.</li>
+<li><b>Конфиг 2:</b> только клапан голов + клапан тела НО — тело отбирается «открытым клапаном», скорость регулируется вручную/дефлегматором.</li>
+<li><b>Конфиг 3:</b> клапана голов нет — головы и тело отбираются одним НЗ клапаном тела (для голов используется отдельная пропускная способность <code>BCH</code>).</li>
+<li><b>Конфиг 4:</b> клапана голов нет, клапан тела НО — головы и тело вручную, система отслеживает объёмы по расчёту.</li>
+</ul>
+</div>
+</details>
+
+<!-- ============ 4. ПЕРВОЕ ВКЛЮЧЕНИЕ ============ -->
+<details class="sec" id="s4">
+<summary><span class="num">4</span>Первое включение и подключение к Web<span class="chev">▶</span></summary>
+<div class="secbody">
+<h3>Что подготовить до первого включения</h3>
+<div class="step"><div class="sn">1</div><div class="sc"><b>Карта microSD.</b> Отформатируйте в FAT32 и запишите: папку <code>/www</code> с файлами веб-интерфейса (<code>index.html</code>, <code>index_landscape_knob.html</code> и остальные файлы из репозитория) — без них браузер покажет «File Not Found».</div></div>
+<div class="step"><div class="sn">2</div><div class="sc"><b>WiFi-конфиг (по желанию).</b> Чтобы система сама подключалась к домашней сети, положите на карту файл <code>wifi_config.txt</code> вида:
+<pre style="background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13.5px;overflow:auto;">ssid1=ИмяВашегоРоутера
+pass1=ПарольРоутера
+ssid2=ЗапаснаяСеть
+pass2=ПарольЗапасной</pre>
+Вторая сеть необязательна — это запасной вариант (например, дача/гараж). Строки можно не все: минимум нужен <code>ssid1</code>.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc"><b>Подключите оборудование</b> по схеме вашего аппарата: датчики в нужные точки, клапаны, воду, ТЭН через контактор. Проверьте каждую клемму до подачи питания.</div></div>
+<h3>Первое включение: что вы увидите</h3>
+<p>Подайте питание. На LCD последовательно появятся:</p>
+<ul>
+<li><code>Starting Web…</code> → <code>Web: 192.168.4.1</code> — система подняла собственную точку доступа и веб-сервер;</li>
+<li><code>Connecting WiFi…</code> → далее три варианта: <code>IP: x.x.x.x</code> (подключилась к вашей сети), <code>AP: ESP32</code> (конфига нет или сети недоступны), <code>OFFLINE Mode</code> (нет карты/сети — управление только кнопками);</li>
+<li>стартовый экран <code>BUHLOWAR SYSTEM</code>, затем главное меню: <b>DIST / RECT / SETTINGS / SENSORS</b>.</li>
+</ul>
+<div class="box info"><b class="tag">Инфо о сети</b>Система всегда держит включённой собственную точку доступа: имя <code>ESP32</code>, пароль <code>12345678</code>, адрес <code>192.168.4.1</code>. Одновременно с этим (режим AP+STA) она может быть подключена к домашнему роутеру — тогда интерфейс доступен и по локальному IP, который показывается на LCD. Значок сети на экране процесса: <code>W</code> — подключено к роутеру, <code>A</code> — только точка доступа, <code>X</code> — офлайн.</div>
+<h3>Заходим в веб-интерфейс</h3>
+<div class="step"><div class="sn">1</div><div class="sc">На телефоне/ноутбуке подключитесь к WiFi <b>ESP32</b> (пароль <b>12345678</b>). Некоторые телефоны предупреждают «нет интернета» — соглашайтесь остаться в сети.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Откройте браузер и введите <code>192.168.4.1</code>. Загрузится тёмный интерфейс. Основной вариант — <b>горизонтальный (landscape)</b> с разделами: Мониторинг, Дистилляция, Ректификация, Датчики, Настройки и большой кнопкой СТАРТ/СТОП. Компактный вертикальный вариант — <code>index.html</code>.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc">Если система подключена к вашему роутеру, удобно заходить по её локальному IP (показывается на LCD) — тогда вы останетесь в домашней сети и получите интернет на телефоне.</div></div>
+<div class="box tip"><b class="tag">Совет</b>Файл <code>wifi_config.txt</code> читается только при старте. Изменили его — перезагрузите систему. Если роутер раздаёт и 2,4 ГГц, и 5 ГГц под одним именем — ESP32 видит только <b>2,4 ГГц</b>.</div>
+<h3>Чек-лист первого включения</h3>
+<ul>
+<li>☐ Карта SD вставлена, папка <code>/www</code> на месте</li>
+<li>☐ LCD включился, меню реагирует на кнопки</li>
+<li>☐ Точка доступа ESP32 видна, веб-интерфейс открывается</li>
+<li>☐ Датчики показывают температуры (раздел «Датчики» в web или меню SENSORS на LCD)</li>
+<li>☐ Вода: ручное открытие клапана воды даёт поток воды</li>
+<li>☐ Клапаны щёлкают при тесте (раздел 6), направление действия совпадает с типом (NC/NO)</li>
+<li>☐ Зуммер: кнопка «ТЕСТ ЗВУКА» в Настройках web</li>
+</ul>
+</div>
+</details>
+
+<!-- ============ 5. КАЛИБРОВКА ДАТЧИКОВ ============ -->
+<details class="sec" id="s5">
+<summary><span class="num">5</span>Калибровка датчиков температуры<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Все четыре датчика DS18B20 одинаковые — система не знает, какой из них воткнут в куб, а какой в царгу. <b>Калибровка = привязка физического датчика к слоту</b> (TANK, TSAR, TSA, AQUA). Пока датчики не откалиброваны, запуск любого процесса блокируется с экраном «SENSOR NOT READY: …».</p>
+<h3>Как это работает</h3>
+<p>При запуске калибровки система сканирует шину и запоминает показания всех найденных датчиков. Дальше нужно <b>нагреть нужный физический датчик примерно на 5 °C</b> (зажать в ладони, приложить тёплый предмет, окунуть в тёплую воду — не горячее 50 °C) в течение 30 секунд. Система увидит, у какого датчика температура выросла больше чем на 5 °C, и привяжет именно его к выбранному слоту. Адрес сохраняется в EEPROM — повторная калибровка нужна только при замене датчика или смене ролей.</p>
+<h3>Способ 1 — через LCD</h3>
+<div class="step"><div class="sn">1</div><div class="sc">Главное меню → <b>SENSORS</b>. На экране четыре строки: <code>TSA</code>, <code>AQUA</code>, <code>TSAR</code>, <code>TANK</code>; у неоткалиброванных написано <code>NOT CALIB</code>, у откалиброванных — текущая температура.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Кнопками выберите слот, нажмите <kbd>SET</kbd>. В строке появится <code>heat up</code>.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc">Грейте нужный физический датчик, пока система не определит его (адрес сохранится автоматически, в строке появится температура). <kbd>BACK</kbd> — отменить калибровку.</div></div>
+<h3>Способ 2 — через Web</h3>
+<div class="step"><div class="sn">1</div><div class="sc">Откройте страницу <b>«Датчики»</b>. Здесь четыре плитки с текущими температурами и статусами.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Нажмите плитку нужного слота (например, TANK) и нагрейте соответствующий физический датчик на 5 °C. Подтвердите сохранение в появившемся диалоге.</div></div>
+<div class="box tip"><b class="tag">Практический приём</b>Калибруйте датчики по очереди и подписывайте провода. Проверка после калибровки: подогрейте один датчик — его температура должна измениться только в его плитке/строке. Если «поехал» другой — перепутаны датчики на шине, перекалибруйте.</div>
+<div class="box warn"><b class="tag">Важно</b>Калибруйте датчики в том виде, в каком они будут работать: длинный TANK-датчик в гильзе куба нагревается медленнее, чем «голый» — прихватите его в ладони вместе с гильзой или используйте тёплую воду. Таймаут калибровки — 30 секунд, не тяните.</div>
+<h3>Проверка давлений BME280</h3>
+<p>BME280 отдельной калибровки не требует. Убедитесь только, что на странице «Датчики»/в мониторинге отображаются давление (примерно 990–1040 гПа), температура и влажность. Если BME280 отсутствует, система продолжит работать: давление примется равным 760 мм рт. ст. (1013,25 гПа), поправки на давление отключатся, а контроль перегрева бокса не будет выполняться — в логе появятся соответствующие предупреждения.</p>
+</div>
+</details>
+
+<!-- ============ 6. КЛАПАНЫ ============ -->
+<details class="sec" id="s6">
+<summary><span class="num">6</span>Клапаны: типы, тайминги, пропускная способность<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Отбор голов и тела система выполняет <b>импульсами</b>: клапан открывается на <code>open</code> миллисекунд, закрывается на <code>close</code> миллисекунд — и так по кругу. Средняя скорость отбора = пропускная способность клапана × доля открытого состояния. Поэтому системе нужны две группы данных: <b>тайминги</b> (сколько миллисекунд держать клапан в цикле) и <b>capacity</b> (сколько миллилитров в минуту реально проливает полностью открытый клапан).</p>
+<h3>Где что настраивается</h3>
+<table>
+<tr><th>Параметр</th><th>Где</th><th>Что задаёт</th></tr>
+<tr><td><code>HEAD OPN</code> / <code>HEAD CLS</code> (1/10 с)</td><td>RECT → SETUP (LCD), страница «Ректификация» (web: тайминги клапанов)</td><td>Цикл клапана голов: открытие/закрытие, секунды (1–60)</td></tr>
+<tr><td><code>BODY OPN</code> / <code>BODY CLS</code> (2/10 с)</td><td>там же</td><td>Цикл клапана тела, секунды (1–60)</td></tr>
+<tr><td><code>HCAP</code>, <code>BCAP</code>, <code>B0CAP</code> (мл/мин)</td><td>RECT → SETUP (LCD); web: мастер калибровки</td><td>Пропускная способность: клапан голов, клапан тела НЗ, клапан тела НО</td></tr>
+<tr><td><code>BCH</code> (мл/мин)</td><td>Web: страница «Ректификация» → «Калибровка клапанов»</td><td>Пропускная способность НЗ клапана тела на скорости голов (для конфига без клапана голов; 0 = не калиброван, берётся HCAP)</td></tr>
+<tr><td><code>MINOPEN</code> (100 мс)</td><td>LCD SETTINGS, web</td><td>Минимальное импульсное открытие. База для расчёта циклов: большие скорости = более длинные импульсы (меньше износ клапана), малые = минимальный импульс и длинная пауза</td></tr>
+<tr><td><code>SP_H_COR</code>, <code>SP_B_COR</code> (100 %)</td><td>LCD SETTINGS; web: мониторинг, панель «Головы» и «Тело» (кнопки −/+)</td><td>Ручная коррекция скорости отбора голов/тела в процентах (10–200 %). 100 % = номинал. 110 % = отбор на 10 % быстрее</td></tr>
+<tr><td><code>VALVEBODY</code> (NC)</td><td>RECT → SETUP, web «Ректификация»</td><td>Тип клапана тела: НЗ/НО</td></tr>
+<tr><td><code>USE HEAD VALVE</code> (YES)</td><td>там же</td><td>Есть ли в вашей системе отдельный клапан голов</td></tr>
+<tr><td><code>VALVE USE</code> (NO)</td><td>DIST → SETUP, web «Дистилляция»</td><td>Использовать ли клапан отбора в дистилляции (NO = отбор постоянно открыт, как в классической перегонке)</td></tr>
+</table>
+<h3>Мастер калибровки клапанов (Web)</h3>
+<p>Самый удобный способ узнать пропускную способность — калибровочный мастер. Он есть для трёх клапанов: <b>ГОЛОВЫ</b>, <b>ТЕЛО НЗ</b>, <b>ТЕЛО НО</b> (страница «Ректификация» → «Калибровка клапанов» → кнопка «Калибровать»). Проводится на работающей колонне/аппарате, когда есть что проливать:</p>
+<div class="step"><div class="sn">1</div><div class="sc"><b>Пролив (сухой тест).</b> Клапан отрабатывает циклы открыть/закрыть заданное время (<code>ПРОЛИВ</code>, по умолчанию 10 с). Так вы слышите/видите, что клапан щёлкает и жидкость идёт.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc"><b>Замер capacity.</b> Клапан открывается импульсами 1 с/1 с в течение <code>КАЛИБР. CAPACITY</code> (по умолчанию 60 с). Подставьте мензурку и соберите дистиллят.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc"><b>Ввод объёма.</b> Введите собранный объём в мл и нажмите «РАССЧИТАТЬ И СОХРАНИТЬ». Система посчитает мл/мин и запишет capacity в EEPROM.</div></div>
+<div class="box warn"><b class="tag">Важно</b>Если во время шага 2–3 прервать калибровку или ввести 0 — в EEPROM запишется ноль, и система будет считать, что клапан не калиброван (для KSS-отбора включится аварийный минимум 1 мл/мин с предупреждением в логе). После «пустой» калибровки обязательно перекалибруйте клапан.</div>
+<h3>Тест клапанов и расчёт без мастера</h3>
+<p>На web-странице клапанов есть раздельные тесты ГОЛОВЫ/ТЕЛА: клапан работает циклами с текущими таймингами заданное время (<code>TESTTIME</code>/тест, 30–300 с), затем система спросит, сколько мл отобралось, и рассчитает фактическую скорость кнопкой «РАССЧИТАТЬ». Это и проверка механики, и способ откалиброваться вручную. Значения capacity также можно задать просто цифрами в <code>HCAP/BCAP/B0CAP</code>.</p>
+<div class="box tip"><b class="tag">Совет</b>Калибруйте клапаны в тех условиях, в которых они будут работать: тот же нагрев, то же давление в колонне, та же температура. Capacity «на холодную» будет заметно отличаться от рабочего.</div>
+<h3>Ручное управление</h3>
+<p>Когда процесс не запущен, веб-интерфейс позволяет включать/выключать нагрев, воду, мешалку и открывать/закрывать каждый клапан вручную — используйте это для проверки обвязки перед первым процессом. На LCD ручное управление недоступно — только через Web.</p>
+</div>
+</details>
+
+<!-- ============ 7. ОБЩИЕ НАСТРОЙКИ ============ -->
+<details class="sec" id="s7">
+<summary><span class="num">7</span>Общие настройки (SETTINGS)<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Это настройки, общие для обоих процессов. На LCD: главное меню → <b>SETTINGS</b>. В Web: страница «Настройки». Изменения сохраняются при выходе из меню (LCD) или кнопкой «СОХРАНИТЬ» (web).</p>
+<table>
+<tr><th>Параметр</th><th>Диапазон (по умолчанию)</th><th>Что это и на что влияет</th></tr>
+<tr><td><code>VREAC</code> — время аварии</td><td>1–10 мин (3)</td><td>Сколько минут система ждёт возврата TSA в норму, прежде чем аварийно завершить процесс. Больше — терпеливее к кратковременным скачкам; меньше — быстрее реагирует на реальную проблему.</td></tr>
+<tr><td><code>NASEB</code> — стабилизация «на себя»</td><td>1–30 мин (10)</td><td>Длительность первого этапа NASEBYA в ректификации: колонна работает без отбора и выходит на режим. Слишком мало — голов и тела в колонне не разделятся; слишком много — просто потеря времени.</td></tr>
+<tr><td><code>VKLAP</code> — повторная стабилизация</td><td>1–30 мин (10)</td><td>Длительность NASEBYA после «Залёта» (заброса колонны) в методе Стандарт. Логика та же, что у NASEB, но для повторных входов.</td></tr>
+<tr><td><code>BOX_TPR</code> — максимум температуры бокса</td><td>50–70 °C (60)</td><td>Порог внимания по датчику BME280: превышение — периодический сигнал и надпись ATTENT. Защищает электронику от перегрева (проверьте вентиляцию корпуса, а не снижайте порог наугад).</td></tr>
+<tr><td><code>POWER</code> — мощность, Вт</td><td>100–7000 (3500)</td><td><b>Самый недооценённый параметр.</b> Это не «уровень нагрева», а число для расчёта: все скорости отбора считаются как <code>мл/ч/кВт × кВт</code>. Если POWER не совпадает с реальной мощностью нагрева, головы и тело будут отбираться быстрее или медленнее расчётных. Ставьте фактическую потребляемую мощность.</td></tr>
+<tr><td><code>AS_VOL</code> — объём спирта-сырца, мл</td><td>1000–10000 (5000)</td><td>Сколько абсолютного спирта (АС) вы залили в куб. От него считаются объёмы голов (доли) и прогноз времени тела. Указывайте честно: занизите — голов отберётся меньше (плохой продукт), завысите — отберёте больше голов, чем нужно, с потерями спирта.</td></tr>
+<tr><td><code>MINOPEN</code> — мин. открытие</td><td>50–2000 мс (100)</td><td>Базовая длительность импульса клапана (см. раздел 6). Влияет на износ клапана и плавность регулировки.</td></tr>
+<tr><td><code>SP_H_COR</code> / <code>SP_B_COR</code></td><td>10–200 % (100)</td><td>Коррекция скорости голов/тела. Быстрая ручка «на глаз» прямо во время процесса из панели мониторинга.</td></tr>
+<tr><td><code>WIFI CHK</code></td><td>1–5 мин (5)</td><td>Как часто система проверяет WiFi и восстанавливает связь. На домашнюю перегонку влияет слабо.</td></tr>
+</table>
+<h3>Настройки, доступные только через Web «Настройки»</h3>
+<ul>
+<li><code>ГОЛОВЫ (мл)</code> — явный объём голов для метода Стандарт (0 = авто: 10 % от АС). Используйте, если считаете головы по своей таблице, а не по проценту.</li>
+<li><b>Облако</b> — режим ВКЛ/ВЫКЛ, адрес сервера и ключ: удалённый мониторинг через внешний сервис. Не пользуетесь — оставьте ВЫКЛ.</li>
+<li><b>Логи</b> — кнопка просмотра журнала процессов (что система делала и когда).</li>
+<li><b>ТЕСТ ЗВУКА</b> — проверка зуммера.</li>
+<li><b>Профили</b> — сохранить/загрузить комплекты настроек (раздел 9).</li>
+</ul>
+<div class="box info"><b class="tag">Где физически хранится</b>Все значения живут в EEPROM контроллера. Веб-настройки применяются сразу после «СОХРАНИТЬ». LCD-меню сохраняет при выходе из меню кнопкой BACK.</div>
+</div>
+</details>
+
+<!-- ============ 8. ИНЖЕНЕРНОЕ МЕНЮ ============ -->
+<details class="sec" id="s8">
+<summary><span class="num">8</span>Инженерное меню (⚙)<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Инженерное меню открывается <b>шестерёнкой ⚙ в правом верхнем углу страницы «Настройки»</b> веб-интерфейса. Здесь живут «константы технологии» — то, что обычно настраивают один раз под свой аппарат и больше не трогают. Если не уверены, что понимаете параметр — оставьте значение по умолчанию.</p>
+<h3>Скорости отбора</h3>
+<table>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Смысл и влияние</th></tr>
+<tr><td><code>ГОЛОВЫ, мл/ч/кВт</code></td><td>50</td><td>Скорость отбора голов = 50 × кВт. При 3 кВт — 150 мл/ч. Медленный отбор голов — основа чистого продукта. Увеличивать не стоит; уменьшить — можно (дольше, но чище).</td></tr>
+<tr><td><code>ТЕЛО, мл/ч/кВт</code></td><td>500</td><td>Скорость тела = 500 × кВт (3 кВт → 1500 мл/ч). Основная рабочая скорость ректификации. Завышение ведёт к «размазыванию» колонны и подмесу голов в тело.</td></tr>
+<tr><td><code>ДООТБОР ГОЛОВЫ, мл/ч</code></td><td>50</td><td>Пока идёт отбор тела, клапан голов продолжает капать с этой скоростью — «хвосты голов» не остаются в колонне. Независимо от мощности.</td></tr>
+</table>
+<h3>Параметры Шпоры (метод тела при CYCLE=1 и НЗ-клапане)</h3>
+<table>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Смысл и влияние</th></tr>
+<tr><td><code>КОЭФФ. СНИЖЕНИЯ ОТБОРА</code></td><td>1.13</td><td>Во сколько раз снижается скорость тела, когда температура царги поднялась на Δ выше опорной. Меньше (например 1.08) — мягче реакция, больше снижений; больше (1.2) — редкие, но резкие шаги.</td></tr>
+<tr><td><code>СТАБИЛИЗАЦИЯ, сек</code></td><td>60</td><td>Минимальная пауза между снижениями скорости: колонне нужно время увидеть эффект шага. Слишком часто менять скорость — «качели».</td></tr>
+<tr><td><code>МИН. СКОРОСТЬ ТЕЛО, мл/ч</code></td><td>300</td><td>Если после снижений скорость упала до этой — тело закончилось, система завершает процесс автоматически. Повышение порога = раньше финиш, меньше «хвостов» в теле.</td></tr>
+</table>
+<h3>Доли отбора голов (в % от объёма АС)</h3>
+<table>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Когда используется</th></tr>
+<tr><td><code>СТАНДАРТ</code></td><td>10 %</td><td>Метод голов ST: отбор одним этапом 10 % от АС (или явный объём «ГОЛОВЫ, мл», если задан)</td></tr>
+<tr><td><code>КСС СПИТ</code></td><td>2 %</td><td>Метод KSS, этап 1: «плевок» — клапан полностью открыт, самая головная часть отбирается быстро</td></tr>
+<tr><td><code>КСС СТАНД.</code></td><td>3 %</td><td>Метод KSS, этап 2: основной медленный отбор голов</td></tr>
+<tr><td><code>КСС АКАТЕЛО</code></td><td>15 %</td><td>Метод KSS, этап 3: «добор» на скорости тела — переходная зона голов→тело</td></tr>
+</table>
+<h3>Давление</h3>
+<table>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Смысл и влияние</th></tr>
+<tr><td><code>КОЭФФ. КОРРЕКЦИИ ПО АД, °C/гПа</code></td><td>0.028</td><td>Атмосферное давление меняет температуру кипения. Система запоминает опорное давление в начале отбора тела и сдвигает пороги Δ/Залёт на <code>(текущее − опорное) × 0.028</code>. Меньше коэффициент — меньше чувствительность к погоде.</td></tr>
+</table>
+<h3>Время этапов</h3>
+<table>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Смысл и влияние</th></tr>
+<tr><td><code>ОСТАНОВ ОХЛАЖДЕНИЯ, сек</code></td><td>300</td><td>Сколько секунд длится финальное охлаждение (FINISHING): нагрев выключен, вода льётся, клапаны закрыты. Затем процесс завершается и вода закрывается.</td></tr>
+<tr><td><code>БАКСТОП, сек</code></td><td>5</td><td>Задержка между «нагрев выключен» (BAKSTOP в дистилляции) и переходом к охлаждению.</td></tr>
+<tr><td><code>ПРОЛИВ, сек</code></td><td>10</td><td>Длительность первого шага мастера калибровки клапанов (см. раздел 6).</td></tr>
+<tr><td><code>КАЛИБР. CAPACITY, сек</code></td><td>60</td><td>Длительность замера capacity в мастере калибровки. Увеличьте до 120–300 с для более точного замера малых скоростей.</td></tr>
+<tr><td><code>ЗАДЕРЖКА T ТЕЛА, мин</code></td><td>5 (0–60)</td><td>Задержка фиксации опорной температуры царги (<code>rtsarM</code>) и опорного давления при входе в этап ТЕЛО. Отбор тела начинается сразу, но реакции Δ/Залёт включаются только после захвата опоры — колонна успевает стабилизироваться после перехода с голов на тело. <code>0</code> = фиксировать сразу, как в старых версиях.</td></tr>
+</table>
+<div class="box warn"><b class="tag">Важно</b>Инженерные параметры действуют на оба процесса там, где применимы (скорости — на ректификацию, охлаждение/бакстоп — на оба). После изменения нажмите «СОХРАНИТЬ». Значения из инженерного меню не попадают в профили (профили хранят обычные настройки).</div>
+</div>
+</details>
+
+<!-- ============ 9. ПРОФИЛИ ============ -->
+<details class="sec" id="s9">
+<summary><span class="num">9</span>Профили настроек<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Профиль — это снимок основных настроек, сохранённый на SD-карте. Удобно, когда систему обслуживают разные «продукты»: один профиль под брагу сахарную, второй под зерновую, третий под сырец второй перегонки.</p>
+<h3>Как пользоваться</h3>
+<div class="step"><div class="sn">1</div><div class="sc">Настройте систему как нужно (дистилляция/ректификация, тайминги, пороги).</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Страница «Настройки» → <b>СОХР. ПРОФИЛЬ</b> → введите имя → «СОХРАНИТЬ».</div></div>
+<div class="step"><div class="sn">3</div><div class="sc">В другой раз: <b>ЗАГР. ПРОФИЛЬ</b> → выберите имя → параметры применяются мгновенно.</div></div>
+<div class="box info"><b class="tag">Инфо</b>Профили хранятся на SD-карте (папка профилей), поэтому переживают любые перезагрузки и перешивки. В профиль входят основные процессные настройки; инженерное меню (шестерёнка) в профиль не входит — его значения общие для всех профилей.</div>
+</div>
+</details>
+
+<!-- ============ 10. ДИСТИЛЛЯЦИЯ ============ -->
+<details class="sec" id="s10">
+<summary><span class="num">10</span>Процесс «Дистилляция» — пошагово<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Схема этапов, которую система проходит автоматически:</p>
+<div class="flow">
+<span class="st">WATER TEST</span><span class="ar">→</span>
+<span class="st">RAZGON</span><span class="ar">→</span>
+<span class="st">WAITING</span><span class="ar">→</span>
+<span class="st">OTBOR</span><span class="ar">→</span>
+<span class="st">REPLACEMENT</span><span class="ar">→</span>
+<span class="st">OTBOR…</span><span class="ar">→</span>
+<span class="st">BAKSTOP</span><span class="ar">→</span>
+<span class="st">FINISHING</span><span class="ar">→</span>
+<span class="st opt">ENDED</span>
+</div>
+<h3>Шаг 0. Подготовка</h3>
+<div class="step"><div class="sn">1</div><div class="sc">Залейте брагу в куб, соберите аппарат, убедитесь, что вода подключена и слив организован.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Проверьте датчики (все четыре должны показывать), мощность и мешалку при необходимости.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc">Откройте страницу «Дистилляция» (или LCD: DIST → SETUP) и выставьте параметры:</div></div>
+<table>
+<tr><th>Параметр</th><th>Диапазон (по умолчанию)</th><th>Что это и на что влияет</th></tr>
+<tr><td><code>РАЗГОН ДО</code> (RAZGON)</td><td>30–80 °C (78)</td><td>Температура куба, до которой система греет на максимальной скорости. По её достижении нагрев сбрасывается на рабочий и открывается вода охлаждения. 78 °C — почти кипение: далее колонна/дефлегматор догревается сама на этапе WAITING.</td></tr>
+<tr><td><code>БАКСТОП</code> (bakStopTemp)</td><td>50–100 °C (99)</td><td>Температура куба, при которой отбор прекращается совсем (спирт в кубе практически закончился). 98–99 °C — стандарт. Ниже (97–98) — чуть больше спирта останется в браге, но тело будет чище от хвостов.</td></tr>
+<tr><td><code>СМЕНА ТАРЫ</code> (MIDTERM)</td><td>35,0–96,0 °C (92,0)</td><td>Температура куба для автоматической смены приёмной ёмкости: система закроет клапан отбора и покажет диалог REPLACEMENT. Используется, чтобы хвосты не попали в основной продукт. Уставка сравнивается с температурой куба, приведённой к 760 мм рт. ст. — срабатывание не «плывёт» от погоды.</td></tr>
+<tr><td><code>СМЕНА ТАРЫ ОТБОР</code> (крепость, %)</td><td>0–98 (не задано)</td><td>Альтернатива MIDTERM: сменить тару, когда расчётная крепость в струе упала до заданной (например 40 %). В web достаточно задать один из двух параметров — второй посчитается сам.</td></tr>
+<tr><td><code>ТИП НАГРЕВА</code> (NAGREV)</td><td>TEN / IND</td><td><b>TEN</b> — система сама управляет ТЭНом (каналы 1 и 2). <b>IND</b> — газ/индукция/внешний регулятор: система лишь показывает этап, нагрев вы регулируете сами.</td></tr>
+<tr><td><code>РАЗГОН НА ВСЮ</code> (FULL PWR)</td><td>YES/NO (YES)</td><td>Гнать ли на полной мощности до РАЗГОН ДО. NO — нагрев вполсилы (меньше брызгоунос на узких кубах).</td></tr>
+<tr><td><code>ИСП. КЛ. ОТБОРА</code> (VALVE USE)</td><td>YES/NO (NO)</td><td>NO — клапан отбора открыт весь этап OTBOR (классика, скорость задаёт дефлегматор/нагрев). YES — клапан закрывается на смене тары и бакстопе автоматически; в остальное время открыт.</td></tr>
+<tr><td><code>МЕШАЛКА</code> + <code>ВКЛ/ВЫКЛ (с)</code></td><td>YES (30/300)</td><td>Периодическое перемешивание: 30 сек мешает / 300 сек пауза. Прижигает меньше, равномернее кипит. MIXER ON 1–300 с, MIXER OFF 1–300 с.</td></tr>
+</table>
+<div class="step"><div class="sn">4</div><div class="sc">Нажмите <b>СТАРТ</b> (web) или LCD: DIST → DIST START. Запуск блокируется, если какой-то датчик не готов — тогда на LCD появится список проблемных датчиков.</div></div>
+<h3>Шаг 1. WATER TEST — проверка воды</h3>
+<p>Система открывает водяной клапан (и включает мешалку, если она включена) и спрашивает: «вода пошла?» На экране LCD — <code>WATER TEST</code> с вариантами YES/NO; в web — диалог с кнопками ДА/НЕТ. <b>ДА</b> — процесс продолжается, начинается разгон. <b>НЕТ</b> — процесс отменяется, вода закрывается. Это ваша страховка от перегрева без охлаждения: не подтверждайте, пока не увидите поток воды.</p>
+<h3>Шаг 2. RAZGON — разгон</h3>
+<p>Нагрев включён (при TEN — на полную, если включено «РАЗГОН НА ВСЮ»; при RECT всегда полная). Куб греется до <code>РАЗГОН ДО</code>. Мешалка работает циклами. Ожидание: 40–90 минут в зависимости от объёма и мощности. По достижении уставки мощность сбрасывается на рабочую, открывается вода.</p>
+<h3>Шаг 3. WAITING — выход колонны на режим</h3>
+<p>Система ждёт, пока температура в зоне датчика TSAR вырастет на <b>+5 °C</b> от значения на входе в этап — признак того, что пар дошёл до дефлегматора и аппарат вышел на рабочий режим. После этого начинается отбор (OTBOR). В дистилляции этот этап короткий.</p>
+<h3>Шаг 4. OTBOR — отбор</h3>
+<p>Основной этап. Система следит за кубом:</p>
+<ul>
+<li>Температура куба (приведённая к 760 мм рт. ст.) достигла <code>СМЕНА ТАРЫ</code> → клапан закрывается, этап <b>REPLACEMENT</b>: меняете приёмную ёмкость и отвечаете ДА (продолжить отбор) или НЕТ (закончить процесс сейчас). Сменённая ёмкость — «хвосты/второй сорт».</li>
+<li>Температура куба достигла <code>БАКСТОП</code> → этап <b>BAKSTOP</b>: нагрев выключается, через <code>БАКСТОП, сек</code> начинается финальное охлаждение.</li>
+</ul>
+<div class="box tip"><b class="tag">Ожидаемый результат</b>При правильных уставках вы получаете: основной продукт до ~92 °C в кубе (крепость струи к этому моменту около 40–45 %), затем смену тары, и «хвосты» до 99 °C. На LCD строка процесса показывает температуры TSA/AQUA/TSAR/TANK, крепость в кубе и в струе, время процесса и уставку бакстопа.</div>
+<h3>Шаги 5–6. BAKSTOP → FINISHING → ENDED</h3>
+<p>Нагрев выключен, вода продолжает идти заданное время (<code>ОСТАНОВ ОХЛАЖДЕНИЯ</code>, 300 с), клапаны закрыты. По завершении вода закрывается, на экране <code>ENDED</code> — процесс окончен. Можно разбирать аппарат и сливать куб.</p>
+<div class="box warn"><b class="tag">Важно</b>Если в процессе температура TSA превысила <code>TSA ЛИМИТ</code> и не вернулась за <code>VREAC</code> минут, система сама уйдёт в FINISHING (аварийное завершение). Причина обычно — потеря охлаждения. Устраните причину до повторного запуска (см. раздел 13).</div>
+</div>
+</details>
+
+<!-- ============ 11. РЕКТИФИКАЦИЯ ============ -->
+<details class="sec" id="s11">
+<summary><span class="num">11</span>Процесс «Ректификация» — пошагово<span class="chev">▶</span></summary>
+<div class="secbody">
+<p>Схема этапов ректификации:</p>
+<div class="flow">
+<span class="st">WATER TEST</span><span class="ar">→</span>
+<span class="st">RAZGON</span><span class="ar">→</span>
+<span class="st">WAITING</span><span class="ar">→</span>
+<span class="st">NASEBYA</span><span class="ar">→</span>
+<span class="st opt">VALVE CAL *</span><span class="ar">→</span>
+<span class="st opt">SET PW &amp; AS *</span><span class="ar">→</span>
+<span class="st">GOLOVY</span><span class="ar">→</span>
+<span class="st">GOLOVY OK?</span><span class="ar">→</span>
+<span class="st">TELO</span><span class="ar">→</span>
+<span class="st">FINISHING</span><span class="ar">→</span>
+<span class="st opt">ENDED</span>
+</div>
+<p class="tbl-note">* этапы появляются в зависимости от настроек CALIBRATE и подтверждений.</p>
+<h3>Шаг 0. Подготовка и настройки</h3>
+<p>Залейте спирт-сырец, соберите колонну. Страница «Ректификация» (или LCD: RECT → SETUP):</p>
+<table>
+<tr><th>Параметр</th><th>Диапазон (по умолчанию)</th><th>Что это и на что влияет</th></tr>
+<tr><td><code>TSA ЛИМИТ</code></td><td>40–55 °C (40)</td><td>Аварийный порог по датчику TSA (верхняя зона). Если пар там горячее лимита — тревога и отсчёт VREAC. 40 °C — консервативно; выше 50–55 — осторожно, это уже признак проблем с разделением или охлаждением.</td></tr>
+<tr><td><code>РАЗГОН ДО</code></td><td>30–80 °C (78)</td><td>Как в дистилляции: разгон куба до 78 °C на полной мощности.</td></tr>
+<tr><td><code>ЦИКЛЫ</code> (CYCLE)</td><td>1–3 (3)</td><td>Сколько раз допускается «Залёт» (заброс колонны) до автоматического финиша, метод тела Стандарт. <b>1</b> + НЗ-клапан = включается особый метод тела <b>Шпора</b> (см. ниже).</td></tr>
+<tr><td><code>ГИСТЕРЕЗИС</code></td><td>0,18–5,00 (0,24)</td><td>Порог «Залёта»: насколько температура царги должна подняться выше опорной, чтобы система закрыла отбор (Шпора: финиш; Стандарт: на себя). Меньше — строже контроль, чаще остановки; больше — терпимее к скачкам, но рискуете подмесом.</td></tr>
+<tr><td><code>ДЕЛЬТА</code></td><td>0,06–0,18 (0,06)</td><td>Порог мягкой реакции (только Шпора): превышение опоры на Δ → снизить скорость отбора в 1,13 раза. Это «плавная рулька» метода Шпора.</td></tr>
+<tr><td><code>ТИП НАГРЕВА</code></td><td>TEN / IND</td><td>Как в дистилляции. Для ректификации управление мощностью критично — с индукцией точность стабилизации зависит от вашего регулятора.</td></tr>
+<tr><td><code>ИСП. КЛ. ГОЛОВ</code></td><td>YES/NO (YES)</td><td>Есть ли отдельный клапан голов.</td></tr>
+<tr><td><code>ТИП. КЛ. ТЕЛО</code></td><td>NC / NO (NC)</td><td>Тип клапана тела. НЗ (NC) — импульсный автоматический отбор; НО (NO) — открытый отбор (скорость регулируете вы).</td></tr>
+<tr><td><code>МЕТОД ГОЛОВ</code></td><td>ST / KSS (ST)</td><td>ST — один этап отбора 10 % от АС (или заданного объёма «ГОЛОВЫ, мл»). KSS — три этапа: Спит 2 % полным потоком → Стандарт 3 % медленно → Акатело 15 % на скорости тела. KSS быстрее добирает головную зону и обычно даёт более чёткую границу.</td></tr>
+<tr><td><code>КАЛИБРОВКА</code></td><td>YES/NO (YES)</td><td>Проводить ли мастер калибровки клапанов прямо на колонне после первой стабилизации (этап VALVE_CAL). Если клапаны уже откалиброваны — можно NO.</td></tr>
+<tr><td>Тайминги <code>HEAD OPN/CLS, BODY OPN/CLS</code>, <code>TESTTIME</code>, <code>HCAP/BCAP/B0CAP</code></td><td>см. раздел 6</td><td>Импульсы клапанов и их пропускная способность.</td></tr>
+</table>
+<p>Проверьте также в «Настройках»: <code>POWER</code> (реальная мощность!), <code>AS_VOL</code> (объём АС в кубе), <code>NASEB</code> (первая стабилизация), <code>VKLAP</code> (повторная). В инженерном меню — скорости и доли голов (раздел 8), включая <code>ЗАДЕРЖКА T ТЕЛА</code>.</p>
+<h3>Шаг 1–3. WATER TEST → RAZGON → WAITING</h3>
+<p>Как в дистилляции: подтверждаете воду, куб греется до 78 °C, затем ждём +5 °C на TSAR. При RECТ разгон всегда идёт на полной мощности (TEN).</p>
+<h3>Шаг 4. NASEBYA — работа «на себя»</h3>
+<p>Клапаны закрыты, колонна работает без отбора <code>NASEB</code> минут (по умолчанию 10). Цель — устойчивое равновесие: пар и флегма в колонне уравновешиваются. На LCD/Web виден остаток минут. Ожидание: температура царги стабилизируется и перестанет ползти.</p>
+<h3>Шаги 5–6. VALVE CAL (опционально) и SET PW &amp; AS</h3>
+<ul>
+<li><b>VALVE CAL</b> — если включено <code>КАЛИБРОВКА</code>: на горячей колонне проходит мастер калибровки (раздел 6). Пролив → замер capacity → ввод мл. После завершения система сама переходит дальше; в web есть кнопка «ДАЛЕЕ» для пропуска.</li>
+<li><b>SET PW &amp; AS</b> — финальная проверка перед отбором голов: на LCD меню POWER (Вт) / AS_VOL (мл) / GOLOVYRUN (старт); в web — окно с текущими настройками, кнопки −/+ у объёма голов и кнопка «ДАЛЕЕ». Проверьте мощность и объём АС — от них считаются все скорости и объёмы голов.</li>
+</ul>
+<h3>Шаг 7. GOLOVY — отбор голов</h3>
+<p>Система отбирает головы выбранным методом:</p>
+<ul>
+<li><b>Стандарт (ST):</b> объём = <code>ГОЛОВЫ (мл)</code> из web, если задан (>0), иначе 10 % от АС. Скорость = <code>50 мл/ч/кВт × кВт</code> (3 кВт → 150 мл/ч). Отбор импульсами клапаном голов.</li>
+<li><b>KSS:</b> этап 1 «Спит» — 2 % от АС полным потоком (клапан открыт); этап 2 «Стандарт» — 3 % от АС на скорости голов; этап 3 «Акатело» — 15 % от АС на скорости тела. На web-мониторинге видно текущий подэтап, объём и остаток времени.</li>
+</ul>
+<h3>Шаг 8. GOLOVY OK? — ваше подтверждение</h3>
+<p>Когда целевой объём голов отобран, система останавливается и спрашивает: «головы готовы?» (<code>GOLOVY_OK</code>). Посмотрите на струю/понюхайте: если головной запах ещё сильный — дайте допороться вручную или вернитесь (на LCD — YES после допора; в web — ДА). Нажатие ДА переключает систему в этап ТЕЛО.</p>
+<h3>Шаг 9. TELO — отбор тела</h3>
+<p>Сначала система фиксирует <b>опорную температуру царги</b> (<code>rtsarM</code>) и опорное давление — <b>не сразу, а через <code>ЗАДЕРЖКА T ТЕЛА</code> минут</b> (по умолчанию 5). Задержка нужна, чтобы колонна стабилизировалась после переключения с голов на тело; отбор при этом идёт с начальной скоростью, объём копится. До захвата опоры реакции Δ/Залёт отключены — ложных остановок в первые минуты не будет. В логе это видно: «pending (capture in 5 min)», затем «Reference captured».</p>
+<p>Дальше работают два метода (выбор автоматический):</p>
+<table>
+<tr><th></th><th>Метод Шпора (CYCLE=1 + НЗ)</th><th>Метод Стандарт (Overhist, иначе)</th></tr>
+<tr><td><b>Начальная скорость</b></td><td>500 мл/ч/кВт × кВт, импульсный отбор</td><td>та же; НО-клапан — отбор открыт</td></tr>
+<tr><td><b>Реакция на +Δ (мягкая)</b></td><td>скорость ÷ 1,13 (не чаще раза в 60 с)</td><td>нет</td></tr>
+<tr><td><b>Реакция на Залёт (+ГИСТЕРЕЗИС)</b></td><td>финиш процесса</td><td>закрыть отбор → NASEBYA <code>VKLAP</code> минут → если царга остыла ниже порога, продолжить; циклов не больше <code>ЦИКЛЫ</code>, иначе финиш</td></tr>
+<tr><td><b>Автофиниш по скорости</b></td><td>да: скорость упала до <code>МИН. СКОРОСТЬ ТЕЛО</code> (300 мл/ч) → финиш</td><td>нет (финиш только по Залётам)</td></tr>
+<tr><td><b>Суть</b></td><td>постепенно «притормаживает» отбор по мере выталкивания хвостов; заканчивает, когда держать скорость больше нельзя</td><td>работает до резкого заброса температуры; после нескольких забросов — финиш</td></tr>
+</table>
+<p>Во время тела клапан голов продолжает капать 50 мл/ч (доотбор). На мониторинге видны: метод, текущая скорость, накопленный объём тела, прогноз остатка времени. Поправка на атмосферное давление применяется к порогам автоматически.</p>
+<div class="box tip"><b class="tag">Ожидаемый результат</b>Тело 96,0–96,6 % (при рабочей колонне). Прогноз объёма тела на экране: АС − головы − 15 % (запас на хвосты). Если система часто «Залетает» и уходит в повторную стабилизацию — скорость слишком велика для вашей колонны: уменьшите <code>ТЕЛО, мл/ч/кВт</code> или усильте дефлегмацию.</div>
+<h3>Шаг 10. FINISHING → ENDED</h3>
+<p>Как в дистилляции: нагрев и клапаны выключаются, вода идёт ещё <code>ОСТАНОВ ОХЛАЖДЕНИЯ</code> секунд, затем процесс завершён. Хвосты в ректификации обычно не отбираются — то, что осталось, уйдёт в следующую варку.</p>
+</div>
+</details>
+
+<!-- ============ 12. МОНИТОРИНГ И WEB ============ -->
+<details class="sec" id="s12">
+<summary><span class="num">12</span>Мониторинг и веб-интерфейс<span class="chev">▶</span></summary>
+<div class="secbody">
+<h3>Страница «Мониторинг» (landscape)</h3>
+<ul>
+<li><b>Схема аппарата (SVG)</b> — куб, колонна, дефлегматор с живыми температурами в точках: TANK (куб), TSAR (царга), TSA (верх), AQUA (вода/выход). Схема меняется под процесс: ректификационная колонна или дистиллятор.</li>
+<li><b>Панель «Данные»</b> — мощность (Вт), температура бокса/лимит, влажность.</li>
+<li><b>Статусная строка</b> — этап (<code>mon-stage</code>: RAZGON, NASEBYA, TELO…), бейдж процесса, статус НОРМА/тревога, время процесса, метод отбора (ST/KSS, Шпора/Стандарт).</li>
+<li><b>Расчёты «Головы» / «Тело»</b> — целевой и накопленный объёмы, расчётная и реальная скорости, подэтап и остаток времени. Здесь же ручки «Коррекция %» (−/+) для скорости голов и тела — самое частое действие во время процесса.</li>
+<li><b>Системная панель</b> — крепость в кубе и в струе (расчётная), опорная температура царги и опорное давление тела (REF ЦАРГА / REF АД) — то, от чего система считает Δ и Залёты.</li>
+</ul>
+<h3>Индикаторы в шапке</h3>
+<ul>
+<li><b>НАГРЕВ / МЕШАЛКА / ВОДА</b> — точечные индикаторы включённости выходов: всегда видно, что реально включено, независимо от этапа.</li>
+<li><b>Сеть</b>: точка INET (есть ли интернет), бейдж W/A/X (режим подключения), при включённом облаке — возраст данных.</li>
+</ul>
+<h3>Экран LCD во время процесса</h3>
+<p>Четыре строки вида:</p>
+<pre style="background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13.5px;">78.12 RECT W  ST     ← TSA, процесс, сеть, метод голов
+65.30 TELO 1.52Sp    ← AQUA, этап; для Шпоры — скорость л/ч
+73.55 NORMA          ← TSAR, статус безопасности
+70.88 01:23          ← TANK, время процесса</pre>
+<p>В дистилляции дополнительно показываются крепость в кубе (строка 0) и крепость в струе (строка 1). Служебные диалоги (WATER TEST, REPLACEMENT, GOLOVY OK?, мастер калибровки) отображаются вместо строк процесса — с ними работают кнопки ВВЕРХ/ВНИЗ/SET.</p>
+<div class="box tip"><b class="tag">Совет</b>Держите на телефоне вкладку «Мониторинг» открытой: крепость в струе при RECT считается по температуре царги и давлению, и её удобно видеть рядом со скоростью отбора. Расчётная крепость появляется, только когда температура достигает рабочей зоны (от ~78,5 °C).</div>
+</div>
+</details>
+
+<!-- ============ 13. АВАРИИ ============ -->
+<details class="sec" id="s13">
+<summary><span class="num">13</span>Аварии, сигналы и защита<span class="chev">▶</span></summary>
+<div class="secbody">
+<h3>Таблица сигналов</h3>
+<table>
+<tr><th>Сигнал/экран</th><th>Звук</th><th>Что означает</th><th>Что делать</th></tr>
+<tr><td><code>NORMA</code></td><td>—</td><td>Всё в норме</td><td>Ничего</td></tr>
+<tr><td><code>ALARMTSA 02:31</code></td><td>3 коротких каждые 30 с</td><td>Температура TSA выше лимита, идёт обратный отсчёт VREAC</td><td>Проверьте воду охлаждения немедленно. Если температура вернётся в норму — тревога снимется сама, отсчёт обнулится</td></tr>
+<tr><td><code>EMERGENCY</code></td><td>серия</td><td>VREAC истёк — аварийное завершение (FINISHING)</td><td>Устраните причину (обычно вода), разбирайте после охлаждения</td></tr>
+<tr><td><code>ATTENT 65C</code></td><td>2 коротких каждые 30 с</td><td>Перегрев корпуса электроники (BME280 &gt; BOX_TPR)</td><td>Проверьте вентиляцию корпуса, близость горячих узлов</td></tr>
+<tr><td><code>SENSOR NOT READY</code></td><td>—</td><td>Запуск заблокирован: датчики не откалиброваны/не отвечают</td><td>Меню SENSORS / страница «Датчики»: калибровка или проверка проводки</td></tr>
+</table>
+<h3>Как система ведёт себя при отказах</h3>
+<ul>
+<li><b>Пропал датчик TSA во время тревоги</b> — тревога не сбрасывается, отсчёт продолжается: система завершит процесс по VREAC. Честнее ошибиться в сторону безопасности.</li>
+<li><b>Пропал BME280 на этапе тела</b> — поправка по давлению замораживается на последнем значении; если BME не было вообще — поправка отключена на весь этап (давление принимается 760 мм рт. ст.). При восстановлении BME опорное давление перезахватывается, коррекция продолжается.</li>
+<li><b>Пропал WiFi</b> — процесс не останавливается: логика крутится на контроллере. Система периодически пытается переподключиться (каждые <code>WIFI CHK</code> минут). Web просто перестанет обновляться.</li>
+<li><b>Пропала SD-карта</b> — веб-интерфейс и журналы недоступны до перезагрузки с картой; процессы продолжают работать.</li>
+<li><b>Кнопка СТОП</b> (web или LCD STOP) — не мгновенное отключение, а переход к штатному FINISHING: нагрев выключен, клапаны закрыты, вода идёт положенное время. Это безопаснее для аппарата.</li>
+</ul>
+<div class="box danger"><b class="tag">Опасно</b>Если случилось то, чего система не видит (потоп, запах гари, лужа под кубом) — обесточьте систему рубильником/вилкой, не разбирайте горячий узел. Автоматика отключает именно те реле, которыми управляет, и не заменяет главный выключатель.</div>
+</div>
+</details>
+
+<!-- ============ 14. ЗАВЕРШЕНИЕ И ОБСЛУЖИВАНИЕ ============ -->
+<details class="sec" id="s14">
+<summary><span class="num">14</span>Завершение работы и обслуживание<span class="chev">▶</span></summary>
+<div class="secbody">
+<h3>После процесса</h3>
+<ul>
+<li>Дождитесь <code>ENDED</code> (или BAKSTOP-охлаждения) — не перекрывайте воду раньше времени, куб должен остыть.</li>
+<li>Слейте продукт, промойте куб. Клапаны: протрите капельники; при частых процессах периодически промывайте клапаны от налипаний.</li>
+<li>Посмотрите журнал (Настройки → ЛОГИ) — там записаны все переходы этапов, реакции на Δ/Залёты, аварии с температурами. По нему удобно «анализировать полёты».</li>
+</ul>
+<h3>Обновление прошивки и веб-страниц</h3>
+<ul>
+<li><b>Только веб-интерфейс:</b> достаточно заменить файлы в папке <code>/www</code> на SD-карте и перезагрузить систему. Прошивку трогать не нужно.</li>
+<li><b>Прошивка:</b> скомпилируйте/залейте прошивку (Arduino IDE / PlatformIO). Настройки в EEPROM сохранятся, но при смене версий читайте CHANGELOG — там указано, чего ждать.</li>
+<li>После обновлений, затрагивающих калибровки, проверьте capacity клапанов тестом (раздел 6).</li>
+</ul>
+<h3>Периодическое обслуживание</h3>
+<table>
+<tr><th>Периодичность</th><th>Действие</th></tr>
+<tr><td>Каждый процесс</td><td>Визуальный осмотр обвязки, воды, клапанов; проверка датчиков на экране «Датчики»</td></tr>
+<tr><td>Раз в несколько процессов</td><td>Тест клапанов (щелчки, время срабатывания); подзаряд батарейки DS3231 при сбое времени (по паспорту модуля)</td></tr>
+<tr><td>Раз в сезон</td><td>Проверка capacity клапанов повторной калибровкой (цифры могут «уплыть» от износа); чистка контактов реле/клемм</td></tr>
+</table>
+</div>
+</details>
+
+<!-- ============ 15. FAQ ============ -->
+<details class="sec" id="s15">
+<summary><span class="num">15</span>Частые проблемы (FAQ)<span class="chev">▶</span></summary>
+<div class="secbody">
+<table>
+<tr><th>Симптом</th><th>Вероятная причина</th><th>Решение</th></tr>
+<tr><td>«SENSOR NOT READY: TSA TANK» при старте</td><td>Датчики не откалиброваны или не отвечают</td><td>Меню SENSORS / страница «Датчики» — калибровка; проверьте 1-Wire шину и резистор 4,7 кОм</td></tr>
+<tr><td>Клапан работает «наоборот» (открыт в паузах)</td><td>Неверно указан тип клапана тела (NC/NO)</td><td>Настройка <code>ТИП. КЛ. ТЕЛО</code>: НЗ ↔ НО</td></tr>
+<tr><td>KSS «Спит» заканчивается мгновенно / объёмы голов неверные</td><td>Capacity клапана = 0 (пустая калибровка) или AS_VOL не соответствует реальности</td><td>Перекалибруйте клапан мастером; проверьте <code>КОЛ-ВО АС</code></td></tr>
+<tr><td>Отбор идёт заметно быстрее/медленнее расчётного</td><td><code>POWER</code> не равен реальной мощности; capacity неактуален</td><td>Замерьте фактическую мощность, поправьте POWER; перекалибруйте клапан; либо используйте «Коррекция %»</td></tr>
+<tr><td>Частые Залёты в теле, процесс уходит «на себя»</td><td>Слишком высокая скорость тела для колонны, нехватка дефлегмации, скачки мощности</td><td>Снизьте <code>ТЕЛО, мл/ч/кВт</code> (инженерное меню), увеличьте <code>ГИСТЕРЕЗИС</code> на 0,06, стабилизируйте нагрев</td></tr>
+<tr><td>В первые минуты тела система «не реагирует» на рост царги</td><td>Это нормально: опорная температура фиксируется с задержкой <code>ЗАДЕРЖКА T ТЕЛА</code> (5 мин)</td><td>Подождите; в логе появится «Reference captured». Поставьте 0, если хотите прежнее поведение</td></tr>
+<tr><td>Web не открывается по 192.168.4.1</td><td>Телефон не подключён к точке ESP32; SD без папки /www; HTTP-кэш старой страницы</td><td>Проверьте подключение к WiFi ESP32; убедитесь, что файлы на карте; обновите страницу с очисткой кэша</td></tr>
+<tr><td>Web не открывается по локальному IP</td><td>WiFi не подключился (сеть 5 ГГц, неверный пароль)</td><td><code>wifi_config.txt</code>: только 2,4 ГГц; проверьте ssid/pass; IP виден на LCD</td></tr>
+<tr><td>«File Not Found: index.html»</td><td>На SD нет папки <code>/www</code></td><td>Скопируйте файлы веб-интерфейса на карту, перезагрузите</td></tr>
+<tr><td>Смена тары срабатывает раньше/позже, чем ожидал</td><td>Уставка MIDTERM задана в целых градусах и «плавает» с давлением</td><td>Задайте уставку точнее (с десятыми) или задайте желаемую крепость смены тары — система сама пересчитает температуру</td></tr>
+<tr><td>Тревога TSA без видимых причин</td><td>Лимит слишком строгий для вашей колонны; плохой контакт датчика TSA</td><td>Поднимите <code>TSA ЛИМИТ</code> в разумных пределах (40–55), проверьте посадку датчика</td></tr>
+<tr><td>После отключения питания настройки сбросились</td><td>EEPROM-память не записала конфиг (редко: сбой питания в момент записи)</td><td>Перенастройте; проверьте питание. Значения по умолчанию см. в разделах 7–8</td></tr>
+</table>
+</div>
+</details>
+
+<!-- ============ 16. ШПАРГАЛКА ============ -->
+<details class="sec" id="s16">
+<summary><span class="num">16</span>Шпаргалка: краткая справка<span class="chev">▶</span></summary>
+<div class="secbody">
+<h3>Быстрый старт (когда всё уже настроено)</h3>
+<div class="step"><div class="sn">1</div><div class="sc">Залейте сырьё, соберите аппарат, включите систему.</div></div>
+<div class="step"><div class="sn">2</div><div class="sc">Web → «Дистилляция» или «Ректификация» → проверьте уставки → СТАРТ.</div></div>
+<div class="step"><div class="sn">3</div><div class="sc">WATER TEST: убедитесь, что вода идёт → ДА.</div></div>
+<div class="step"><div class="sn">4</div><div class="sc">Дальше система сама. Следите за Мониторингом; реагируйте на диалоги (смена тары, GOLOVY OK?).</div></div>
+<div class="step"><div class="sn">5</div><div class="sc">По окончании дождитесь ENDED, слейте продукт, выключите питание.</div></div>
+<h3>Формулы, которые использует система</h3>
+<table>
+<tr><th>Величина</th><th>Формула</th><th>Пример при 3 кВт</th></tr>
+<tr><td>Скорость голов</td><td><code>50 мл/ч/кВт × кВт × SP_H_COR</code></td><td>150 мл/ч</td></tr>
+<tr><td>Скорость тела</td><td><code>500 мл/ч/кВт × кВт × SP_B_COR</code></td><td>1500 мл/ч</td></tr>
+<tr><td>Объём голов (ST)</td><td><code>ГОЛОВЫ(мл)</code> или <code>АС × 10 %</code></td><td>500 мл при АС 5 л</td></tr>
+<tr><td>Объём голов (KSS)</td><td><code>2 % + 3 % + 15 %</code> от АС</td><td>100+150+750 мл</td></tr>
+<tr><td>Порог Δ (Шпора)</td><td><code>rtsarM + ДЕЛЬТА + поправка давления</code></td><td>см. раздел 11</td></tr>
+<tr><td>Порог Залёта</td><td><code>rtsarM + ГИСТЕРЕЗИС + поправка давления</code></td><td>см. раздел 11</td></tr>
+</table>
+<h3>Куда нажимать: шпаргалка по интерфейсу</h3>
+<table>
+<tr><th>Задача</th><th>Где</th></tr>
+<tr><td>Запустить/остановить процесс</td><td>Большая кнопка СТАРТ/СТОП внизу web; LCD: DIST/RECT → START/STOP</td></tr>
+<tr><td>Поменять скорость отбора на ходу</td><td>Мониторинг → «Коррекция %» у панелей Головы/Тело</td></tr>
+<tr><td>Откалибровать датчик</td><td>Web: «Датчики» → нажать плитку и нагреть датчик на 5 °C; LCD: SENSORS → SET</td></tr>
+<tr><td>Откалибровать клапан</td><td>Web: «Ректификация» → «Калибровка клапанов» → Калибровать</td></tr>
+<tr><td>Изменить скорости/доли/задержку T тела</td><td>Настройки → шестерёнка ⚙ (инженерное меню)</td></tr>
+<tr><td>Сохранить/загрузить набор настроек</td><td>Настройки → СОХР. ПРОФИЛЬ / ЗАГР. ПРОФИЛЬ</td></tr>
+<tr><td>Посмотреть журнал процесса</td><td>Настройки → ЛОГИ (web) </td></tr>
+<tr><td>Проверить звук тревоги</td><td>Настройки → ТЕСТ ЗВУКА</td></tr>
+</table>
+<div class="box tip"><b class="tag">Последний совет</b>Не меняйте много параметров за один раз. Изменили один — прогнали процесс — посмотрели лог. Так вы всегда будете знать, что именно повлияло на результат. Хорошей перегонки!</div>
+</div>
+</details>
+
+</main>
+
+<script>
+(function(){
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('#toc a'));
+  var secs = Array.prototype.slice.call(document.querySelectorAll('details.sec'));
+  var toTop = document.getElementById('toTop');
+  var pbar = document.getElementById('pbar');
+
+  // Активный пункт меню + полоса прогресса
+  function onScroll(){
+    var y = window.scrollY || document.documentElement.scrollTop;
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    pbar.style.width = (h>0 ? (y/h*100) : 0) + '%';
+    toTop.style.display = y > 400 ? 'block' : 'none';
+    var current = -1;
+    for (var i=0;i<secs.length;i++){
+      var r = secs[i].getBoundingClientRect();
+      if (r.top <= 90) current = i; else break;
+    }
+    tocLinks.forEach(function(a,i){ a.classList.toggle('active', i===current); });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll);
+  onScroll();
+
+  // Клик по пункту меню: раскрыть целевой раздел (мобилка: закрыть сайдбар)
+  tocLinks.forEach(function(a){
+    a.addEventListener('click', function(){
+      var id = a.getAttribute('href').slice(1);
+      var s = document.getElementById(id);
+      if (s) s.open = true;
+      if (window.innerWidth <= 1050) sidebar.classList.remove('open');
+    });
+  });
+
+  // Бургер
+  var sidebar = document.getElementById('sidebar');
+  document.getElementById('burger').addEventListener('click', function(){
+    sidebar.classList.toggle('open');
+  });
+
+  // Наверх
+  toTop.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+
+  // Развернуть всё / свернуть всё
+  var expandBtn = document.getElementById('expandAll');
+  var allOpen = false;
+  expandBtn.addEventListener('click', function(){
+    allOpen = !allOpen;
+    secs.forEach(function(s){ s.open = allOpen; });
+    expandBtn.textContent = allOpen ? 'Свернуть всё' : 'Развернуть всё';
+  });
+
+  // Поиск: фильтр разделов + подсветка
+  var search = document.getElementById('search');
+  var clearBtn = document.getElementById('searchclear');
+  var original = new Map(); // секция -> исходный innerHTML (снимок до первой подсветки)
+  function markIn(el, q){
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var texts = [];
+    while (walker.nextNode()) texts.push(walker.currentNode);
+    texts.forEach(function(node){
+      var idx = node.nodeValue.toLowerCase().indexOf(q);
+      if (idx === -1) return;
+      var range = document.createRange();
+      range.setStart(node, idx); range.setEnd(node, idx + q.length);
+      var frag = range.extractContents();
+      var mk = document.createElement('mark');
+      mk.appendChild(frag);
+      range.insertNode(mk);
+    });
+  }
+  search.addEventListener('input', function(){
+    var q = search.value.trim().toLowerCase();
+    clearBtn.style.display = q ? 'block' : 'none';
+    // Восстановить исходный HTML, если подсветка была применена ранее
+    if (original.size){
+      original.forEach(function(html, el){ el.innerHTML = html; });
+      original.clear();
+    }
+    if (!q){
+      secs.forEach(function(s){ s.classList.remove('search-hide'); });
+      tocLinks.forEach(function(a){ a.parentNode.classList.remove('search-hide'); });
+      return;
+    }
+    // Снимок исходного HTML ДО подсветки
+    secs.forEach(function(s){ original.set(s, s.innerHTML); });
+    secs.forEach(function(s){
+      var hit = s.textContent.toLowerCase().indexOf(q) !== -1;
+      s.classList.toggle('search-hide', !hit);
+      if (hit){ s.open = true; markIn(s, q); }
+    });
+    document.querySelectorAll('#toc li').forEach(function(li){
+      var a = li.querySelector('a');
+      var id = a.getAttribute('href').slice(1);
+      var target = document.getElementById(id);
+      li.classList.toggle('search-hide', !target || target.classList.contains('search-hide'));
+    });
+  });
+  clearBtn.addEventListener('click', function(){
+    search.value=''; search.dispatchEvent(new Event('input')); search.focus();
+  });
+
+  // Печать: раскрыть всё
+  window.addEventListener('beforeprint', function(){ secs.forEach(function(s){ s.open = true; }); });
+})();
+</script>
+</body>
+</html>
