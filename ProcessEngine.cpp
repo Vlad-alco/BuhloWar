@@ -1275,10 +1275,19 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
         // Нет клапана голов, работаем через тело
         if (cfg.bodyValveNC) {
             // Конфиг 3: Body(NC). Импульсный режим с capacity для голов
+            // Сессия 18: capacity берём от ТОГО клапана, через который идёт отбор.
+            // При откалиброванном BCH (старые платы с 2-точечной калибровкой) — он;
+            // иначе BCAP (valve_body_capacity) — откалиброванная capacity этого же
+            // НЗ клапана. Прежний fallback на valve_head_capacity был ошибкой:
+            // клапана голов в этой конфигурации НЕТ, и тайминги считались от
+            // дефолтной/чужой capacity — фактическая скорость отличалась от
+            // настроенной в BCAP/HCAP раз, а счётчик объёма считал по цели.
             int openMs, closeMs;
             float targetSpeed = speedGolovy * (cfg.speedHeadCorr / 100.0f);
-            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_head_capacity;
+            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_body_capacity;
             calcValveTiming(targetSpeed, bodyCapHeads, openMs, closeMs);
+            logger.log("GOLOVY ST: BodyNC heads timing: target=" + String(targetSpeed, 1)
+                     + " ml/h, cap=" + String(bodyCapHeads, 1) + " ml/min");
             outputManager->startBodyValveCycling(openMs, closeMs);
         } else {
             // Конфиг 4: Body(NO). Ручной режим.
@@ -1295,8 +1304,14 @@ void ProcessEngine::startKssSpit(SystemConfig& cfg) {
 float vHeadMin = 0;
 
 // Определяем актуальную пропускную способность в зависимости от конфига клапана
+// Сессия 18: клапан открыт НАСТОЯЩУЮ (не импульсит) — течёт его полная
+// пропускная способность: HCAP для клапана голов, BCAP для НЗ клапана тела,
+// B0CAP для НО клапана. BCH (импульсная capacity на скорости голов) тут не
+// применим, а главное — ЗНАЧЕНИЕ должно совпадать со счётчиком объёма в
+// handleGolovy (строка ~1152), иначе длительность этапа и накопленный объём
+// расходятся.
 float cap = cfg.useHeadValve    ? (float)cfg.valve_head_capacity :
-            cfg.bodyValveNC     ? (cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_body_capacity) :
+            cfg.bodyValveNC     ? (float)cfg.valve_body_capacity :
                                   (float)cfg.valve0_body_capacity;
 
 // Защита от деления на ноль: если capacity не откалиброван или = 0,
@@ -1371,10 +1386,16 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
         outputManager->closeBodyValve();
     } else {
         if (cfg.bodyValveNC) {
+            // Сессия 18: как в startStandardGolovy — capacity ТОГО клапана, что
+            // импульсит (BCH при наличии, иначе BCAP этого же НЗ клапана).
+            // Прежний fallback на valve_head_capacity (клапана голов нет) давал
+            // неверные тайминги — см. комментарий в startStandardGolovy.
             int openMs, closeMs;
             float targetSpeed = speedGolovy * (cfg.speedHeadCorr / 100.0f);
-            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_head_capacity;
+            float bodyCapHeads = cfg.valve_body_capacity_heads > 0 ? (float)cfg.valve_body_capacity_heads : (float)cfg.valve_body_capacity;
             calcValveTiming(targetSpeed, bodyCapHeads, openMs, closeMs);
+            logger.log("GOLOVY KSS_STD: BodyNC heads timing: target=" + String(targetSpeed, 1)
+                     + " ml/h, cap=" + String(bodyCapHeads, 1) + " ml/min");
             outputManager->startBodyValveCycling(openMs, closeMs);
         }
     }
@@ -1406,7 +1427,11 @@ void ProcessEngine::startKssAkaTelo(SystemConfig& cfg) {
     if (cfg.useHeadValve) {
         int openMs, closeMs;
         float targetSpeed = speedTelo * (cfg.speedBodyCorr / 100.0f);
-        float cap = (float)cfg.valve_body_capacity;
+        // Сессия 18: импульс идёт по КЛАПАНУ ГОЛОВ — его собственная capacity
+        // (HCAP). Прежний valve_body_capacity (BCAP — клапан ТЕЛА) давал
+        // фактическую скорость target*HCAP/BCAP вместо target: duty считался
+        // от чужой пропускной способности.
+        float cap = (float)cfg.valve_head_capacity;
         calcValveTiming(targetSpeed, cap, openMs, closeMs);
         Serial.printf("[GOLOVY] KSS_AKATELO: Calc timing - open=%dms, close=%dms, target=%.1f ml/h\n", 
             openMs, closeMs, targetSpeed);
