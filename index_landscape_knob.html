@@ -2100,7 +2100,24 @@
         let cloudMode = false, cloudApiUrl = '', cloudApiKey = '', cloudLastUpdate = 0;
         let currentData = {}; currentData.bodyVolDone = 0;
         let currentPage = 'monitoring';
-        let configDirty = false, userClosedSetPwAs = false, lastStage = '', calibWizardShownForStage = false;
+        // Сессия 19: вместо флага configDirty (замораживал currentData.cfg до нажатия
+        // СОХРАНИТЬ — из-за этого инженерное меню показывало старые значения после
+        // успешного сохранения, а СОХРАНИТЬ на страницах настроек мог откатить
+        // eng-значения на устройстве устаревшим снимком) введён снимок правок
+        // pendingCfg: опрос /api/status теперь ВСЕГДА обновляет currentData.cfg,
+        // несохранённые правки живут в pendingCfg, инженерное меню читает живые данные.
+        let pendingCfg = null, userClosedSetPwAs = false, lastStage = '', calibWizardShownForStage = false;
+
+        // Ленивое создание снимка правок: копия currentData.cfg на момент ПЕРВОЙ
+        // правки (±/тумблер без автосохранения). Кнопка СОХРАНИТЬ опубликует именно
+        // этот снимок (WYSIWYG: сохраняется то, что видно на экране).
+        function getEditCfg(){
+            if(!pendingCfg){
+                try{ pendingCfg = JSON.parse(JSON.stringify(currentData.cfg||{})); }
+                catch(e){ pendingCfg = Object.assign({}, currentData.cfg||{}); }
+            }
+            return pendingCfg;
+        }
         // Preserve final volumes after finish (cleared on new process start)
         let preservedHeadsVolDone = 0, preservedBodyVolDone = 0, preservedHeadsTotalTarget = 0, preservedAsVolume = 0;
         let syncInProgress = false, lastCommandTime = 0;
@@ -2236,7 +2253,14 @@
                 if(st==='NAGREV'||st==='NAGREV_DEFL'){preservedHeadsVolDone=0;preservedBodyVolDone=0;preservedHeadsTotalTarget=0;preservedAsVolume=0;}
                 currentData.safety_code=currentData.safety_code!==undefined?currentData.safety_code:(newData.safety||0);
                 currentData.safety_text=currentData.safety_text||(currentData.safety_code===0?'Норма':(currentData.safety_code===1?'ВНИМАНИЕ':'АВАРИЯ!'));
-                if(!currentData.cfg||!configDirty)currentData.cfg=newData.cfg;
+                // Сессия 19: cfg обновляется с устройства ВСЕГДА (заморозки больше нет).
+                // Если есть снимок правок pendingCfg — переносим в него только те поля,
+                // которые устройство изменило САМО (калибровка клапанов пишет capacity
+                // в EEPROM напрямую, минуя UI) — иначе СОХРАНИТЬ откатил бы их старым снимком.
+                if(newData.cfg){
+                    currentData.cfg=newData.cfg;
+                    if(pendingCfg)['valve_head_capacity','valve_body_capacity','valve0_body_capacity','valve_body_capacity_heads'].forEach(k=>{if(newData.cfg[k]!==undefined)pendingCfg[k]=newData.cfg[k];});
+                }
                 // Sync calib wizard from ESP32
                 if(newData.calibWizard){currentData.calibWizard=newData.calibWizard;updateCalibWizardUI();}
                 // === Логи: накопительный буфер (см. updateLogConsole выше) ===
@@ -2876,7 +2900,10 @@
 
         function updateConfigDisplay(){
             if(!currentData.cfg)return;
-            const cfg=currentData.cfg;
+            // Сессия 19: пока есть несохранённые правки — рисуем их (pendingCfg),
+            // иначе — живые значения с устройства. Сам currentData.cfg при этом
+            // всегда остаётся свежим (инженерное меню читает именно его).
+            const cfg=pendingCfg||currentData.cfg;
             const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
             const sb=(id,v,t,f)=>{const e=document.getElementById(id);if(e){e.textContent=v?t:f;e.className='bool-toggle '+(v?'on':'off');}};
             sv('cfg-emergencyTime',cfg.emergencyTime);sv('cfg-nasebTime',cfg.nasebTime);sv('cfg-reklapTime',cfg.reklapTime);
@@ -2900,11 +2927,12 @@
             const hc=(cfg.speedHeadCorr>=10&&cfg.speedHeadCorr<=200)?cfg.speedHeadCorr:100;
             const bc=(cfg.speedBodyCorr>=10&&cfg.speedBodyCorr<=200)?cfg.speedBodyCorr:100;
             sv('cfg-speedHeadCorr',hc);sv('cfg-speedBodyCorr',bc);
-            // Cloud settings
+            // Cloud settings (Сессия 19: не затираем значение, пока поле в фокусе —
+            // пользователь печатает, опрос не должен перезаписывать ввод)
             const cloudUrlInput=document.getElementById('cfg-cloudUrl');
             const cloudKeyInput=document.getElementById('cfg-cloudApiKey');
-            if(cloudUrlInput)cloudUrlInput.value=cfg.cloudUrl||'';
-            if(cloudKeyInput)cloudKeyInput.value=cfg.cloudApiKey||'';
+            if(cloudUrlInput&&document.activeElement!==cloudUrlInput)cloudUrlInput.value=cfg.cloudUrl||'';
+            if(cloudKeyInput&&document.activeElement!==cloudKeyInput)cloudKeyInput.value=cfg.cloudApiKey||'';
             updateCloudModeUI();
         }
 
@@ -2963,26 +2991,38 @@
         const cfgAutoSave = ['speedHeadCorr','speedBodyCorr','minOpenTime','emergencyTime','nasebTime','reklapTime','boxMaxTemp','power','asVolume','headsManualMl','chekwifi'];
 
         function adjCfg(key,delta){
-            if(!currentData.cfg)return;configDirty=true;
+            if(!currentData.cfg)return;
+            // Сессия 19: правки без автосохранения идут в снимок pendingCfg
+            // (СОХРАНИТЬ опубликует именно то, что видно). Автосохраняемые поля
+            // (power, asVolume, headsManualMl и др. из cfgAutoSave) пишутся сразу
+            // в живой currentData.cfg и отправляются POST'ом одного поля —
+            // замораживать для них нечего, поэтому снимок они не создают.
+            const autoSave=cfgAutoSave.includes(key);
+            const cfg=autoSave?currentData.cfg:getEditCfg();
             const range = cfgRanges[key];
             if(key==='histeresis'||key==='delta'){
-                currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(2));
-                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+                cfg[key]=parseFloat((cfg[key]+delta).toFixed(2));
+                if(range)cfg[key]=Math.max(range[0],Math.min(range[1],cfg[key]));
             } else if(key==='midterm'||key==='midterm_abv'){
                 // Сессия 10: уставка смены тары с шагом 0.1 (°C / %), диапазон 0..98
-                currentData.cfg[key]=parseFloat((currentData.cfg[key]+delta).toFixed(1));
-                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+                cfg[key]=parseFloat((cfg[key]+delta).toFixed(1));
+                if(range)cfg[key]=Math.max(range[0],Math.min(range[1],cfg[key]));
             } else {
-                currentData.cfg[key]+=delta;
-                if(range)currentData.cfg[key]=Math.max(range[0],Math.min(range[1],currentData.cfg[key]));
+                cfg[key]+=delta;
+                if(range)cfg[key]=Math.max(range[0],Math.min(range[1],cfg[key]));
             }
+            // Автосохраняемое поле зеркалим в снимок, если он уже существует
+            // (иначе СОХРАНИТЬ опубликовал бы старое значение этого поля из снимка)
+            if(autoSave&&pendingCfg)pendingCfg[key]=cfg[key];
             updateConfigDisplay();
-            if(cfgAutoSave.includes(key))autoSaveSetting(key,currentData.cfg[key]);
+            if(autoSave)autoSaveSetting(key,cfg[key]);
         }
 
         function toggleCfg(key){
-            if(!currentData.cfg)return;configDirty=true;
-            currentData.cfg[key]=(currentData.cfg[key]==1||currentData.cfg[key]===true)?0:1;
+            if(!currentData.cfg)return;
+            // Сессия 19: тумблеры не автосохраняемые — правка идёт в снимок pendingCfg
+            const cfg=getEditCfg();
+            cfg[key]=(cfg[key]==1||cfg[key]===true)?0:1;
             updateConfigDisplay();
         }
 
@@ -2999,9 +3039,14 @@
 
         function saveSettings(type){
             if(!currentData.cfg)return;
+            // Сессия 19: публикуем снимок правок pendingCfg (если правок не было —
+            // текущий живой cfg). Раньше публиковался currentData.cfg, который при
+            // «заморозке» мог быть устаревшим и откатывал значения на устройстве
+            // (в т.ч. значения, сохранённые инженерным меню).
+            const payload=pendingCfg||currentData.cfg;
             let url='/api/settings';if(cloudMode&&cloudApiUrl)url=cloudApiUrl+'?settings=1';
-            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentData.cfg)})
-                .then(r=>r.text()).then(()=>{configDirty=false;showSaveToast();}).catch(()=>{});
+            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+                .then(r=>r.text()).then(()=>{pendingCfg=null;showSaveToast();syncData();}).catch(()=>{});
         }
 
         function startSensorCalib(s){sendCommand('IDENTIFY_'+s);}
@@ -3345,8 +3390,15 @@
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         }).then(r => r.text()).then(() => {
+            // Сессия 19: после успешного сохранения сразу отражаем новые значения
+            // в живом cfg и в снимке правок (если он есть) — чтобы СОХРАНИТЬ на
+            // страницах настроек не мог откатить инженерные значения старым снимком,
+            // а повторное открытие меню показывало актуальное ещё до ближайшего опроса.
+            const engObj=(currentData.cfg.eng=currentData.cfg.eng||{});
+            Object.keys(payload).forEach(k=>{engObj[k]=payload[k];if(pendingCfg&&pendingCfg.eng)pendingCfg.eng[k]=payload[k];});
             showSaveToast();
             closeEngMenu();
+            syncData();
         }).catch(() => {});
     }
 

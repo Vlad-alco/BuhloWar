@@ -1049,7 +1049,23 @@
         let currentData = {};
         currentData.bodyVolDone = 0;  // Инициализация объёма тела
         let currentPage = 'main';
-        let configDirty = false; 
+        // Сессия 19: вместо флага configDirty (замораживал currentData.cfg до нажатия
+        // СОХРАНИТЬ — настройки показывали устаревшие значения, а СОХРАНИТЬ мог
+        // откатить на устройстве значения, сохранённые другим путём) введён снимок
+        // правок pendingCfg: опрос /api/status ВСЕГДА обновляет currentData.cfg,
+        // несохранённые правки живут в pendingCfg, СОХРАНИТЬ публикует снимок.
+        let pendingCfg = null;
+
+        // Ленивое создание снимка правок: копия currentData.cfg на момент ПЕРВОЙ
+        // правки (±/тумблер без автосохранения). СОХРАНИТЬ опубликует именно этот
+        // снимок (WYSIWYG: сохраняется то, что видно на экране).
+        function getEditCfg() {
+            if (!pendingCfg) {
+                try { pendingCfg = JSON.parse(JSON.stringify(currentData.cfg || {})); }
+                catch (e) { pendingCfg = Object.assign({}, currentData.cfg || {}); }
+            }
+            return pendingCfg;
+        }
         let userClosedSetPwAs = false;
         let lastStage = '';
         let calibWizardShownForStage = false;  // Флаг: мастер калибровки уже показан для текущего этапа
@@ -1158,7 +1174,19 @@
                 currentData.bodyVolDone = newData.bodyVolDone || 0;      // Накопленный объём тела
                 currentData.headsVolTarget = newData.headsVolTarget || 0; // Целевой объём подэтапа
                 
-                if (!currentData.cfg || !configDirty) currentData.cfg = newData.cfg;
+
+                // Сессия 19: cfg обновляется с устройства ВСЕГДА (заморозки больше нет).
+                // Если есть снимок правок pendingCfg — переносим в него только те поля,
+                // которые устройство изменило САМО (калибровка клапанов пишет capacity
+                // в EEPROM напрямую, минуя UI) — иначе СОХРАНИТЬ откатил бы их старым снимком.
+                if (newData.cfg) {
+                    currentData.cfg = newData.cfg;
+                    if (pendingCfg) {
+                        ['valve_head_capacity','valve_body_capacity','valve0_body_capacity','valve_body_capacity_heads'].forEach(k => {
+                            if (newData.cfg[k] !== undefined) pendingCfg[k] = newData.cfg[k];
+                        });
+                    }
+                }
                 
                 currentData.headTest = newData.headTest;
                 currentData.bodyTest = newData.bodyTest;
@@ -1661,7 +1689,10 @@
 
         function updateConfigDisplay() {
             if(!currentData.cfg) return;
-            const cfg = currentData.cfg;
+            // Сессия 19: пока есть несохранённые правки — рисуем их (pendingCfg),
+            // иначе — живые значения с устройства. Сам currentData.cfg при этом
+            // всегда остаётся свежим для всех читателей (телеметрия, диалоги).
+            const cfg = pendingCfg || currentData.cfg;
             
             const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
             const setBool = (id, val, t, f) => { 
@@ -1736,10 +1767,11 @@
             setVal('cfg-valve0_body_capacity_val', cfg.valve0_body_capacity);
             
             // Cloud settings
+            // Сессия 19: не затираем значение, пока поле в фокусе — пользователь печатает
             const cloudUrlInput = document.getElementById('cfg-cloudUrl');
             const cloudKeyInput = document.getElementById('cfg-cloudApiKey');
-            if (cloudUrlInput) cloudUrlInput.value = cfg.cloudUrl || '';
-            if (cloudKeyInput) cloudKeyInput.value = cfg.cloudApiKey || '';
+            if (cloudUrlInput && document.activeElement !== cloudUrlInput) cloudUrlInput.value = cfg.cloudUrl || '';
+            if (cloudKeyInput && document.activeElement !== cloudKeyInput) cloudKeyInput.value = cfg.cloudApiKey || '';
             
             // Обновляем UI облака
             updateCloudModeUI();
@@ -1886,38 +1918,46 @@
 
         function adjCfg(key, delta) {
             if(!currentData.cfg) return;
-            configDirty = true; 
             if (typeof currentData.cfg[key] === 'boolean') return;
+            // Сессия 19: правки без автосохранения идут в снимок pendingCfg
+            // (СОХРАНИТЬ опубликует именно то, что видно на экране). Автосохраняемые
+            // поля (speedHeadCorr/speedBodyCorr/minOpenTime/headsManualMl) пишутся
+            // сразу в живой currentData.cfg и отправляются POST'ом одного поля.
+            const isAutoSave = (key === 'speedHeadCorr' || key === 'speedBodyCorr' || key === 'minOpenTime' || key === 'headsManualMl');
+            const cfg = isAutoSave ? currentData.cfg : getEditCfg();
             if (key === 'histeresis' || key === 'delta') {
-                 currentData.cfg[key] = parseFloat((currentData.cfg[key] + delta).toFixed(2));
+                 cfg[key] = parseFloat((cfg[key] + delta).toFixed(2));
             } else if (key === 'midterm' || key === 'midterm_abv') {
                  // Сессия 10: уставка смены тары с шагом 0.1 (°C / %), диапазон 0..98
-                 currentData.cfg[key] = parseFloat((currentData.cfg[key] + delta).toFixed(1));
-                 if (currentData.cfg[key] < 0) currentData.cfg[key] = 0;
-                 if (currentData.cfg[key] > 98) currentData.cfg[key] = 98;
+                 cfg[key] = parseFloat((cfg[key] + delta).toFixed(1));
+                 if (cfg[key] < 0) cfg[key] = 0;
+                 if (cfg[key] > 98) cfg[key] = 98;
             } else {
-                 currentData.cfg[key] += delta;
+                 cfg[key] += delta;
             }
             // Ограничения диапазона для коррекции скорости (0-200%)
             if (key === 'speedHeadCorr' || key === 'speedBodyCorr') {
-                if (currentData.cfg[key] < 0) currentData.cfg[key] = 0;
-                if (currentData.cfg[key] > 200) currentData.cfg[key] = 200;
+                if (cfg[key] < 0) cfg[key] = 0;
+                if (cfg[key] > 200) cfg[key] = 200;
             }
             // Ограничения для minOpenTime (10-1000 мс)
             if (key === 'minOpenTime') {
-                if (currentData.cfg[key] < 10) currentData.cfg[key] = 10;
-                if (currentData.cfg[key] > 1000) currentData.cfg[key] = 1000;
+                if (cfg[key] < 10) cfg[key] = 10;
+                if (cfg[key] > 1000) cfg[key] = 1000;
             }
             // Сессия 14: явный объём голов (0..3000 мл, 0 = авто)
             if (key === 'headsManualMl') {
-                if (currentData.cfg[key] < 0) currentData.cfg[key] = 0;
-                if (currentData.cfg[key] > 3000) currentData.cfg[key] = 3000;
+                if (cfg[key] < 0) cfg[key] = 0;
+                if (cfg[key] > 3000) cfg[key] = 3000;
             }
+            // Автосохраняемое поле зеркалим в снимок, если он уже существует
+            // (иначе СОХРАНИТЬ опубликовал бы старое значение этого поля из снимка)
+            if (isAutoSave && pendingCfg) pendingCfg[key] = cfg[key];
             updateConfigDisplay();
-            
+
             // Автосохранение при изменении коррекции скорости, minOpenTime или объёма голов
-            if (key === 'speedHeadCorr' || key === 'speedBodyCorr' || key === 'minOpenTime' || key === 'headsManualMl') {
-                autoSaveSetting(key, currentData.cfg[key]);
+            if (isAutoSave) {
+                autoSaveSetting(key, cfg[key]);
             }
         }
         
@@ -1944,40 +1984,45 @@
         
         function toggleCfg(key) {
             if(!currentData.cfg) return;
-            configDirty = true; 
-            currentData.cfg[key] = (currentData.cfg[key] == 1 || currentData.cfg[key] === true) ? 0 : 1;
+            // Сессия 19: тумблеры не автосохраняемые — правка идёт в снимок pendingCfg
+            const cfg = getEditCfg();
+            cfg[key] = (cfg[key] == 1 || cfg[key] === true) ? 0 : 1;
             updateConfigDisplay();
         }
 
         function saveSettings(type) {
             if(!currentData.cfg) return;
-            // Обновляем cfg из полей ввода (включая облако)
-            if (currentData.cfg) {
-                const cloudUrlInput = document.getElementById('cfg-cloudUrl');
-                const cloudKeyInput = document.getElementById('cfg-cloudApiKey');
-                if (cloudUrlInput) currentData.cfg.cloudUrl = cloudUrlInput.value;
-                if (cloudKeyInput) currentData.cfg.cloudApiKey = cloudKeyInput.value;
-            }
+            // Сессия 19: публикуем снимок правок pendingCfg (если правок не было —
+            // текущий живой cfg). Раньше публиковался currentData.cfg, который при
+            // «заморозке» мог быть устаревшим и откатывал значения на устройстве.
+            const payload = pendingCfg || currentData.cfg;
+            // Значения облачных полей берём из полей ввода (включая облако)
+            const cloudUrlInput = document.getElementById('cfg-cloudUrl');
+            const cloudKeyInput = document.getElementById('cfg-cloudApiKey');
+            if (cloudUrlInput) payload.cloudUrl = cloudUrlInput.value;
+            if (cloudKeyInput) payload.cloudApiKey = cloudKeyInput.value;
             console.log("Saving config...");
-            
+
             // Определяем URL для сохранения
             let saveUrl = '/api/settings';
             let saveMethod = 'POST';
-            
+
             if (cloudMode && cloudApiUrl) {
                 // Облачный режим - отправляем напрямую в облако
                 saveUrl = cloudApiUrl + '?settings=1';
             }
-            
+
             fetch(saveUrl, {
                 method: saveMethod,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentData.cfg)
+                body: JSON.stringify(payload)
             }).then(r => r.text())
-              .then(resp => { 
-                  console.log("Save response:", resp); 
-                  alert("Настройки сохранены!"); 
-                  configDirty = false; 
+              .then(resp => {
+                  console.log("Save response:", resp);
+                  alert("Настройки сохранены!");
+                  // Сессия 19: снимок опубликован — сбрасываем и подтягиваем живой cfg
+                  pendingCfg = null;
+                  syncData();
               })
               .catch(e => {
                   console.error("Save failed", e);
