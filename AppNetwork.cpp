@@ -1130,6 +1130,10 @@ void AppNetwork::handleApiSettings() {
     cfg.bakstopDelaySec = getInt("bakstopDelaySec", cfg.bakstopDelaySec);
     cfg.calibDrySec = getInt("calibDrySec", cfg.calibDrySec);
     cfg.calibCapacitySec = getInt("calibCapacitySec", cfg.calibCapacitySec);
+    // Сессия 16: задержка захвата опорной T царги в ТЕЛО (мин). Кламп 0..60:
+    // отрицательное значение в движке превратилось бы в огромный unsigned-
+    // интервал (захват не случился бы никогда), огромное — в вечное ожидание.
+    cfg.teloRefDelayMin = constrain(getInt("teloRefDelayMin", cfg.teloRefDelayMin), 0, 60);
     // =========================
 
     Serial.println("[API] Saving config...");
@@ -1337,7 +1341,8 @@ String AppNetwork::buildCfgJson() {
     json += "\"coolingDurationSec\":" + String(cfg.coolingDurationSec) + ",";
     json += "\"bakstopDelaySec\":" + String(cfg.bakstopDelaySec) + ",";
     json += "\"calibDrySec\":" + String(cfg.calibDrySec) + ",";
-    json += "\"calibCapacitySec\":" + String(cfg.calibCapacitySec);
+    json += "\"calibCapacitySec\":" + String(cfg.calibCapacitySec) + ",";
+    json += "\"teloRefDelayMin\":" + String(cfg.teloRefDelayMin); // Сессия 16
     json += "}";
     json += "}";
     

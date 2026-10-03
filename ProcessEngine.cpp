@@ -663,6 +663,9 @@ bool ProcessEngine::startProcess(ProcessType type) {
     teloBmeWasAvailable = true;
     teloLastOpenMs = -1;
     teloLastCloseMs = -1;
+    // Сессия 16: сброс отложенного захвата опорных значений
+    teloRefCaptured = false;
+    teloRefTimerStart = 0;
 
     // === НОВОЕ: Сброс накопленного объема голов ===
     headsVolDone = 0.0f;
@@ -1445,27 +1448,29 @@ void ProcessEngine::handleTelo() {
     SystemConfig& cfg = configManager->getConfig();
     const SensorData& data = sensorAdapter->getData();
 
-    // 1. Инициализация референсных значений (при первом входе или после NASEBYA)
-    if (rtsarM < 0.1f || currentStage == Stage::TELO && previousStage != Stage::TELO) { 
+    // 1. Инициализация при входе в ТЕЛО (первичный вход или возврат из NASEBYA).
+    // Сессия 16: условие упрощено до (previousStage != TELO) — прежний член
+    // «rtsarM < 0.1f» при отложенном захвате был бы истинен ВСЁ время ожидания
+    // (rtsarM=0) и перезапускал бы инициализацию каждый цикл loop, обнуляя
+    // bodyVolDone/скорость. Теперь вход сюда — ровно один раз на заход в ТЕЛО.
+    if (currentStage == Stage::TELO && previousStage != Stage::TELO) { 
         koff = cfg.power / 1000.0f; 
-        rtsarM = data.tsar.value;
         
-        // === ЛОГИКА ЗАХВАТА РЕФЕРЕНСА ДАВЛЕНИЯ ===
-        if (currentStatus.bmeAvailable) {
-            // BME работает - захватываем реальное давление
-            adPressM = data.pressure;
-            teloBmeReferenceCaptured = true;
-            teloBmeWasAvailable = true;
-            logger.log("TELO: BME reference captured. adPressM: " + String(adPressM, 1) + " hPa");
-        } else {
-            // BME НЕ работает - коррекция отключена на весь этап, давление = 760 мм рт.ст. (1013.25 гПа)
-            adPressM = 1013.25f; // 760 мм рт.ст. в гПа
-            teloBmeReferenceCaptured = false;
-            teloBmeWasAvailable = false;
-            logger.log("WARNING: BME280 not available at TELO start! Pressure correction DISABLED for entire stage.");
-            Serial.println("[TELO] BME missing! Correction disabled, using 760 mmHg.");
-        }
-        // ==========================================
+        // === ОТЛОЖЕННЫЙ ЗАХВАТ ОПОРНОЙ ТЕМПЕРАТУРЫ (Сессия 16) ===
+        // Опорная температура царги (rtsarM) и опорное давление (adPressM)
+        // фиксируются НЕ сразу, а через cfg.teloRefDelayMin минут (инженерное
+        // меню): за это время колонка стабилизируется после перехода с голов
+        // на тело. Отбор тела при этом идёт с начальной скоростью, объём
+        // копится. teloRefDelayMin = 0 -> захват на первом же обороте ниже
+        // (пройдёт проверка таймера мгновенно) — прежнее поведение.
+        teloRefTimerStart = millis();
+        teloRefCaptured = false;
+        // Референс давления захватывается ВМЕСТЕ с температурой (через задержку):
+        // поправка давления применяется к порогам rtsarM + delta/histeresis,
+        // поэтому оба референса должны быть согласованы по времени.
+        teloBmeReferenceCaptured = false;
+        teloBmeWasAvailable = currentStatus.bmeAvailable;
+        // =========================================================
         
         bodyOpenCor = cfg.bodyOpenSec * koff;
         speedShpora = 500.0 * koff; 
@@ -1478,9 +1483,9 @@ void ProcessEngine::handleTelo() {
         logger.log("TELO Start. Method: " + String(isShpora ? "SPORA" : "STANDARD")
                  + " (cycleLim=" + String(cfg.cycleLim)
                  + ", bodyValveNC=" + String(cfg.bodyValveNC ? "true" : "false") + ")");
-        logger.log("  rtsarM: " + String(rtsarM, 2) + "C"
-                 + "  adPressM: " + String(adPressM, 1) + "hPa"
-                 + "  teloBmeReferenceCaptured: " + String(teloBmeReferenceCaptured ? "YES" : "NO"));
+        // rtsarM ещё не зафиксирован — покажем план захвата
+        logger.log("  rtsarM: pending (capture in " + String(cfg.teloRefDelayMin) + " min)"
+                 + "  BME: " + String(currentStatus.bmeAvailable ? "OK" : "NOT AVAILABLE"));
         logger.log("  bodyOpenCor: " + String(bodyOpenCor, 1) + "s"
                  + "  Initial Speed: " + String(speedShpora, 1) + "ml/h");
         // ==============================
@@ -1495,6 +1500,38 @@ void ProcessEngine::handleTelo() {
         previousStage = Stage::TELO;
         
         
+    }
+
+    // 1b. Сессия 16: отложенный захват опорных значений ТЕЛО.
+    // Срабатывает ОДИН раз, когда с момента входа в ТЕЛО прошло
+    // cfg.teloRefDelayMin минут (0 = сразу, прежнее поведение).
+    // Кламп локальной копии: отрицательное значение из EEPROM/профиля
+    // не превратится в огромный unsigned-интервал (захват бы никогда не случился).
+    int refDelayMin = cfg.teloRefDelayMin;
+    if (refDelayMin < 0) refDelayMin = 0;
+    if (!teloRefCaptured && millis() - teloRefTimerStart >= (unsigned long)refDelayMin * 60000UL) {
+        teloRefCaptured = true;
+        rtsarM = data.tsar.value;
+
+        // === ЛОГИКА ЗАХВАТА РЕФЕРЕНСА ДАВЛЕНИЯ (перенесена из блока инициализации) ===
+        if (currentStatus.bmeAvailable) {
+            // BME работает - захватываем реальное давление
+            adPressM = data.pressure;
+            teloBmeReferenceCaptured = true;
+            teloBmeWasAvailable = true;
+            logger.log("TELO: BME reference captured. adPressM: " + String(adPressM, 1) + " hPa");
+        } else {
+            // BME НЕ работает - коррекция отключена на весь этап, давление = 760 мм рт.ст. (1013.25 гПа)
+            adPressM = 1013.25f; // 760 мм рт.ст. в гПа
+            teloBmeReferenceCaptured = false;
+            teloBmeWasAvailable = false;
+            logger.log("WARNING: BME280 not available at TELO reference capture! Pressure correction DISABLED for entire stage.");
+            Serial.println("[TELO] BME missing! Correction disabled, using 760 mmHg.");
+        }
+        // ==========================================
+
+        logger.log("TELO: Reference captured after " + String(refDelayMin) + " min stabilization. rtsarM: " + String(rtsarM, 2) + "C");
+        Serial.printf("[TELO] Reference captured: rtsarM=%.2fC (delay %d min)\n", rtsarM, refDelayMin);
     }
 
     // 2. Расчет поправки давления
@@ -1540,7 +1577,10 @@ void ProcessEngine::handleTelo() {
         // === МЕТОД 2: ШПОРА (Только NC) ===
         
         // Реакция на Delta
-        if (data.tsar.value >= (rtsarM + cfg.delta + pressureCorrection)) {
+        // Сессия 16: до захвата опорной температуры (первые teloRefDelayMin мин)
+        // порог не имеет смысла — не от чего считать отклонение. Пока
+        // teloRefCaptured == false, скорость остаётся начальной.
+        if (teloRefCaptured && data.tsar.value >= (rtsarM + cfg.delta + pressureCorrection)) {
             
             // ПРОВЕРКА ТАЙМЕРА: Прошло ли достаточно времени с прошлого снижения?
             if (millis() - lastShporaAdjustTime >= cfg.shporaStabMs) {
@@ -1568,7 +1608,9 @@ void ProcessEngine::handleTelo() {
         }
 
         // Реакция на Залёт
-        if (data.tsar.value >= (rtsarM + cfg.histeresis + pressureCorrection)) {
+        // Сессия 16: гвард teloRefCaptured — см. комментарий выше (референс ещё
+        // не зафиксирован — Залёт определить невозможно, ложных срабатываний нет).
+        if (teloRefCaptured && data.tsar.value >= (rtsarM + cfg.histeresis + pressureCorrection)) {
             // Вариант А: Закрываем всё при Залёте
             finishTelo(cfg);
             // === ЛОГИРОВАНИЕ ЗАЛЁТА ===
@@ -1618,7 +1660,9 @@ void ProcessEngine::handleTelo() {
         }
 
         // Реакция на Залёт
-        if (data.tsar.value >= (rtsarM + cfg.histeresis + pressureCorrection)) {
+        // Сессия 16: гвард teloRefCaptured — референс ещё не зафиксирован,
+        // ложных срабатываний в первые teloRefDelayMin минут нет.
+        if (teloRefCaptured && data.tsar.value >= (rtsarM + cfg.histeresis + pressureCorrection)) {
             // Вариант А: Закрываем всё при Залёте
             outputManager->stopValveCycling();
             if (cfg.useHeadValve) outputManager->closeHeadValve();

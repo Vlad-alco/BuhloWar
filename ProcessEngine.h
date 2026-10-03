@@ -154,6 +154,12 @@ private:
     // BME-статус на этапе TELO (member вместо static)
     bool teloBmeReferenceCaptured = false;
     bool teloBmeWasAvailable = true;
+    // Сессия 16: отложенный захват опорных значений ТЕЛО (rtsarM + adPressM).
+    // teloRefCaptured — референс уже зафиксирован (до этого реакции на Δ/Залёт
+    // отключены: отклонение не от чего считать). teloRefTimerStart — момент
+    // входа в ТЕЛО, от него отсчитывается cfg.teloRefDelayMin минут.
+    bool teloRefCaptured = false;
+    unsigned long teloRefTimerStart = 0;
     int teloLastOpenMs = -1;
     int teloLastCloseMs = -1;
     

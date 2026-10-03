@@ -308,6 +308,9 @@ void ConfigManager::loadConfig() {
   currentConfig.bakstopDelaySec = readInt(ADDR_ENG_BAKSTOP_DELAY, 5);
   currentConfig.calibDrySec = readInt(ADDR_ENG_CALIB_DRY_SEC, 10);
   currentConfig.calibCapacitySec = readInt(ADDR_ENG_CALIB_CAP_SEC, 60);
+  // Сессия 16: задержка захвата опорной T царги в ТЕЛО (мин). На старой плате
+  // в ячейке 491 чистый 0xFF — readInt вернёт дефолт 5, данные не искажаются.
+  currentConfig.teloRefDelayMin = readInt(ADDR_ENG_TELO_REF_DELAY, 5);
   // =========================
 
   loadSensorAddress(ADDR_TSA_ADDRESS, currentConfig.tsaAddress);
@@ -405,6 +408,7 @@ void ConfigManager::saveConfig() {
   writeInt(ADDR_ENG_BAKSTOP_DELAY, currentConfig.bakstopDelaySec);
   writeInt(ADDR_ENG_CALIB_DRY_SEC, currentConfig.calibDrySec);
   writeInt(ADDR_ENG_CALIB_CAP_SEC, currentConfig.calibCapacitySec);
+  writeInt(ADDR_ENG_TELO_REF_DELAY, currentConfig.teloRefDelayMin); // Сессия 16
   // =========================
 
   // Сохраняем адреса датчиков

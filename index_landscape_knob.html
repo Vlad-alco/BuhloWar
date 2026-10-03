@@ -2075,6 +2075,7 @@
                 <div class="s-row"><label>БАКСТОП <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('bakstopDelaySec',-1)">-</button><span id="eng-bakstopDelaySec">5</span><button onclick="adjEng('bakstopDelaySec',1)">+</button></div></div>
                 <div class="s-row"><label>ПРОЛИВ <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibDrySec',-5)">-</button><span id="eng-calibDrySec">10</span><button onclick="adjEng('calibDrySec',5)">+</button></div></div>
                 <div class="s-row"><label>КАЛИБР. CAPACITY <span class="eng-unit">сек</span></label><div class="s-inputs"><button onclick="adjEng('calibCapacitySec',-10)">-</button><span id="eng-calibCapacitySec">60</span><button onclick="adjEng('calibCapacitySec',10)">+</button></div></div>
+                <div class="s-row"><label>ЗАДЕРЖКА T ТЕЛА <span class="eng-unit">мин</span></label><div class="s-inputs"><button onclick="adjEng('teloRefDelayMin',-1)">-</button><span id="eng-teloRefDelayMin">5</span><button onclick="adjEng('teloRefDelayMin',1)">+</button></div></div>
             </div>
 
             <!-- Save -->
@@ -3252,13 +3253,13 @@
     <script>
     // === ENGINEERING MENU ===
     let engConfirmed = false;
-    const engFields = ['speedGolovyBase','speedTeloBase','distHeadsSpeed','shporaCorr','shporaStabMs','minBodySpeed','headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo','pressureCoeff','coolingDurationSec','bakstopDelaySec','calibDrySec','calibCapacitySec'];
+    const engFields = ['speedGolovyBase','speedTeloBase','distHeadsSpeed','shporaCorr','shporaStabMs','minBodySpeed','headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo','pressureCoeff','coolingDurationSec','bakstopDelaySec','calibDrySec','calibCapacitySec','teloRefDelayMin'];
     const engRanges = {
         speedGolovyBase:[10,200], speedTeloBase:[100,2000], distHeadsSpeed:[10,200],
         shporaCorr:[1.05,1.50], shporaStabMs:[10,300], minBodySpeed:[100,800],
         headsShareStd:[5,20], headsShareKssSpit:[1,5], headsShareKssStd:[1,10], headsShareKssAkatelo:[5,30],
         pressureCoeff:[0.020,0.040], coolingDurationSec:[60,600], bakstopDelaySec:[0,30],
-        calibDrySec:[5,30], calibCapacitySec:[30,120]
+        calibDrySec:[5,30], calibCapacitySec:[30,120], teloRefDelayMin:[0,60]
     };
     // Для полей "доли" храним в %. В API передаём /100.
     const engPctFields = ['headsShareStd','headsShareKssSpit','headsShareKssStd','headsShareKssAkatelo'];
