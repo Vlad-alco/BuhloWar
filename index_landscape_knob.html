@@ -3189,7 +3189,7 @@
         function _hideAllCalibSteps(){document.querySelectorAll('.calib-step').forEach(el=>el.style.display='none');}
         function showCalibStep(step){_hideAllCalibSteps();const elId=stepToElId[step]||('calib-step-'+step);const stepEl=document.getElementById(elId);if(stepEl){stepEl.style.display='';calibWizard.step=step;}}
         function _getValveNum(){return calibWizard.valve==='heads'?1:(calibWizard.valve==='body_nc'?2:3);}
-        function _calibSend(cmd){return fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd,valve:_getValveNum()})});}
+        function _calibSend(cmd,extra){return fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({cmd,valve:_getValveNum()},extra||{}))});}
         function _showProg(cid,bid,tid,el,tot){const c=document.getElementById(cid);if(c)c.style.display='';const b=document.getElementById(bid);if(b)b.style.width=(el/tot*100)+'%';const t=document.getElementById(tid);if(t)t.textContent=el+' / '+tot+' с';}
         function _resetBtn(bid,pid){const b=document.getElementById(bid);if(b)b.style.display='';const p=document.getElementById(pid);if(p)p.style.display='none';}
 
