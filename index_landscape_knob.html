@@ -1067,6 +1067,15 @@
                             <span class="temp-label">ВЛАЖН</span>
                             <span style="color:var(--neon-blue);font-weight:600;font-size:13px;" id="humidity-hud">--%</span>
                         </div>
+                        <!-- Сессия 20: ручное управление клапаном воды (сценарий IND-финала:
+                             вода оставлена открытой — выключили индукцию, закрыли воду здесь) -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="temp-label">ВОДА</span>
+                            <span style="display:flex;align-items:center;gap:8px;">
+                                <span id="water-state-hud" style="color:var(--neon-blue);font-weight:600;font-size:13px;">--</span>
+                                <button id="water-toggle-btn" onclick="manualWaterToggle()" style="background:rgba(143,212,255,0.12);border:1px solid rgba(143,212,255,0.4);color:#8fd4ff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">ОТКРЫТЬ</button>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -1872,6 +1881,9 @@
             <button class="nav-btn" id="nav-rectification" onclick="showPage('rectification')">Ректификация</button>
             <button class="nav-btn" id="nav-sensors" onclick="showPage('sensors')">Датчики</button>
             <button class="nav-btn" id="nav-settings" onclick="showPage('settings')">Настройки</button>
+            <!-- Сессия 20: ручной переход на следующий этап. Виден только при запущенном
+                 процессе на пропускаемом этапе (см. updateData). С подтверждением. -->
+            <button class="nav-btn stop" id="next-stage-btn" onclick="confirmNextStage()" style="display:none">ДАЛЕЕ</button>
             <button class="nav-btn start" id="main-action-btn" onclick="toggleCurrentProcess()">СТАРТ</button>
         </nav>
     </div>
@@ -2107,6 +2119,9 @@
         // pendingCfg: опрос /api/status теперь ВСЕГДА обновляет currentData.cfg,
         // несохранённые правки живут в pendingCfg, инженерное меню читает живые данные.
         let pendingCfg = null, userClosedSetPwAs = false, lastStage = '', calibWizardShownForStage = false;
+        // Сессия 20: открыт ли диалог подтверждения «ДАЛЕЕ» — на время его жизни
+        // checkModals() не трогает диалоговую панель (иначе опрос перезаписал бы её)
+        let nextConfirmOpen = false;
 
         // Ленивое создание снимка правок: копия currentData.cfg на момент ПЕРВОЙ
         // правки (±/тумблер без автосохранения). Кнопка СОХРАНИТЬ опубликует именно
@@ -2315,6 +2330,18 @@
             const stage=currentData.stage||'';
             if(stage==='VALVE_CAL'||stage==='SET_PW_AS'){ab.textContent='ДАЛЕЕ';ab.className='nav-btn start';ab.onclick=function(){sendCommand('NEXT_STAGE');};}
             else{ab.textContent=isRun?'СТОП':'СТАРТ';ab.className='nav-btn '+(isRun?'stop':'start');ab.onclick=toggleCurrentProcess;}
+
+            // === Сессия 20: кнопка «ДАЛЕЕ» (ручной переход на следующий этап) ===
+            // Видна только при запущенном процессе на этапе БЕЗ собственного диалога.
+            // Этапы с диалогами (WATER_TEST/REPLACEMENT/GOLOVY_OK) и со своей кнопкой
+            // ДАЛЕЕ (VALVE_CAL/SET_PW_AS) не дублируем. Сервер игнорирует команду вне процесса.
+            const nsb=document.getElementById('next-stage-btn');
+            if(nsb){
+                const skippable=['RAZGON','WAITING','OTBOR','BAKSTOP','NASEBYA','GOLOVY','TELO','FINISHING','FINISHING_WORK'];
+                nsb.style.display=(isRun&&skippable.includes(stage))?'':'none';
+            }
+            // Сессия 20: панель ручной воды (мониторинг)
+            updateWaterControl();
 
             // Auto-open calibration wizard on VALVE_CAL stage
             if(stage==='VALVE_CAL'&&lastStage!=='VALVE_CAL'&&!calibWizardShownForStage&&typeof startCalibration==='function'){
@@ -3056,6 +3083,8 @@
         // === DIALOGS ===
         function checkModals(){
             if(typeof currentData==='undefined'||!currentData.stage)return;
+            // Сессия 20: пока открыт диалог подтверждения «ДАЛЕЕ» — не трогаем панели
+            if(nextConfirmOpen)return;
             const stage=currentData.stage;
             const dPanel=document.getElementById('dialog-panel');
             const aPanel=document.getElementById('alert-panel');
@@ -3117,10 +3146,29 @@
             }else{dPanel.style.display='none';}
         }
 
-        function closeDialogPanel(){document.getElementById('dialog-panel').style.display='none';}
+        function closeDialogPanel(){document.getElementById('dialog-panel').style.display='none';nextConfirmOpen=false;}
         function closeSetPwAsPanel(){document.getElementById('dialog-panel').style.display='none';userClosedSetPwAs=true;}
         function closeAlertPanel(){document.getElementById('alert-panel').style.display='none';}
         function sendDialog(resp){sendCommand(resp);closeDialogPanel();}
+
+        // === Сессия 20: подтверждение ручного перехода на следующий этап ===
+        // Кнопка «ДАЛЕЕ» в шапке (видна только при запущенном процессе на пропускаемом
+        // этапе). Показываем диалог с описанием, на «ДАЛЕЕ» шлём NEXT_STAGE — прошивка
+        // выполнит штатный переход. Финиш-этап: отдельное предупреждение о прерывании охлаждения.
+        function confirmNextStage(){
+            const stage=currentData.stage||'';
+            const names={RAZGON:'РАЗГОН',WAITING:'ОЖИДАНИЕ (нагрев царги)',OTBOR:'ОТБОР',BAKSTOP:'БАКСТОП',NASEBYA:'СТАБИЛИЗАЦИЯ',GOLOVY:'ОТБОР ГОЛОВ',TELO:'ОТБОР ТЕЛА',FINISHING:'ФИНИШ (охлаждение)',FINISHING_WORK:'ФИНИШ (охлаждение)'};
+            const next={RAZGON:'ОЖИДАНИЕ',WAITING:'следующий этап процесса',OTBOR:'СМЕНА ТАРЫ (а после смены тары — в БАКСТОП)',BAKSTOP:'ФИНИШ (охлаждение)',NASEBYA:'следующий этап процесса',GOLOVY:'подтверждение ГОЛОВЫ',TELO:'ФИНИШ (охлаждение)',FINISHING:'ЗАВЕРШЕНИЕ ПРОЦЕССА (охлаждение будет прервано)',FINISHING_WORK:'ЗАВЕРШЕНИЕ ПРОЦЕССА (охлаждение будет прервано)'};
+            const st=names[stage]||stage;
+            const nx=next[stage]||'следующий этап';
+            const dPanel=document.getElementById('dialog-panel');
+            if(!dPanel)return;
+            nextConfirmOpen=true;
+            dPanel.style.display='flex';
+            document.getElementById('dialog-title').textContent='РУЧНОЙ ПЕРЕХОД';
+            document.getElementById('dialog-text').innerHTML='<div style="text-align:left;"><p style="margin-bottom:6px;">Перейти с этапа <b style="color:var(--neon-amber);">'+st+'</b> на '+nx+'?</p>'+(stage==='FINISHING'||stage==='FINISHING_WORK'?'<p style="color:var(--neon-red);font-size:11px;margin-bottom:4px;">Процесс будет окончен прямо сейчас.</p>':'')+'<p style="font-size:10px;color:#4a5568;">Естественное условие этапа будет пропущено (решение оператора). В журнале будет отметка о ручном переходе.</p></div>';
+            document.getElementById('dialog-buttons').innerHTML='<button onclick="closeDialogPanel()" class="dialog-btn dialog-btn-gray">ОТМЕНА</button><button onclick="sendCommand(\'NEXT_STAGE\');closeDialogPanel()" class="dialog-btn dialog-btn-green">ДАЛЕЕ</button>';
+        }
         function confirmSensorCalib(save){sendCommand(save?'DIALOG_YES':'DIALOG_NO');closeDialogPanel();}
         function cancelSensorCalib(){closeDialogPanel();}
         function dismissCalibError(){sendCommand('DIALOG_NO');closeDialogPanel();}
@@ -3128,6 +3176,29 @@
         // === VALVE ===
         function runValveTest(type){sendCommand(type==='head'?'TEST_HEAD':'TEST_BODY');}
         function stopValveTest(){sendCommand('STOP_TEST');}
+
+        // === Сессия 20: ручное управление клапаном воды (панель «Данные» на мониторинге) ===
+        function manualWaterToggle(){
+            const open=!!currentData.waterValveOpen;
+            sendCommand(open?'WATER_CLOSE':'WATER_OPEN');
+        }
+        function updateWaterControl(){
+            const stEl=document.getElementById('water-state-hud');
+            const btn=document.getElementById('water-toggle-btn');
+            if(!stEl||!btn)return;
+            const open=!!currentData.waterValveOpen;
+            const isRun=(currentData.process==1||currentData.process==2);
+            stEl.textContent=open?'ОТКРЫТ':'ЗАКРЫТ';
+            stEl.style.color=open?'var(--neon-blue)':'#5a6577';
+            if(isRun){
+                // Во время процесса водой управляет логика этапов — кнопка заблокирована
+                btn.textContent='АВТО';btn.disabled=true;btn.style.opacity='0.4';btn.style.cursor='not-allowed';
+                btn.title='Во время процесса водой управляет логика этапов';
+            }else{
+                btn.textContent=open?'ЗАКРЫТЬ':'ОТКРЫТЬ';btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';
+                btn.title='Ручное управление клапаном воды';
+            }
+        }
         function completeCalibration(){sendCommand('FINISH_CALIBRATION');}
 
         function updateValveTypeLabel(){

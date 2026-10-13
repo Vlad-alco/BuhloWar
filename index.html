@@ -333,6 +333,16 @@
                         </div>
                     </div>
 
+                    <!-- Сессия 20: ручное управление клапаном воды (сценарий IND-финала:
+                         вода оставлена открытой — выключили индукцию, закрыли воду здесь) -->
+                    <div class="glass-card rounded-lg px-3 py-2 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 uppercase" style="font-size:10px;letter-spacing:0.14em;font-weight:600;">Клапан воды</span>
+                            <span id="water-state-hud" class="font-bold text-gray-500" style="font-size:12px;">--</span>
+                        </div>
+                        <button id="water-toggle-btn" onclick="manualWaterToggle()" class="px-3 py-1 rounded-lg text-xs font-bold bg-gray-700 hover:bg-gray-600 text-cyan">ОТКРЫТЬ</button>
+                    </div>
+
                     <!-- Row 1: КРУПНЫЙ блок температур + барометр -->
                     <div class="glass-card rounded-lg p-3 sm:p-4 flex gap-3">
                         <!-- 4 крупные температуры вертикально -->
@@ -463,7 +473,11 @@
                     <div class="flex items-center justify-between mb-2">
                         <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                         <h2 class="text-xl font-bold">Дистилляция</h2>
-                        <button id="main-process-btn-dist" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                        <div class="flex items-center gap-2">
+                            <!-- Сессия 20: ручной переход на следующий этап (виден на пропускаемых этапах) -->
+                            <button id="next-stage-btn-dist" onclick="confirmNextStage()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">ДАЛЕЕ</button>
+                            <button id="main-process-btn-dist" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                        </div>
                     </div>
                     <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 text-sm">
                          <div class="grid grid-cols-2 gap-4">
@@ -504,7 +518,11 @@
                      <div class="flex items-center justify-between mb-2">
                         <button onclick="showPage('main')" class="p-2 bg-gray-700 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                         <h2 class="text-xl font-bold">Ректификация</h2>
-                        <button id="main-process-btn-rect" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                        <div class="flex items-center gap-2">
+                            <!-- Сессия 20: ручной переход на следующий этап (виден на пропускаемых этапах) -->
+                            <button id="next-stage-btn-rect" onclick="confirmNextStage()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">ДАЛЕЕ</button>
+                            <button id="main-process-btn-rect" onclick="toggleCurrentProcess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">СТАРТ</button>
+                        </div>
                     </div>
                     
                     <!-- Info Block -->
@@ -1068,6 +1086,9 @@
         }
         let userClosedSetPwAs = false;
         let lastStage = '';
+        // Сессия 20: открыт ли диалог подтверждения «ДАЛЕЕ» — на время его жизни
+        // checkModals() не трогает диалоговую панель (иначе опрос перезаписал бы её)
+        let nextConfirmOpen = false;
         let calibWizardShownForStage = false;  // Флаг: мастер калибровки уже показан для текущего этапа
         
         // === АНИМАЦИЯ ===
@@ -1293,6 +1314,21 @@
             
             updateBtn('main-process-btn-dist');
             updateBtn('main-process-btn-rect');
+
+            // === Сессия 20: кнопки «ДАЛЕЕ» (ручной переход) в шапках Дистилляция/Ректификация ===
+            // Видны только при запущенном процессе на этапе без собственного диалога
+            // (WATER_TEST/REPLACEMENT/GOLOVY_OK имеют диалоги, VALVE_CAL/SET_PW_AS — свою кнопку ДАЛЕЕ)
+            const skippable = ['RAZGON','WAITING','OTBOR','BAKSTOP','NASEBYA','GOLOVY','TELO','FINISHING','FINISHING_WORK'];
+            const showNext = isRunning && skippable.includes(stage);
+            const updNextBtn = (id) => {
+                const nb = document.getElementById(id);
+                if (!nb) return;
+                nb.classList.toggle('hidden', !showNext);
+            };
+            updNextBtn('next-stage-btn-dist');
+            updNextBtn('next-stage-btn-rect');
+            // Сессия 20: панель ручной воды (мониторинг)
+            updateWaterControl();
             
             // === АВТОМАТИЧЕСКОЕ ОТКРЫТИЕ МАСТЕРА КАЛИБРОВКИ ===
             // Показываем только при ПЕРВОМ входе в VALVE_CAL (lastStage был другим)
@@ -1779,6 +1815,8 @@
 
         function checkModals() {
             if (typeof currentData === 'undefined' || !currentData.stage) return;
+            // Сессия 20: пока открыт диалог подтверждения «ДАЛЕЕ» — не трогаем панели
+            if (nextConfirmOpen) return;
             const stage = currentData.stage;
             const dPanel = document.getElementById('dialog-panel');
             const aPanel = document.getElementById('alert-panel');
@@ -1866,11 +1904,54 @@
         
         function closeDialogPanel() {
             document.getElementById('dialog-panel').style.display = 'none';
+            nextConfirmOpen = false;
         }
         
         function closeSetPwAsPanel() {
             document.getElementById('dialog-panel').style.display = 'none';
             userClosedSetPwAs = true;
+        }
+
+        // === Сессия 20: подтверждение ручного перехода на следующий этап ===
+        // Кнопка «ДАЛЕЕ» (видна только при запущенном процессе на пропускаемом этапе).
+        // На «ДАЛЕЕ» шлём NEXT_STAGE — прошивка выполнит штатный переход.
+        function confirmNextStage() {
+            const stage = currentData.stage || '';
+            const names = {RAZGON:'РАЗГОН',WAITING:'ОЖИДАНИЕ (нагрев царги)',OTBOR:'ОТБОР',BAKSTOP:'БАКСТОП',NASEBYA:'СТАБИЛИЗАЦИЯ',GOLOVY:'ОТБОР ГОЛОВ',TELO:'ОТБОР ТЕЛА',FINISHING:'ФИНИШ (охлаждение)',FINISHING_WORK:'ФИНИШ (охлаждение)'};
+            const next = {RAZGON:'ОЖИДАНИЕ',WAITING:'следующий этап процесса',OTBOR:'СМЕНА ТАРЫ (а после смены тары — в БАКСТОП)',BAKSTOP:'ФИНИШ (охлаждение)',NASEBYA:'следующий этап процесса',GOLOVY:'подтверждение ГОЛОВЫ',TELO:'ФИНИШ (охлаждение)',FINISHING:'ЗАВЕРШЕНИЕ ПРОЦЕССА (охлаждение будет прервано)',FINISHING_WORK:'ЗАВЕРШЕНИЕ ПРОЦЕССА (охлаждение будет прервано)'};
+            const st = names[stage] || stage;
+            const nx = next[stage] || 'следующий этап';
+            const dPanel = document.getElementById('dialog-panel');
+            if (!dPanel) return;
+            nextConfirmOpen = true;
+            dPanel.style.display = 'flex';
+            document.getElementById('dialog-title').textContent = 'РУЧНОЙ ПЕРЕХОД';
+            document.getElementById('dialog-text').innerHTML = '<div class="text-left"><p class="mb-2">Перейти с этапа <b class="text-yellow-400">' + st + '</b> на ' + nx + '?</p>' + (stage==='FINISHING'||stage==='FINISHING_WORK'?'<p class="text-red-400 text-xs mb-1">Процесс будет окончен прямо сейчас.</p>':'') + '<p class="text-xs text-gray-400">Естественное условие этапа будет пропущено (решение оператора). В журнале будет отметка о ручном переходе.</p></div>';
+            document.getElementById('dialog-buttons').innerHTML = '<button onclick="closeDialogPanel()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">ОТМЕНА</button><button onclick="sendCommand(\'NEXT_STAGE\');closeDialogPanel()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold">ДАЛЕЕ</button>';
+        }
+
+        // === Сессия 20: ручное управление клапаном воды (мониторинг) ===
+        function manualWaterToggle() {
+            const open = !!currentData.waterValveOpen;
+            sendCommand(open ? 'WATER_CLOSE' : 'WATER_OPEN');
+        }
+        function updateWaterControl() {
+            const stEl = document.getElementById('water-state-hud');
+            const btn = document.getElementById('water-toggle-btn');
+            if (!stEl || !btn) return;
+            const open = !!currentData.waterValveOpen;
+            const isRun = (currentData.process == 1 || currentData.process == 2);
+            stEl.textContent = open ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+            stEl.className = 'font-bold ' + (open ? 'text-cyan' : 'text-gray-500');
+            if (isRun) {
+                btn.textContent = 'АВТО'; btn.disabled = true;
+                btn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-gray-700 text-gray-500 cursor-not-allowed';
+                btn.title = 'Во время процесса водой управляет логика этапов';
+            } else {
+                btn.textContent = open ? 'ЗАКРЫТЬ' : 'ОТКРЫТЬ'; btn.disabled = false;
+                btn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-gray-700 hover:bg-gray-600 text-cyan';
+                btn.title = 'Ручное управление клапаном воды';
+            }
         }
         
         function closeAlertPanel() { document.getElementById('alert-panel').style.display = 'none'; }

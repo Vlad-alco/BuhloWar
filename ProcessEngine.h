@@ -112,6 +112,13 @@ private:
     bool processPaused = false;
     bool emergencyState = false;
     bool dialogPending = false;
+    // === Сессия 20: ручной переход на следующий этап (кнопка «ДАЛЕЕ» в веб) ===
+    // Одноразовый флаг: ставится командой NEXT_STAGE, подхватывается ШТАТНЫМ
+    // условием завершения текущего этапа (|| skipStageRequested) и сбрасывается
+    // в changeStage(). Благодаря этому переход выполняется ровно тем же кодом,
+    // что и естественное завершение этапа — все инициализации клапанов,
+    // логирование и побочные эффекты сохраняются 1:1, дублирования логики нет.
+    bool skipStageRequested = false;
     unsigned long lastShporaAdjustTime = 0; // Время последней корректировки Шпоры
     int shporaReductionCount = 0; // Количество снижений скорости в Шпоре
     unsigned long processStartTime = 0;

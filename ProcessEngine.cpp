@@ -482,13 +482,19 @@ outputManager->startBodyValveCycling(cfg.bodyOpenSec * 1000, cfg.bodyCloseSec * 
     // === НОВАЯ КОМАНДА ДЛЯ WEB (Кнопка "ДАЛЕЕ") — ДО проверки VALVE_CAL ===
     if (command == UiCommand::NEXT_STAGE) {
         Serial.printf("[WebCmd] NEXT_STAGE received, currentStage=%d\n", (int)currentStage);
+        // === Сессия 20: гвард — ручной переход действует только при запущенном процессе
+        // и вне аварии. В IDLE команда бессмысленна, в аварии безопаснее игнорировать. ===
+        if (!processRunning || emergencyState || currentStage == Stage::IDLE) {
+            Serial.println("[WebCmd] NEXT_STAGE ignored: no running process");
+            return EngineResponse::ERROR_NO_PROCESS;
+        }
         if (currentStage == Stage::VALVE_CAL) {
             Serial.println("[Web] VALVE CAL -> SET PW & AS");
             // === ЛОГИРОВАНИЕ ===
         logger.log("CMD: VALVE CAL -> SET PW & AS");
             changeStage(Stage::SET_PW_AS);
             // Инициализируем меню, чтобы LCD показал настройки
-            if (setPwAsMenu) setPwAsMenu->display(); 
+            if (setPwAsMenu) setPwAsMenu->display();
             return EngineResponse::SHOW_PROCESS_SCREEN;
         }
         else if (currentStage == Stage::SET_PW_AS) {
@@ -496,11 +502,42 @@ outputManager->startBodyValveCycling(cfg.bodyOpenSec * 1000, cfg.bodyCloseSec * 
             // === ЛОГИРОВАНИЕ ===
         logger.log("CMD:  SET PW & AS -> GOLOVY");
             // Сбрасываем стадию голов перед стартом
-            currentGolovyStage = GolovyStage::IDLE; 
+            currentGolovyStage = GolovyStage::IDLE;
             changeStage(Stage::GOLOVY);
             return EngineResponse::SHOW_PROCESS_SCREEN;
         }
-        // Можно добавить и для WATER_TEST, если нужно, но там DIALOG_YES
+        // === Сессия 20: ручной переход на следующий этап (одобрено автором) ===
+        // Для этапов с «естественным условием завершения» ставим одноразовый флаг:
+        // штатное условие на следующем цикле update() сработает раньше (|| skipStageRequested),
+        // и переход выполнится РОВНО тем же кодом, что и естественное завершение.
+        // RAZGON->WAITING; WAITING->OTBOR/NASEBYA; OTBOR->REPLACEMENT (или BAKSTOP после смены тары);
+        // BAKSTOP->FINISHING; NASEBYA->CAL/SET_PW_AS (первый вход) или TELO (после Залёта);
+        // FINISHING->досрочное завершение охлаждения (одобрено автором).
+        else if (currentStage == Stage::RAZGON || currentStage == Stage::WAITING ||
+                 currentStage == Stage::OTBOR  || currentStage == Stage::BAKSTOP  ||
+                 currentStage == Stage::NASEBYA || currentStage == Stage::FINISHING_WORK) {
+            skipStageRequested = true;
+            logger.log(String("CMD: NEXT_STAGE (manual skip) at ") + getStageName(currentStage));
+            return EngineResponse::SHOW_PROCESS_SCREEN;
+        }
+        else if (currentStage == Stage::GOLOVY) {
+            // Головы завершены досрочно: штатная процедура finishGolovyStage() —
+            // клапан продолжает импульсить до подтверждения (по дизайну GOLOVY_OK)
+            logger.log("CMD: NEXT_STAGE (manual skip) at GOLOVY -> GOLOVY_OK");
+            finishGolovyStage();
+            return EngineResponse::SHOW_PROCESS_SCREEN;
+        }
+        else if (currentStage == Stage::TELO) {
+            // Тело завершено досрочно: штатная процедура finishTelo() —
+            // стоп импульсов, закрытие клапанов голов/тела, -> FINISHING_WORK
+            logger.log("CMD: NEXT_STAGE (manual skip) at TELO -> FINISHING_WORK");
+            finishTelo(configManager->getConfig());
+            return EngineResponse::SHOW_PROCESS_SCREEN;
+        }
+        else if (currentStage == Stage::GOLOVY_OK) {
+            // Эквивалент штатного подтверждения «ДА» в диалоге GOLOVY_OK
+            return handleCommand(UiCommand::DIALOG_YES);
+        }
     }
     // ================================================================
 
@@ -610,6 +647,29 @@ outputManager->startBodyValveCycling(cfg.bodyOpenSec * 1000, cfg.bodyCloseSec * 
         // processRunning должен остаться true, чтобы update() крутил логику FINISHING_WORK
         changeStage(Stage::FINISHING_WORK);
         return EngineResponse::SHOW_PROCESS_SCREEN;
+    }
+
+    // === Сессия 20: ручное управление клапаном ВОДА из веб-мониторинга ===
+    // Доступно ТОЛЬКО когда процесс не запущен: после IND-финала вода остаётся
+    // открытой (безопасность индукции) — оператор выключает индукцию вручную
+    // и закрывает воду этой кнопкой. Во время процесса вода управляется
+    // логикой этапов — ручные команды игнорируются (иначе логика этапа
+    // тут же переоткрыла бы клапан, оператор вводился бы в заблуждение).
+    if (command == UiCommand::MANUAL_VALVE_WATER_OPEN || command == UiCommand::MANUAL_VALVE_WATER_CLOSE) {
+        if (processRunning) {
+            Serial.println("[WebCmd] Manual WATER command ignored: process running");
+            return EngineResponse::ERROR_BUSY;
+        }
+        if (command == UiCommand::MANUAL_VALVE_WATER_OPEN) {
+            outputManager->openWaterValve();   // внутри гвард emergencyState — при аварии не откроет
+            logger.log("CMD: Manual WATER valve OPEN (web)");
+        } else {
+            // Закрытие разрешено и в аварии (closeWaterValve без гвардов):
+            // оператор должен иметь возможность закрыть воду в любой ситуации
+            outputManager->closeWaterValve();
+            logger.log("CMD: Manual WATER valve CLOSE (web)");
+        }
+        return EngineResponse::OK;
     }
     
     // --- Запуск DIST ---
@@ -837,7 +897,12 @@ void ProcessEngine::handleRazgon() {
         if (!outputManager->isMixerCycling()) outputManager->startMixerCycling(cfg.mixerOnTime, cfg.mixerOffTime);
     } else if (outputManager->isMixerCycling()) outputManager->stopMixer();
 
-    if (data.tank.value >= cfg.razgonTemp) {
+    // === Сессия 20: || skipStageRequested — ручной переход «ДАЛЕЕ» (кнопка в веб).
+    // Переход выполняется этим же кодом: нагрев на поддержание, вода, инициализация клапанов ===
+    if (data.tank.value >= cfg.razgonTemp || skipStageRequested) {
+        if (skipStageRequested && data.tank.value < cfg.razgonTemp) {
+            logger.log("RAZGON: skipped by operator (TANK " + String(data.tank.value, 1) + "C < set " + String(cfg.razgonTemp) + "C)");
+        }
         Serial.println("[Process] RAZGON complete.");
         logger.log("[Process] RAZGON complete."
                  + String("  TSA: ") + String(data.tsa.value, 1) + "C"
@@ -901,7 +966,11 @@ void ProcessEngine::handleWaiting() {
     }
 
     // Выход только если точка отсчёта захвачена, датчик валиден и прогрелся на 5°C
-    if (waitingRefCaptured && data.isTsarValid() && data.tsar.value >= (initialTsarTemp + 5.0f)) {
+    // === Сессия 20: || skipStageRequested — ручной переход «ДАЛЕЕ» (кнопка в веб) ===
+    if (skipStageRequested || (waitingRefCaptured && data.isTsarValid() && data.tsar.value >= (initialTsarTemp + 5.0f))) {
+        if (skipStageRequested && !(waitingRefCaptured && data.tsar.value >= (initialTsarTemp + 5.0f))) {
+            logger.log("WAITING: skipped by operator (TSAR " + String(data.tsar.value, 1) + "C)");
+        }
         logger.log("WAITING: complete. TSAR: " + String(data.tsar.value, 1) + "C"
                  + "  time: " + String(currentStatus.stageTimeSec / 60) + "min");
         if (activeProcess == PROCESS_DIST) changeStage(Stage::OTBOR);
@@ -982,7 +1051,11 @@ void ProcessEngine::handleDistOtbor() {
         // Приведённая к 760 мм рт.ст. температура куба (живое/последнее известное давление)
         float tankCorrected = data.tank.value + (760.0 - distMidtermPressureMmHg) * 0.037;
 
-        if (tankCorrected >= midtermSet) {
+        // === Сессия 20: || skipStageRequested — ручной переход «ДАЛЕЕ»: форс смены тары ===
+        if (tankCorrected >= midtermSet || skipStageRequested) {
+            if (skipStageRequested && tankCorrected < midtermSet) {
+                logger.log("OTBOR: midterm skipped by operator (T760 " + String(tankCorrected, 1) + "C < set " + String(midtermSet, 1) + "C)");
+            }
             if (cfg.valveuse) outputManager->closeBodyValve();
             midtermHandled = true;
             logger.log("OTBOR: midterm reached. T=" + String(data.tank.value, 1) + "C (Reduced to 760: " + String(tankCorrected, 1) + "C, set " + String(midtermSet, 1) + "C/" + String(cfg.midterm_abv * 0.1f, 1) + "%, P=" + String(distMidtermPressureMmHg, 0) + " mmHg)");
@@ -992,7 +1065,13 @@ void ProcessEngine::handleDistOtbor() {
     }
 
     // Логика остановки по температуре бака
-    if (data.tank.value >= cfg.bakStopTemp) {
+    // === Сессия 20: (skipStageRequested && midtermHandled) — после смены тары «ДАЛЕЕ»
+    // ведёт в БАКСТОП (форс bakStop). До смены тары «ДАЛЕЕ» перехватывается блоком
+    // midterm выше (там стоит return), сюда флаг не доходит ===
+    if (data.tank.value >= cfg.bakStopTemp || (skipStageRequested && midtermHandled)) {
+        if (skipStageRequested && data.tank.value < cfg.bakStopTemp) {
+            logger.log("OTBOR: bakStop skipped by operator (TANK " + String(data.tank.value, 1) + "C < set " + String(cfg.bakStopTemp) + "C)");
+        }
         if (cfg.valveuse) outputManager->closeBodyValve();
         logger.log("OTBOR: bakStop reached. TANK: " + String(data.tank.value, 1) + "C");
         changeStage(Stage::BAKSTOP);
@@ -1013,7 +1092,8 @@ void ProcessEngine::handleDistBakstop() {
         previousStage = Stage::BAKSTOP;
     }
 
-    if (currentStatus.stageTimeSec >= configManager->getConfig().bakstopDelaySec) changeStage(Stage::FINISHING_WORK);
+    // === Сессия 20: || skipStageRequested — ручной переход «ДАЛЕЕ»: форс выхода из БАКСТОП ===
+    if (currentStatus.stageTimeSec >= configManager->getConfig().bakstopDelaySec || skipStageRequested) changeStage(Stage::FINISHING_WORK);
 }
 
 // ==================== RECT LOGIC ====================
@@ -1036,7 +1116,8 @@ void ProcessEngine::handleNasebya() {
     unsigned long targetSeconds = (unsigned long)((nasebTimeOverride > 0) ? nasebTimeOverride : cfg.nasebTime) * 60;
     
     // === ЛОГИКА ЗАВЕРШЕНИЯ СТАБИЛИЗАЦИИ ===
-    if (currentStatus.stageTimeSec >= targetSeconds) {
+    // === Сессия 20: || skipStageRequested — ручной переход «ДАЛЕЕ»: форс завершения стабилизации ===
+    if (currentStatus.stageTimeSec >= targetSeconds || skipStageRequested) {
         const SensorData& data = sensorAdapter->getData();
         Serial.println("[Process] NASEBYA complete.");
         logger.log("[Process] NASEBYA complete. TSAR: " + String(data.tsar.value, 1) + "C");
@@ -1066,7 +1147,12 @@ void ProcessEngine::handleNasebya() {
                      + "  threshold: " + String(threshold, 2) + "C"
                      + "  time: " + String(currentStatus.stageTimeSec / 60) + "min");
 
-            if (data.tsar.value < threshold) {
+            // === Сессия 20: || skipStageRequested — после Залёта «ДАЛЕЕ» форсирует возврат
+            // в ТЕЛО даже если TSAR ещё не упала ниже порога (решение оператора, логируем) ===
+            if (data.tsar.value < threshold || skipStageRequested) {
+                if (skipStageRequested && data.tsar.value >= threshold) {
+                    logger.log("NASEBYA: return to TELO forced by operator (TSAR " + String(data.tsar.value, 2) + "C still above threshold " + String(threshold, 2) + "C)");
+                }
                 Serial.println("[Process] TSAR normalized. Resuming TELO.");
                 logger.log("TSAR normalized. Resuming TELO.");
                 // Сброс таймера расчёта объёма: без этого первый dt_h
@@ -1785,7 +1871,8 @@ void ProcessEngine::handleFinishingWork() {
         logger.log("FINISHING: Start cooling " + String(cfgFin.coolingDurationSec) + "s");
     }
 
-    // Таймер 5 минут (300 сек)
+    // Таймер 5 минут (300 сек) — досрочно завершается кнопкой «ДАЛЕЕ» (skipStageRequested,
+    // Сессия 20: одобрено автором — оператор сам решает, когда охлаждение можно прервать)
    
     unsigned long elapsedSec = (millis() - stageStartTime) / 1000;
      // === НОВОЕ: Расчет остатка времени для веб-интерфейса ===
@@ -1793,9 +1880,26 @@ void ProcessEngine::handleFinishingWork() {
     SystemConfig& cfgFin2 = configManager->getConfig();
     currentStatus.finishingRemainSec = (elapsedSec < cfgFin2.coolingDurationSec) ? (cfgFin2.coolingDurationSec - elapsedSec) : 0;
     // ======================================================
-    if (elapsedSec >= cfgFin2.coolingDurationSec) {
-        
-        outputManager->closeWaterValve();
+    if (elapsedSec >= cfgFin2.coolingDurationSec || skipStageRequested) {
+        if (skipStageRequested && elapsedSec < cfgFin2.coolingDurationSec) {
+            logger.log("FINISHING: cooling skipped by operator (elapsed " + String(elapsedSec) + "s of " + String(cfgFin2.coolingDurationSec) + "s)");
+        }
+        // === Сессия 20: БЕЗОПАСНОСТЬ ИНДУКЦИИ (одобрено автором) ===
+        // При нагреве индукцией (heaterType=1) система НЕ управляет нагревом —
+        // индукцией управляет оператор вручную (см. handleRazgon: при IND команды
+        // на нагрев не подаются). Поэтому после ФИНИША воду НЕ закрываем:
+        // она продолжает охлаждать куб и колонну, пока оператор вручную не
+        // выключит индукцию и не закроет воду кнопкой в веб-мониторинге.
+        // Иначе было бы: вода закрыта, индукция греет -> «спиртовая баня».
+        // Путь покрывает ВСЕ варианты конца работы: естественный финал,
+        // СТОП (уходит сюда же) и аварию TSA/VREAC (тоже уходит сюда).
+        // При ТЭН (heaterType=0) поведение прежнее — система гасит ТЭН сама.
+        if (cfgFin2.heaterType == 0) {
+            outputManager->closeWaterValve();
+        } else {
+            Serial.println("[Process] FINISHING_WORK complete. IND mode: WATER VALVE LEFT OPEN - turn off induction, then close water in web monitoring!");
+            logger.log("FINISH: IND mode - water valve LEFT OPEN (safety). Turn off induction manually, then close water via web monitoring.");
+        }
         outputManager->powerOffBodyValve();
         outputManager->stopMixer();
         processRunning = false;
@@ -1814,6 +1918,9 @@ void ProcessEngine::changeStage(Stage newStage) {
     previousStage = currentStage;
     currentStage = newStage;
     stageStartTime = millis();
+    // === Сессия 20: флаг ручного перехода одноразовый — при смене этапа гасим,
+    // чтобы он не «протёк» в следующий этап и не вызвал каскад пропусков ===
+    skipStageRequested = false;
     if (newStage != Stage::RAZGON) razgonMixerStarted = false;
     currentStatus.stageName = getStageName(newStage);
     

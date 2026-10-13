@@ -891,6 +891,11 @@ void AppNetwork::handleApiCommand() {
     else if (body.indexOf("\"cmd\":\"START_RECT\"") > 0)        sendCmd(UiCommand::START_RECT);
     else if (body.indexOf("\"cmd\":\"STOP\"") > 0)              sendCmd(UiCommand::STOP_PROCESS);
     else if (body.indexOf("\"cmd\":\"STOP_TEST\"") > 0)         sendCmd(UiCommand::STOP_TEST);
+    // === Сессия 20: ручное управление клапаном воды из веб-мониторинга ===
+    // Действует только когда процесс не запущен (гвард в ProcessEngine::handleCommand):
+    // сценарий — после IND-финала закрыть воду, оставленную открытой ради безопасности
+    else if (body.indexOf("\"cmd\":\"WATER_OPEN\"") > 0)        sendCmd(UiCommand::MANUAL_VALVE_WATER_OPEN);
+    else if (body.indexOf("\"cmd\":\"WATER_CLOSE\"") > 0)       sendCmd(UiCommand::MANUAL_VALVE_WATER_CLOSE);
     else if (body.indexOf("\"cmd\":\"FINISH_CALIBRATION\"") > 0) sendCmd(UiCommand::FINISH_CALIBRATION);
     else if (body.indexOf("\"cmd\":\"DIALOG_YES\"") > 0)        sendCmd(UiCommand::DIALOG_YES);
     else if (body.indexOf("\"cmd\":\"DIALOG_NO\"") > 0)         sendCmd(UiCommand::DIALOG_NO);
