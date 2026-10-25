@@ -1,5 +1,6 @@
 #include "SensorManager.h"
 #include "SDLogger.h"
+#include "SimSensors.h"
 
 SensorManager* SensorManager::instance = nullptr;
 
@@ -150,6 +151,22 @@ void SensorManager::begin() {
 void SensorManager::update() {
     if (!sensorsInitialized) return;
     
+    // === Этап 2: режим SIM — синтетические датчики вместо 1-Wire ===
+    // Шина не трогается вовсе (ни requestTemperatures, ни чтения): сырые
+    // отсчёты берутся из SimSensors и проходят ТОТ ЖЕ пайплайн (медиана-5
+    // -> гейт -> stale -> среднее), что и реальные — все гарды Этапа 1 и
+    // счётчики проверяются виртуально, включая SD-лог событий SIGNAL.
+    // Темп сохранён штатный (UPDATE_INTERVAL), чтобы поведение фильтров
+    // совпадало с реальным циклом опроса (~1.6 с).
+    if (SimSensors::getInstance()->isActive()) {
+        unsigned long simNow = millis();
+        if (simNow - lastUpdateTime >= UPDATE_INTERVAL) {
+            updateSensorData();
+            lastUpdateTime = simNow;
+        }
+        return;
+    }
+    
     // === Этап 6: ожидание завершения асинхронного скана калибровки ===
     // Пока идёт конвертация скана (~800 мс), обычный опрос приостановлен:
     // его requestTemperatures() перезапустил бы нашу конвертацию.
@@ -202,9 +219,20 @@ void SensorManager::loadAddressesFromConfig() {
 
 void SensorManager::updateSensorData() {
     unsigned long now = millis();
+    // === Этап 2: в SIM сырые отсчёты — синтетика, шина 1-Wire не опрашивается.
+    // Слоты обновляются ВСЕ (даже без калибровки) — виртуальный прогон полного
+    // цикла возможен на любом устройстве. isCalibrated не трогается: меню
+    // калибровки остаются честными к реальному железу.
+    SimSensors* sim = SimSensors::getInstance();
+    bool simActive = sim->isActive();
     for (int i = 0; i < SENSOR_COUNT; i++) {
-        if (!sensorData[i].isCalibrated) continue;
-        float rawTemp = sensors.getTempC(sensorData[i].address);
+        if (!simActive && !sensorData[i].isCalibrated) continue;
+        float rawTemp;
+        if (simActive) {
+            rawTemp = sim->rawFor((uint8_t)i, now);
+        } else {
+            rawTemp = sensors.getTempC(sensorData[i].address);
+        }
         if (rawTemp != DEVICE_DISCONNECTED_C && rawTemp > -127.0f) {
             sensorData[i].isConnected = true;
             sensorData[i].lastValidRead = now;

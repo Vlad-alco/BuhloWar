@@ -1000,6 +1000,13 @@
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
         }
+        /* Этап 2: панель СИМУЛЯТОРА датчиков */
+        .sim-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cfd8e3;font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:inherit;transition:all .15s;}
+        .sim-btn:hover{background:rgba(255,255,255,0.12);}
+        .sim-danger{background:rgba(255,60,60,0.15);border-color:rgba(255,60,60,0.4);color:#ff9a9a;}
+        .sim-danger:hover{background:rgba(255,60,60,0.3);}
+        .sim-warn{background:rgba(255,180,0,0.12);border-color:rgba(255,180,0,0.4);color:#ffd27a;}
+        .sim-warn:hover{background:rgba(255,180,0,0.25);}
     </style>
 </head>
 <body>
@@ -1557,6 +1564,39 @@
                     <div id="mon-sig-row" style="display:none;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.07);justify-content:space-between;align-items:center;">
                         <span style="color:#5a6675;font-size:11px;letter-spacing:.06em;">СИГНАЛ</span>
                         <span id="mon-sig" style="font-size:11px;color:var(--neon-green);font-variant-numeric:tabular-nums;">--</span>
+                    </div>
+                    <!-- Этап 2: СИМУЛЯТОР датчиков. После перезагрузки SIM всегда ВЫКЛ. -->
+                    <div id="sim-panel" style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.07);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                            <span style="color:#5a6675;font-size:11px;letter-spacing:.06em;">СИМУЛЯТОР</span>
+                            <div id="sim-off" style="display:flex;gap:4px;">
+                                <button onclick="simStart(0)" class="sim-btn">СТАРТ ДИСТ</button>
+                                <button onclick="simStart(1)" class="sim-btn">СТАРТ РЕКТ</button>
+                            </div>
+                            <div id="sim-on" style="display:none;">
+                                <span id="sim-badge" style="font-size:11px;color:var(--neon-amber);font-variant-numeric:tabular-nums;">--</span>
+                            </div>
+                        </div>
+                        <div id="sim-controls" style="display:none;margin-top:6px;">
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <button onclick="simScenNext()" class="sim-btn" style="flex:1;">СЦЕНАРИЙ: <span id="sim-scen" style="color:var(--neon-cyan);font-weight:700;">--</span></button>
+                                <button onclick="simSpeedNext()" class="sim-btn" style="flex:1;">СКОРОСТЬ: <span id="sim-speed" style="color:var(--neon-cyan);font-weight:700;">--</span></button>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;align-items:center;">
+                                <select id="sim-ch" class="sim-btn" style="padding:4px 6px;">
+                                    <option value="0">TSA</option>
+                                    <option value="1">AQUA</option>
+                                    <option value="2">TSAR</option>
+                                    <option value="3">TANK</option>
+                                </select>
+                                <button onclick="simAnom('spike')" class="sim-btn sim-danger">ВЫБРОС</button>
+                                <button onclick="simAnom('series')" class="sim-btn sim-danger">СЕРИЯ×8</button>
+                                <button onclick="simAnom('freeze')" class="sim-btn sim-warn">ПОДВ 120с</button>
+                                <button onclick="simAnom('drop')" class="sim-btn">ОБРЫВ</button>
+                            </div>
+                            <button onclick="simStop()" class="sim-btn" style="width:100%;">ОСТАНОВИТЬ СИМУЛЯТОР</button>
+                            <p style="color:#5a6675;font-size:9px;line-height:1.35;margin-top:4px;">ВЫБРОС ×1 гасит медиана-5 · СЕРИЯ ×8 доходит до гейта (событие в SD-лог) · ПОДВ — stale через 60 с · ОБРЫВ — resetFilter. Таймерные и объёмные этапы идут в реальном времени — пропускайте ДАЛЕЕ.</p>
+                        </div>
                     </div>
                 </div>
                 </div><!-- /monitor-right-col -->
@@ -2271,6 +2311,9 @@
                 // копирует undefined, поэтому чистим вручную — иначе строка
                 // «СИГНАЛ» осталась бы висеть с устаревшими счётчиками.
                 if(newData.sig===undefined)currentData.sig=undefined;
+                // Этап 2: sim может легально исчезнуть (SIM выключен/старая прошивка) —
+                // чистим как sig, иначе панель залипла бы в «активном» состоянии
+                if(newData.sim!==undefined)currentData.sim=newData.sim;else currentData.sim=undefined;
                 // Preserve volumes: save when available, clear on new process (stage becomes NAGREV or empty with no prior data)
                 const st=newData.stage||'';
                 if(currentData.headsVolDone>0)preservedHeadsVolDone=currentData.headsVolDone;
@@ -2510,6 +2553,7 @@
             hs('mon-ref-tsar',rt>0?rt.toFixed(2):'--');hs('mon-ref-press',ap>0?Math.round(ap*0.75):'--');
             // Этап 1: строка «СИГНАЛ» (счётчики гардов SensorManager)
             updateSignalRow();
+            updateSimPanel();
         }
 
         // === Этап 1: строка «СИГНАЛ» на Мониторинге (отбросы/подвисания) ===
@@ -2526,6 +2570,74 @@
             let bad=0;['tsar','tank','tsa','aqua'].forEach(k=>{const v=sig[k];if(Array.isArray(v))bad+=v[0]+v[1];});
             el.style.color=bad>0?'var(--neon-amber)':'var(--neon-green)';
             row.style.display='flex';
+        }
+
+        // === Этап 2: панель СИМУЛЯТОРА датчиков ===
+        // SIM подменяет сырые отсчёты DS18B20 синтетикой в самой прошивке —
+        // вся цепочка (медиана-5/гейт/stale, движок, LCD) работает как на
+        // реальном железе. Состояние SIM не персистится: после перезагрузки
+        // он всегда ВЫКЛ. Кнопки аномалий шлют /api/command:
+        //   ВЫБРОС   — одиночный выброс +5..20C на 1 цикл (гасится медианой-5)
+        //   СЕРИЯ x8 — 8 циклов выброса: доходит до гейта, событие в SD-лог
+        //   ПОДВ 120с — заморозка отсчёта: stale-детектор сработает после 60 с
+        //   ОБРЫВ    — «отвал» датчика на 10 с: проверка resetFilter (>5 с)
+        function simApi(cmd, extra){
+            fetch('/api/command', {method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(Object.assign({cmd:cmd}, extra||{}))})
+            .then(r => { if(!r.ok) r.text().then(t => alert('СИМ: ' + t)); })
+            .catch(err => console.log('simApi:', err));
+        }
+        function simStart(scen){
+            const name = scen === 1 ? 'РЕКТИФИКАЦИЯ' : 'ДИСТИЛЛЯЦИЯ';
+            if(!confirm('СИМУЛЯТОР датчиков\n\nСценарий: ' + name + '\n\nРеальные датчики перестают опрашиваться — все показания будут синтетическими. Аварийные защиты движка работают штатно.\n\nВключить?')) return;
+            simApi('SIM_ON', {scen:scen});
+        }
+        function simStop(){
+            if(!confirm('Остановить симулятор? Датчики вернутся к реальной шине.')) return;
+            simApi('SIM_OFF');
+        }
+        function simScenNext(){ simApi('SIM_SCEN', {scen: (window._simScen === 1 ? 0 : 1)}); }
+        function simSpeedNext(){
+            const sp = [1,5,10,30];
+            const i = (sp.indexOf(window._simSpeed || 1) + 1) % sp.length;
+            simApi('SIM_SPEED', {speed: sp[i]});
+        }
+        function simAnom(type){
+            const sel = document.getElementById('sim-ch');
+            if(!sel) return;
+            const ch = parseInt(sel.value);
+            if(type === 'spike')       simApi('SIM_SPIKE',  {ch:ch, cycles:1});
+            else if(type === 'series') simApi('SIM_SPIKE',  {ch:ch, cycles:8});
+            else if(type === 'freeze') simApi('SIM_FREEZE', {ch:ch, sec:120});
+            else if(type === 'drop')   simApi('SIM_DROP',   {ch:ch, sec:10});
+        }
+        function updateSimPanel(){
+            const panel = document.getElementById('sim-panel');
+            if(!panel) return;
+            const sim = currentData.sim;
+            const on = !!(sim && sim.on === 1);
+            const offRow = document.getElementById('sim-off');
+            const onRow = document.getElementById('sim-on');
+            const ctrls = document.getElementById('sim-controls');
+            if(!offRow || !onRow || !ctrls) return;
+            offRow.style.display = on ? 'none' : 'flex';
+            onRow.style.display = on ? 'flex' : 'none';
+            ctrls.style.display = on ? 'block' : 'none';
+            if(!on) { const b0=document.getElementById('sim-badge');if(b0)b0.textContent='--';return; }
+            window._simScen = sim.scen;
+            window._simSpeed = sim.speed;
+            const scenName = sim.scen === 1 ? 'РЕКТ' : 'ДИСТ';
+            const scenLbl = document.getElementById('sim-scen');
+            if(scenLbl) scenLbl.textContent = scenName;
+            const spdLbl = document.getElementById('sim-speed');
+            if(spdLbl) spdLbl.textContent = '×' + sim.speed;
+            const t = sim.t || 0;
+            const pad = n => (n < 10 ? '0' : '') + n;
+            const clock = Math.floor(t/3600) + ':' + pad(Math.floor((t%3600)/60)) + ':' + pad(t%60);
+            let info = scenName + ' ×' + sim.speed + ' · ' + clock;
+            if(sim.anom > 0) info += ' · ⚠ АНОМАЛИЯ';
+            const badge = document.getElementById('sim-badge');
+            if(badge) badge.textContent = info;
         }
 
         // === BAROMETER ===

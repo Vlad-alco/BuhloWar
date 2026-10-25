@@ -9,6 +9,7 @@
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 #include "SensorManager.h"
+#include "SimSensors.h"
 // Подключаем внешний объект логера
 extern SDLogger logger;
 // Внешний мьютекс для SD карты (создаётся в .ino)
@@ -687,6 +688,24 @@ void AppNetwork::handleApiStatus() {
         json += ",\"tank\":[" + String((unsigned long)sm->getRejectedTotal(SENSOR_TANK)) + "," + String((unsigned long)sm->getStaleEpisodes(SENSOR_TANK)) + "]";
         json += "},";
     }
+
+    // === Этап 2: состояние СИМУЛЯТОРА датчиков (панель «СИМУЛЯТОР» в вебе).
+    // Объект "sim" отсутствует, когда SIM выключен — страницы обратно-совместимы
+    // и показывают только кнопку запуска. state каналов — «физические» значения
+    // симулятора (без аномалий; аномалии видны по маске "anom": бит на канал).
+    {
+        float simState[SimSensors::CH_COUNT];
+        uint8_t simScen = 0, simMask = 0;
+        float simSpd = 1.0f;
+        unsigned long simT = 0;
+        if (SimSensors::getInstance()->snapshot(simState, simScen, simSpd, simT, simMask)) {
+            json += "\"sim\":{\"on\":1,\"scen\":" + String(simScen);
+            json += ",\"speed\":" + String(simSpd, 0);
+            json += ",\"t\":" + String(simT);
+            json += ",\"anom\":" + String(simMask);
+            json += ",\"ch\":[" + String(simState[0], 2) + "," + String(simState[1], 2) + "," + String(simState[2], 2) + "," + String(simState[3], 2) + "]},";
+        }
+    }
     
     // --- Крепость (Сессия 10: один знак после запятой — согласовано с уставкой 0.1%) ---
     json += "\"str_bak\":" + String(status.currentStrengthBak, 1) + ",";
@@ -941,6 +960,84 @@ void AppNetwork::handleApiCommand() {
         else if (body.indexOf("TANK") > 0) sendCmd(UiCommand::IDENTIFY_TANK);
         else if (body.indexOf("AQUA") > 0) sendCmd(UiCommand::IDENTIFY_AQUA);
         else if (body.indexOf("TSA") > 0)  sendCmd(UiCommand::IDENTIFY_TSA);
+    }
+    // === Этап 2: команды СИМУЛЯТОРА датчиков ===
+    // Обрабатываются ПРЯМО здесь (ядро 0), без очереди UiCommand:
+    // SimSensors — изолированный листовой модуль с короткими portMUX-
+    // критсекциями, ProcessEngine и меню не затрагиваются. Гварды:
+    //  - SIM_ON — только вне процесса и калибровки (иначе синтетика
+    //    подменила бы показания работающей системы);
+    //  - SIM_OFF — только вне процесса (внезапная смерть всех датчиков
+    //    посреди процесса уводит движок в аварийные ветки);
+    //  - сценарий/скорость/аномалии — в активном SIM когда угодно.
+    // Состояние SIM НЕ пишется в EEPROM: после перезагрузки SIM всегда ВЫКЛ.
+    else if (body.indexOf("\"cmd\":\"SIM_") > 0) {
+        SimSensors* sim = SimSensors::getInstance();
+        bool procRunning = processEngine && (processEngine->getActiveProcessType() != PROCESS_NONE);
+        auto getIntP = [&body](const char* key, int defVal) -> int {
+            String k = String("\"") + key + "\":";
+            int p = body.indexOf(k);
+            if (p < 0) return defVal;
+            int s = p + k.length();
+            int e = body.indexOf(',', s);
+            if (e < 0) e = body.indexOf('}', s);
+            return body.substring(s, e < 0 ? (int)body.length() : e).toInt();
+        };
+        auto getFloatP = [&body](const char* key, float defVal) -> float {
+            String k = String("\"") + key + "\":";
+            int p = body.indexOf(k);
+            if (p < 0) return defVal;
+            int s = p + k.length();
+            int e = body.indexOf(',', s);
+            if (e < 0) e = body.indexOf('}', s);
+            return body.substring(s, e < 0 ? (int)body.length() : e).toFloat();
+        };
+
+        if (body.indexOf("\"cmd\":\"SIM_ON\"") > 0) {
+            if (procRunning) { server->send(409, "text/plain", "Process running"); return; }
+            SensorManager* sm = SensorManager::getInstance();
+            for (int i = 0; i < SimSensors::CH_COUNT; i++) {
+                if (sm->isCalibrating((SensorIndex)i)) { server->send(409, "text/plain", "Calibration running"); return; }
+            }
+            // Старт с текущих отфильтрованных температур (см. SimSensors::start):
+            // синтетика продолжает с того, что видели датчики — гейт правдоподобия
+            // не застревает на вечном отбросе после старта симуляции.
+            float curTemps[SimSensors::CH_COUNT];
+            curTemps[0] = sm->getTSA();  curTemps[1] = sm->getAQUA();
+            curTemps[2] = sm->getTSAR(); curTemps[3] = sm->getTANK();
+            sim->start((uint8_t)getIntP("scen", 0), curTemps);
+        } else if (body.indexOf("\"cmd\":\"SIM_OFF\"") > 0) {
+            if (procRunning) { server->send(409, "text/plain", "Stop process first"); return; }
+            sim->stop();
+        } else if (body.indexOf("\"cmd\":\"SIM_SCEN\"") > 0) {
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            sim->setScenario((uint8_t)getIntP("scen", 0));
+        } else if (body.indexOf("\"cmd\":\"SIM_SPEED\"") > 0) {
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            sim->setSpeed(getFloatP("speed", 1.0f));
+        } else if (body.indexOf("\"cmd\":\"SIM_SPIKE\"") > 0) {
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            int ch = getIntP("ch", -1);
+            if (ch < 0 || ch >= SimSensors::CH_COUNT) { server->send(400, "text/plain", "Bad channel"); return; }
+            float amp = getFloatP("amp", 0.0f);
+            if (amp <= 0.0f) amp = random(50, 201) / 10.0f;   // случайный 5..20C (по плану)
+            sim->injectSpike((uint8_t)ch, amp, getIntP("cycles", 1));
+        } else if (body.indexOf("\"cmd\":\"SIM_FREEZE\"") > 0) {
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            int ch = getIntP("ch", -1);
+            if (ch < 0 || ch >= SimSensors::CH_COUNT) { server->send(400, "text/plain", "Bad channel"); return; }
+            sim->injectFreeze((uint8_t)ch, getFloatP("sec", 120.0f));   // 120 с — по плану Этапа 2
+        } else if (body.indexOf("\"cmd\":\"SIM_DROP\"") > 0) {
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            int ch = getIntP("ch", -1);
+            if (ch < 0 || ch >= SimSensors::CH_COUNT) { server->send(400, "text/plain", "Bad channel"); return; }
+            sim->injectDrop((uint8_t)ch, getFloatP("sec", 10.0f));      // 10 с: >5 с — сработает resetFilter
+        } else {
+            server->send(400, "text/plain", "Unknown SIM Command");
+            return;
+        }
+        server->send(200, "text/plain", "OK");
+        return;  // не проваливаться в общий ответ ниже
     }
     else {
         server->send(400, "text/plain", "Unknown Command");
