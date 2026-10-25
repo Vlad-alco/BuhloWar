@@ -8,6 +8,7 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
+#include "SensorManager.h"
 // Подключаем внешний объект логера
 extern SDLogger logger;
 // Внешний мьютекс для SD карты (создаётся в .ino)
@@ -671,6 +672,21 @@ void AppNetwork::handleApiStatus() {
     json += "\"tsar\":" + String(status.currentTsar) + ",";
     json += "\"aqua\":" + String(status.currentAqua) + ",";
     json += "\"tank\":" + String(status.currentTank) + ",";
+
+    // === Этап 1: счётчики качества сигнала (медиана/гейт/stale) ===
+    // Формат: "sig":{"tsa":[отбросы,подвисания],...} — счётчики монотонно
+    // растут, веб показывает их как TSAR x/y. Счётчики живут в SensorManager
+    // (ядро 1), веб-хендлер — на ядре 0. Чтение 32-битного выровненного
+    // счётчика без блокировки безопасно: худшее — значение на один опрос
+    // старее. Диагностика, не управляющие данные — синхронизация не нужна.
+    {
+        SensorManager* sm = SensorManager::getInstance();
+        json += "\"sig\":{\"tsa\":[" + String((unsigned long)sm->getRejectedTotal(SENSOR_TSA)) + "," + String((unsigned long)sm->getStaleEpisodes(SENSOR_TSA)) + "]";
+        json += ",\"aqua\":[" + String((unsigned long)sm->getRejectedTotal(SENSOR_AQUA)) + "," + String((unsigned long)sm->getStaleEpisodes(SENSOR_AQUA)) + "]";
+        json += ",\"tsar\":[" + String((unsigned long)sm->getRejectedTotal(SENSOR_TSAR)) + "," + String((unsigned long)sm->getStaleEpisodes(SENSOR_TSAR)) + "]";
+        json += ",\"tank\":[" + String((unsigned long)sm->getRejectedTotal(SENSOR_TANK)) + "," + String((unsigned long)sm->getStaleEpisodes(SENSOR_TANK)) + "]";
+        json += "},";
+    }
     
     // --- Крепость (Сессия 10: один знак после запятой — согласовано с уставкой 0.1%) ---
     json += "\"str_bak\":" + String(status.currentStrengthBak, 1) + ",";

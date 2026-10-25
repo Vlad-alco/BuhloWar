@@ -18,6 +18,127 @@ void SensorManager::SensorData::addToFilter(float temp) {
     filteredTemperature = (count > 0) ? (sum / count) : temp;
 }
 
+// === Этап 1: полный сброс фильтров после потери датчика ===
+// Очищает среднее, медиану и серию отбросов. Без сброса среднего после
+// переподключения фильтр несколько циклов усреднял бы старые температуры
+// (например 92C) с новыми (20C) — показания ползли бы с ~77C несколько
+// секунд. resetFilter даёт фильтру собраться заново с чистого листа.
+void SensorManager::SensorData::resetFilter() {
+    bufferIndex = 0;
+    bufferFilled = false;
+    memset(temperatureBuffer, 0, sizeof(temperatureBuffer));
+    filteredTemperature = -127.0f;
+    medianIndex = 0;
+    medianFilled = false;
+    memset(medianBuffer, 0, sizeof(medianBuffer));
+    consecutiveRejected = 0;
+}
+
+// === Этап 1: сигнальные гарды одного сырого отсчёта ===
+// Пайплайн: сырой DS18B20 -> медиана-5 (анти-выброс) -> гейт правдоподобия
+// -> кандидат для скользящего среднего. Возврат NAN = отсчёт отброшен,
+// среднее не трогаем (фильтр держит последнее достоверное значение).
+// Параллельно: stale-детектор и счётчики для веба.
+float SensorManager::applySignalGuards(int index, float rawTemp, unsigned long now) {
+    static const char* const SLOT_NAMES[SENSOR_COUNT] = {"TSA", "AQUA", "TSAR", "TANK"};
+    SensorData& sd = sensorData[index];
+
+    // --- 1) МЕДИАНА-5: сырой отсчёт в кольцевой буфер, берём середину окна ---
+    // Одиночный выброс исчезает полностью: он не может оказаться в средней
+    // позиции отсортированного окна из 5 значений при 4 корректных соседях.
+    sd.medianBuffer[sd.medianIndex] = rawTemp;
+    sd.medianIndex = (sd.medianIndex + 1) % MOVING_AVERAGE_WINDOW;
+    if (!sd.medianFilled && sd.medianIndex == 0) sd.medianFilled = true;
+    float window[MOVING_AVERAGE_WINDOW];
+    int n = sd.medianFilled ? MOVING_AVERAGE_WINDOW : sd.medianIndex;
+    if (n < 1) n = 1;  // первый отсчёт после сброса
+    for (int i = 0; i < n; i++) window[i] = sd.medianBuffer[i];
+    // Сортировка вставками: n <= 5, стоимость копеечная даже на ядре 1
+    for (int i = 1; i < n; i++) {
+        float key = window[i];
+        int j = i - 1;
+        while (j >= 0 && window[j] > key) { window[j + 1] = window[j]; j--; }
+        window[j + 1] = key;
+    }
+    float candidate = window[n / 2];
+
+    // --- 2) ГЕЙТ ПРАВДОПОДОБИЯ ---
+    // Работает только когда фильтр уже валиден: после обрыва filtered=-127,
+    // и первый же отсчёт после восстановления должен пройти без ограничений.
+    if (sd.filteredTemperature > -120.0f) {
+        float jump = candidate - sd.filteredTemperature;
+        if (jump < 0.0f) jump = -jump;
+        if (jump > SIGNAL_MAX_JUMP_C) {
+            sd.rejectedTotal++;
+            sd.consecutiveRejected++;
+            if (sd.consecutiveRejected == SIGNAL_REJECT_LOG_N) {
+                // Одно событие на серию из N подряд — не спамим SD-лог
+                String msg = "SIGNAL: ";
+                msg += SLOT_NAMES[index];
+                msg += ": ";
+                msg += String(SIGNAL_REJECT_LOG_N);
+                msg += " недостоверных отсчётов подряд (последний ";
+                msg += String(rawTemp, 2);
+                msg += "C, фильтр ";
+                msg += String(sd.filteredTemperature, 2);
+                msg += "C) — проверьте датчик/проводку";
+                logger.log(msg);
+            }
+            return NAN;  // среднее не трогаем
+        }
+    }
+    // Отсчёт принят — закрываем серию отбросов (лог восстановления)
+    if (sd.consecutiveRejected >= SIGNAL_REJECT_LOG_N) {
+        String msg = "SIGNAL: ";
+        msg += SLOT_NAMES[index];
+        msg += ": сигнал восстановлен после ";
+        msg += String(sd.consecutiveRejected);
+        msg += " отбросов (";
+        msg += String(rawTemp, 2);
+        msg += "C)";
+        logger.log(msg);
+    }
+    sd.consecutiveRejected = 0;
+
+    // --- 3) ДЕТЕКТОР ПОДВИСАНИЯ (stale) ---
+    // Бит-в-бит одинаковые сырые значения дольше STALE_UNCHANGED_MS —
+    // признак возврата старого буфера без реальной конвертации. Гейт
+    // сюда не пускает мусор: frozen-датчик проходит гейт (кандидат равен
+    // фильтру), поэтому детектор стоит ПОСЛЕ гейта.
+    if (rawTemp == sd.lastRawTemp) {
+        if (!sd.staleLogged && sd.lastRawChangeMs != 0 &&
+            (now - sd.lastRawChangeMs) >= STALE_UNCHANGED_MS) {
+            sd.staleLogged = true;
+            sd.staleEpisodes++;
+            sd.staleStartMs = sd.lastRawChangeMs;
+            String msg = "SIGNAL: ";
+            msg += SLOT_NAMES[index];
+            msg += ": сырое значение не меняется ";
+            msg += String((now - sd.lastRawChangeMs) / 1000);
+            msg += "с (";
+            msg += String(rawTemp, 2);
+            msg += "C) — возможное подвисание 1-Wire";
+            logger.log(msg);
+        }
+    } else {
+        if (sd.staleLogged) {
+            String msg = "SIGNAL: ";
+            msg += SLOT_NAMES[index];
+            msg += ": подвисание завершилось (";
+            msg += String((now - sd.staleStartMs) / 1000);
+            msg += "с без изменений), новое значение ";
+            msg += String(rawTemp, 2);
+            msg += "C";
+            logger.log(msg);
+            sd.staleLogged = false;
+        }
+        sd.lastRawTemp = rawTemp;
+        sd.lastRawChangeMs = now;
+    }
+
+    return candidate;
+}
+
 void SensorManager::begin() {
     sensors.begin();
     sensors.setWaitForConversion(false);
@@ -80,16 +201,29 @@ void SensorManager::loadAddressesFromConfig() {
 }
 
 void SensorManager::updateSensorData() {
+    unsigned long now = millis();
     for (int i = 0; i < SENSOR_COUNT; i++) {
         if (!sensorData[i].isCalibrated) continue;
         float rawTemp = sensors.getTempC(sensorData[i].address);
         if (rawTemp != DEVICE_DISCONNECTED_C && rawTemp > -127.0f) {
-            sensorData[i].addToFilter(rawTemp);
             sensorData[i].isConnected = true;
-            sensorData[i].lastValidRead = millis();
+            sensorData[i].lastValidRead = now;
+            // === Этап 1: медиана-5 + гейт правдоподобия + stale-детектор ===
+            // В среднее попадает уже ОТСЕЯННОЕ значение (медиана окна),
+            // а не сырой отсчёт: выброс и мусор больше не размазываются
+            // по фильтру. NAN = отсчёт отброшен — среднее не трогаем.
+            float candidate = applySignalGuards(i, rawTemp, now);
+            if (!isnan(candidate)) {
+                sensorData[i].addToFilter(candidate);
+            }
         } else {
             sensorData[i].isConnected = false;
-            if (millis() - sensorData[i].lastValidRead > 5000) sensorData[i].filteredTemperature = -127.0f;
+            if (now - sensorData[i].lastValidRead > 5000) {
+                // Этап 1: сбрасываем ВСЕ фильтры (было: только filtered=-127),
+                // чтобы после переподключения среднее не смешивало старые
+                // и новые температуры.
+                sensorData[i].resetFilter();
+            }
         }
     }
 }
@@ -272,6 +406,10 @@ void SensorManager::saveAddressToConfig(SensorIndex index) {
 // Геттеры
 float SensorManager::getTemperature(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].filteredTemperature : -127.0f; }
 bool SensorManager::isConnected(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].isConnected : false; }
+
+// === Этап 1: счётчики качества сигнала для /api/status ===
+unsigned long SensorManager::getRejectedTotal(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].rejectedTotal : 0; }
+unsigned long SensorManager::getStaleEpisodes(SensorIndex index) { return (index < SENSOR_COUNT) ? sensorData[index].staleEpisodes : 0; }
 float SensorManager::getTSA() { return getTemperature(SENSOR_TSA); }
 float SensorManager::getAQUA() { return getTemperature(SENSOR_AQUA); }
 float SensorManager::getTSAR() { return getTemperature(SENSOR_TSAR); }

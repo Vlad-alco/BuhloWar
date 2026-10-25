@@ -1551,6 +1551,13 @@
                             <span class="sys-val" id="mon-ref-press" style="color:var(--neon-blue);">--</span>
                         </div>
                     </div>
+                    <!-- Этап 1: качество сигнала датчиков (отбросы гейта/подвисания).
+                         Формат "TSAR 0/0" = отбросов/эпизодов. Скрыта, пока прошивка
+                         не отдаёт "sig" (совместимость со старой прошивкой). -->
+                    <div id="mon-sig-row" style="display:none;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.07);justify-content:space-between;align-items:center;">
+                        <span style="color:#5a6675;font-size:11px;letter-spacing:.06em;">СИГНАЛ</span>
+                        <span id="mon-sig" style="font-size:11px;color:var(--neon-green);font-variant-numeric:tabular-nums;">--</span>
+                    </div>
                 </div>
                 </div><!-- /monitor-right-col -->
 
@@ -2257,8 +2264,13 @@
                  'rectTimeRemaining','rectVolumeTarget','bodyMethodName','bodySpeed','bodyCycle','headsSpeed','headsSpeedCalc',
                  'rtsarM','adPressM','headsTotalTarget','heaterStatus','useHeadValve','bodyValveNC','heaterOn','mixerOn',
                  'waterValveOpen','finishingRemainSec','stageTimeSec','headsVolDone','headsVolSub','bodyVolDone','headsVolTarget',
-                 'safety_code','safety_text','safety_detail','headTest','bodyTest','webCalibStatus','testAwaitingInput','testAwaitingType']
+                 'safety_code','safety_text','safety_detail','headTest','bodyTest','webCalibStatus','testAwaitingInput','testAwaitingType','sig']
                 .forEach(k=>{if(newData[k]!==undefined)currentData[k]=newData[k];});
+                // Этап 1: sig — единственное поле списка, которое может ЛЕГАЛЬНО
+                // исчезнуть из ответа (старая прошивка без гардов): forEach не
+                // копирует undefined, поэтому чистим вручную — иначе строка
+                // «СИГНАЛ» осталась бы висеть с устаревшими счётчиками.
+                if(newData.sig===undefined)currentData.sig=undefined;
                 // Preserve volumes: save when available, clear on new process (stage becomes NAGREV or empty with no prior data)
                 const st=newData.stage||'';
                 if(currentData.headsVolDone>0)preservedHeadsVolDone=currentData.headsVolDone;
@@ -2496,6 +2508,24 @@
             hs('mon-abv-tank',sb?(currentData.str_bak||'--'):'--');hs('mon-abv-out',so?(currentData.str_out||'--'):'--');
             const rt=currentData.rtsarM||0;const ap=currentData.adPressM||0;
             hs('mon-ref-tsar',rt>0?rt.toFixed(2):'--');hs('mon-ref-press',ap>0?Math.round(ap*0.75):'--');
+            // Этап 1: строка «СИГНАЛ» (счётчики гардов SensorManager)
+            updateSignalRow();
+        }
+
+        // === Этап 1: строка «СИГНАЛ» на Мониторинге (отбросы/подвисания) ===
+        // currentData.sig = {tsa:[r,s],aqua:[r,s],tsar:[r,s],tank:[r,s]},
+        // где r = отбросы гейтом правдоподобия, s = эпизоды подвисания.
+        // Цвет: зелёный когда всё чисто, янтарный при любом ненулевом счётчике.
+        function updateSignalRow(){
+            const row=document.getElementById('mon-sig-row');if(!row)return;
+            const sig=currentData.sig;
+            if(!sig){row.style.display='none';return;}
+            const f=k=>{const v=sig[k];return Array.isArray(v)?(v[0]+'/'+v[1]):'--';};
+            const el=document.getElementById('mon-sig');
+            el.textContent='TSAR '+f('tsar')+' · TANK '+f('tank')+' · TSA '+f('tsa')+' · AQUA '+f('aqua');
+            let bad=0;['tsar','tank','tsa','aqua'].forEach(k=>{const v=sig[k];if(Array.isArray(v))bad+=v[0]+v[1];});
+            el.style.color=bad>0?'var(--neon-amber)':'var(--neon-green)';
+            row.style.display='flex';
         }
 
         // === BAROMETER ===
