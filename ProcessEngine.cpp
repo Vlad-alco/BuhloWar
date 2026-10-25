@@ -1,8 +1,22 @@
 #include "ProcessEngine.h"
 #include <math.h>
 #include "SDLogger.h" 
+#include "SimSensors.h" // Этап 2.1: сим-часы procNow() + режим хода/авто-стоп
 // === КОНСТАНТЫ ===
 const float MAX_CYCLE_TIME_MS = 10000.0f; // Максимальное время цикла (мс)
+
+// === Этап 2.1: УСКОРЕННЫЕ ЧАСЫ ПРОЦЕССА ===
+// В активном SIM — сим-время в мс (растёт speed× быстрее реального),
+// вне SIM — обычный millis(). Все таймеры этапов и объёмные интеграторы
+// движка идут от procNow(), поэтому полный разгон охватывает таймерные
+// и объёмные этапы (НАСЕБЯ, ГОЛОВЫ, задержки, литры), а не только кривые.
+// Баззер-паттерны, цикловка клапанов (OutputManager) и таймеры тестов
+// клапанов остаются в РЕАЛЬНОМ времени — физика и звук не ускоряются.
+unsigned long ProcessEngine::procNow() {
+    SimSensors* sim = SimSensors::getInstance();
+    if (sim->isActive()) return sim->simNowMs();
+    return millis();
+}
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
@@ -169,8 +183,25 @@ if (!SensorManager::getInstance()->isCalibrating(idx) && currentStatus.webCalibS
         updateRectWebInfo();
     }
     if (processRunning) {
-        currentStatus.processTimeSec = (millis() - processStartTime) / 1000;
-        currentStatus.stageTimeSec = (millis() - stageStartTime) / 1000;
+        currentStatus.processTimeSec = (procNow() - processStartTime) / 1000;
+        currentStatus.stageTimeSec = (procNow() - stageStartTime) / 1000;
+    }
+
+    // === Этап 2.1: АВТО-СТОП РАБОЧЕГО ХОДА SIM (60 мин РЕАЛЬНОГО времени) ===
+    // Защита забытого на стенде процесса: движок видит синтетические температуры
+    // и может «греть» бесконечно. По истечении — штатный путь СТОП (как кнопка):
+    // changeStage(FINISHING_WORK) с полным завершением (охлаждение, вода).
+    // Дедлайн ставится в startProcess() только для рабочего хода (сухой ход
+    // физически безопасен). Проверка в РЕАЛЬНОМ времени, не в сим-времени.
+    if (simAutoStopAt != 0 && processRunning && currentStage != Stage::FINISHING_WORK) {
+        SimSensors* sim = SimSensors::getInstance();
+        if (sim->isActive() && !sim->isDryRun() && sim->isAutoStop() &&
+            (long)(millis() - simAutoStopAt) >= 0) {
+            simAutoStopAt = 0; // одноразово
+            Serial.println("[SIM] АВТО-СТОП: 60 минут рабочего хода — переход в ФИНИШ");
+            logger.log("[SIM] АВТО-СТОП: 60 мин рабочего хода SIM (защита стенда) — ФИНИШ");
+            changeStage(Stage::FINISHING_WORK);
+        }
     }
     
     // === Этап 4 (C2): публикация снимка статуса для другого ядра ===
@@ -215,7 +246,7 @@ void ProcessEngine::checkSafety() {
     if (data.isTsaValid() && data.tsa.value > cfg.tsaLimit) {  // если датчик не валиден — тревога не срабатывает
         if (!alarmTSA_Active) {
             alarmTSA_Active = true; 
-            alarmStartTime = millis();
+            alarmStartTime = procNow();  // Этап 2.1: аварийный таймер в сим-времени (полный разгон)
             currentStatus.safety = SafetyState::WARNING_TSA;
             currentStatus.alarm = AlarmType::ALARM_TSA;
             outputManager->alarmBeep(AlarmType::ALARM_TSA);
@@ -227,7 +258,7 @@ void ProcessEngine::checkSafety() {
         
         // Обратный отсчет
         unsigned long limitSec = (unsigned long)cfg.emergencyTime * 60;
-        unsigned long elapsedSec = (millis() - alarmStartTime) / 1000;
+        unsigned long elapsedSec = (procNow() - alarmStartTime) / 1000;
         currentStatus.alarmTimerSec = (elapsedSec < limitSec) ? (limitSec - elapsedSec) : 0;
         
         // Если время вышло -> FINISHING WORK (ТЗ: переход к процедуре завершения)
@@ -246,7 +277,7 @@ void ProcessEngine::checkSafety() {
         // Теперь: пока датчик не вернётся — тревога и отсчёт СОХРАНЯЮТСЯ,
         // таймер продолжает тикать от исходной точки (alarmStartTime).
         unsigned long limitSec = (unsigned long)cfg.emergencyTime * 60;
-        unsigned long elapsedSec = (millis() - alarmStartTime) / 1000;
+        unsigned long elapsedSec = (procNow() - alarmStartTime) / 1000;
         currentStatus.alarmTimerSec = (elapsedSec < limitSec) ? (limitSec - elapsedSec) : 0;
         
         // Если время вышло, пока датчик пропал — завершаем по правилу VREAC
@@ -706,7 +737,7 @@ bool ProcessEngine::startProcess(ProcessType type) {
     if (processRunning) return false;
     activeProcess = type; // Сначала запоминаем тип процесса
     processRunning = true;
-    processStartTime = millis();
+    processStartTime = procNow();  // Этап 2.1: часы процесса идут в сим-времени
     counter = 0;
     nasebTimeOverride = 0;   // ФИКС L1: сброс одноразовой подмены от прошлого процесса
     
@@ -729,7 +760,7 @@ bool ProcessEngine::startProcess(ProcessType type) {
 
     // === НОВОЕ: Сброс накопленного объема голов ===
     headsVolDone = 0.0f;
-    lastVolCalcTime = millis();
+    lastVolCalcTime = procNow();  // Этап 2.1: интегратор объёма — на сим-часы
     // ==============================================
     if (type == PROCESS_DIST) {
         outputManager->setBodyValveType(false); 
@@ -760,6 +791,22 @@ String procName = getProcessName();
     }
     // ============================
     changeStage(Stage::WATER_TEST);
+
+    // === Этап 2.1: авто-стоп РАБОЧЕГО хода SIM — 60 минут РЕАЛЬНОГО времени ===
+    // Защита забытого на стенде процесса: движок видит синтетические температуры
+    // и может «греть» бесконечно. Вооружается только при активном SIM в рабочем
+    // ходе; сухой ход физически безопасен — дедлайн не ставится. Отключается
+    // тумблером SIM_AUTOSTOP в панели (проверка — каждый тик update()).
+    {
+        SimSensors* sim = SimSensors::getInstance();
+        if (sim->isActive() && !sim->isDryRun()) {
+            simAutoStopAt = millis() + 3600000UL;  // 60 мин реального времени (не сим!)
+            logger.log("SIM: РАБОЧИЙ ход — авто-стоп через 60 мин реального времени (тумблер в панели)");
+        } else {
+            simAutoStopAt = 0;
+            if (sim->isActive()) logger.log("SIM: СУХОЙ ход — выходы физически не переключаются");
+        }
+    }
     return true;
 }
 
@@ -906,7 +953,7 @@ void ProcessEngine::handleRazgon() {
         Serial.println("[Process] RAZGON complete.");
         logger.log("[Process] RAZGON complete."
                  + String("  TSA: ") + String(data.tsa.value, 1) + "C"
-                 + "  time: " + String(millis() / 60000) + "min");
+                 + "  time: " + String(procNow() / 60000) + "min");
         if (cfg.heaterType == 0) outputManager->setHeater(true, false);
         outputManager->openWaterValve();
 
@@ -1158,7 +1205,7 @@ void ProcessEngine::handleNasebya() {
                 // Сброс таймера расчёта объёма: без этого первый dt_h
                 // после NASEBYA охватит всё время "на себя" (клапан был закрыт),
                 // и фантомный объём (скорость × время_NASEBYA) прибавится к bodyVolDone
-                lastVolCalcTime = millis();
+                lastVolCalcTime = procNow();  // Этап 2.1: тот же сим-базис, что у интегратора
                 changeStage(Stage::TELO);
             } else {
                 Serial.println("[Process] TSAR still high! Finishing process.");
@@ -1218,7 +1265,7 @@ void ProcessEngine::handleGolovy() {
 
     // === Расчет накопленного объема голов (Вариант A) ===
     // Скорость рассчитывается по реальному расходу клапана с учётом duty cycle
-    unsigned long now = millis();
+    unsigned long now = procNow();  // Этап 2.1: объёмы интегрируются в сим-времени
     float dt_h = (float)(now - lastVolCalcTime) / 3600000.0f;
     lastVolCalcTime = now;
 
@@ -1331,7 +1378,7 @@ void ProcessEngine::startStandardGolovy(SystemConfig& cfg) {
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
 
     currentGolovyStage = GolovyStage::ST_MAIN;
-    stageStartTime = millis();
+    stageStartTime = procNow();  // Этап 2.1: таймер этапа в сим-времени
     
     // === СБРОС СЧЁТЧИКА ОБЪЁМА ПОДЭТАПА ===
     headsVolSub = 0.0f;
@@ -1412,7 +1459,7 @@ vHeadMin = headVol / cap;
 
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
     currentGolovyStage = GolovyStage::KSS_SPIT;
-    stageStartTime = millis();
+    stageStartTime = procNow();  // Этап 2.1: таймер этапа в сим-времени
     
     // === СБРОС СЧЁТЧИКА ОБЪЁМА ПОДЭТАПА ===
     headsVolSub = 0.0f;
@@ -1444,7 +1491,7 @@ void ProcessEngine::startKssStandard(SystemConfig& cfg) {
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
     
     currentGolovyStage = GolovyStage::KSS_STANDARD;
-    stageStartTime = millis();
+    stageStartTime = procNow();  // Этап 2.1: таймер этапа в сим-времени
     
     // === СБРОС СЧЁТЧИКА ОБЪЁМА ПОДЭТАПА ===
     headsVolSub = 0.0f;
@@ -1494,7 +1541,7 @@ void ProcessEngine::startKssAkaTelo(SystemConfig& cfg) {
     golovyTargetTime = (unsigned long)(vHeadMin * 60.0f); 
     
     currentGolovyStage = GolovyStage::KSS_AKATELO;
-    stageStartTime = millis();
+    stageStartTime = procNow();  // Этап 2.1: таймер этапа в сим-времени
     
     // === СБРОС СЧЁТЧИКА ОБЪЁМА ПОДЭТАПА ===
     headsVolSub = 0.0f;
@@ -1574,7 +1621,7 @@ void ProcessEngine::handleTelo() {
         // на тело. Отбор тела при этом идёт с начальной скоростью, объём
         // копится. teloRefDelayMin = 0 -> захват на первом же обороте ниже
         // (пройдёт проверка таймера мгновенно) — прежнее поведение.
-        teloRefTimerStart = millis();
+        teloRefTimerStart = procNow();  // Этап 2.1: задержка захвата опоры — сим-время
         teloRefCaptured = false;
         // Референс давления захватывается ВМЕСТЕ с температурой (через задержку):
         // поправка давления применяется к порогам rtsarM + delta/histeresis,
@@ -1585,7 +1632,7 @@ void ProcessEngine::handleTelo() {
         
         bodyOpenCor = cfg.bodyOpenSec * koff;
         speedShpora = 500.0 * koff; 
-        lastShporaAdjustTime = millis(); 
+        lastShporaAdjustTime = procNow();  // Этап 2.1: сим-время
         bodyVolDone = 0.0f;  // Сброс накопленного объёма тела
         shporaReductionCount = 0; // Сброс счётчика снижений скорости 
 
@@ -1620,7 +1667,7 @@ void ProcessEngine::handleTelo() {
     // не превратится в огромный unsigned-интервал (захват бы никогда не случился).
     int refDelayMin = cfg.teloRefDelayMin;
     if (refDelayMin < 0) refDelayMin = 0;
-    if (!teloRefCaptured && millis() - teloRefTimerStart >= (unsigned long)refDelayMin * 60000UL) {
+    if (!teloRefCaptured && procNow() - teloRefTimerStart >= (unsigned long)refDelayMin * 60000UL) {
         teloRefCaptured = true;
         rtsarM = data.tsar.value;
 
@@ -1671,7 +1718,7 @@ void ProcessEngine::handleTelo() {
     // Иначе: референс НЕ был захвачен -> коррекция = 0 на весь этап
     
     // 3. Расчёт накопленного объёма тела
-    unsigned long now = millis();
+    unsigned long now = procNow();  // Этап 2.1: объём тела интегрируется в сим-времени
     float dt_h = (float)(now - lastVolCalcTime) / 3600000.0f;
     lastVolCalcTime = now;
     
@@ -1694,19 +1741,19 @@ void ProcessEngine::handleTelo() {
         if (teloRefCaptured && data.tsar.value >= (rtsarM + cfg.delta + pressureCorrection)) {
             
             // ПРОВЕРКА ТАЙМЕРА: Прошло ли достаточно времени с прошлого снижения?
-            if (millis() - lastShporaAdjustTime >= cfg.shporaStabMs) {
+            if (procNow() - lastShporaAdjustTime >= cfg.shporaStabMs) {
                 bodyOpenCor /= cfg.shporaCorr;
                 speedShpora /= cfg.shporaCorr;
                 shporaReductionCount++;
                 
-                lastShporaAdjustTime = millis(); // Запоминаем время корректировки
+                lastShporaAdjustTime = procNow(); // Запоминаем время корректировки (сим-время)
                 
                 Serial.print("[TELO] Shpora Delta! New Speed: "); 
                 Serial.println(speedShpora);
 
                 // === РАСШИРЕННОЕ ЛОГИРОВАНИЕ СНИЖЕНИЯ СКОРОСТИ ===
                 float threshold = rtsarM + cfg.delta + pressureCorrection;
-                unsigned long stageTimeSec = (millis() - stageStartTime) / 1000;
+                unsigned long stageTimeSec = (procNow() - stageStartTime) / 1000;
                 unsigned long hours = stageTimeSec / 3600;
                 unsigned long mins = (stageTimeSec % 3600) / 60;
                 
@@ -1874,7 +1921,7 @@ void ProcessEngine::handleFinishingWork() {
     // Таймер 5 минут (300 сек) — досрочно завершается кнопкой «ДАЛЕЕ» (skipStageRequested,
     // Сессия 20: одобрено автором — оператор сам решает, когда охлаждение можно прервать)
    
-    unsigned long elapsedSec = (millis() - stageStartTime) / 1000;
+    unsigned long elapsedSec = (procNow() - stageStartTime) / 1000;  // Этап 2.1: задержка БАКСТОП в сим-времени
      // === НОВОЕ: Расчет остатка времени для веб-интерфейса ===
     // Если прошло меньше 300 сек, вычисляем разницу. Иначе 0.
     SystemConfig& cfgFin2 = configManager->getConfig();
@@ -1917,7 +1964,7 @@ void ProcessEngine::handleFinishingWork() {
 void ProcessEngine::changeStage(Stage newStage) {
     previousStage = currentStage;
     currentStage = newStage;
-    stageStartTime = millis();
+    stageStartTime = procNow();  // Этап 2.1: таймер этапа в сим-времени
     // === Сессия 20: флаг ручного перехода одноразовый — при смене этапа гасим,
     // чтобы он не «протёк» в следующий этап и не вызвал каскад пропусков ===
     skipStageRequested = false;
@@ -1982,7 +2029,10 @@ void ProcessEngine::updateDisplayData() {
         else snprintf(strAbvBak, sizeof(strAbvBak), "%%--");
         
         // Используем символы W / A / X для статуса сети
-        snprintf(buf, sizeof(buf), "%5.2f %s %s %7s", data.tsa.value, "DIST", currentStatus.networkSymbol.c_str(), strAbvBak);
+        // Этап 2.1: в активном SIM шапка показывает SIM вместо DIST — громкая
+        // индикация симуляции на LCD; ширина строки 20 симв. сохранена (%-4s)
+        const char* distLbl = SimSensors::getInstance()->isActive() ? "SIM" : "DIST";
+        snprintf(buf, sizeof(buf), "%5.2f %-4s %s %7s", data.tsa.value, distLbl, currentStatus.networkSymbol.c_str(), strAbvBak);
         currentStatus.line0 = String(buf);
         
         // --- Строка 1: AQUA, Этап, Крепость в отборе ---
@@ -2025,7 +2075,9 @@ void ProcessEngine::updateDisplayData() {
             const char* methodStr = "ST"; 
             if (cfg.headsTypeKSS) methodStr = "KSS";
             
-            snprintf(buf, sizeof(buf), "%5.2f RECT %s %s", data.tsa.value, currentStatus.networkSymbol.c_str(), methodStr);
+            // Этап 2.1: в активном SIM шапка показывает SIM вместо RECT (см. DIST)
+            const char* rectLbl = SimSensors::getInstance()->isActive() ? "SIM" : "RECT";
+            snprintf(buf, sizeof(buf), "%5.2f %-4s %s %s", data.tsa.value, rectLbl, currentStatus.networkSymbol.c_str(), methodStr);
             currentStatus.line0 = String(buf);
             
             // Строка 1 (TELO / GOLOVY)

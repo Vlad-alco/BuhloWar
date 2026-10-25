@@ -4,6 +4,26 @@
 
 extern SDLogger logger; // Объявляем, что переменная logger существует глобально где-то в другом месте
 
+// === Этап 2.1: статика сухого хода SIM ===
+bool OutputManager::simDryRunFlag = false;    // дефолт — РАБОЧИЙ ход (как до 2.1)
+bool OutputManager::resyncRequested = false;
+
+// Записать физически текущие логические состояния всех силовых каналов.
+// Вызывается после выхода из сухого хода: пока он был активен, логика
+// (этапы, цикловка клапанов) меняла currentState без digitalWrite —
+// пины отстали. Здесь догоняем: write() при выключенном сухом ходе
+// реально переключает пин в соответствии с NC/activeHigh канала.
+void OutputManager::resyncPhysical() {
+    heaterPin1.write(heaterPin1.read());
+    heaterPin2.write(heaterPin2.read());
+    contactor.write(contactor.read());
+    valveWater.write(valveWater.read());
+    valveHead.write(valveHead.read());
+    valveBody.write(valveBody.read());
+    mixer.write(mixer.read());
+    Serial.println("[OutputMgr] SIM dry run OFF: физика выходов пересинхронизирована с логикой");
+}
+
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 void OutputManager::begin(bool isBodyValveNC) {
@@ -24,6 +44,16 @@ void OutputManager::begin(bool isBodyValveNC) {
     // 4. Мешалка и Баззер
     mixer.pin = MIXER_PIN; mixer.isActiveHigh = true; mixer.isNC = true;
     buzzer.pin = BUZZER_PIN; buzzer.isActiveHigh = true; buzzer.isNC = true;
+
+    // === Этап 2.1: силовые каналы гейтятся сухим ходом SIM; баззер — нет
+    // (звуковая индикация аварий/подтверждений должна работать всегда) ===
+    heaterPin1.physGated = true;
+    heaterPin2.physGated = true;
+    contactor.physGated = true;
+    valveWater.physGated = true;
+    valveHead.physGated = true;
+    valveBody.physGated = true;
+    mixer.physGated = true;
 
     pinMode(HEATER_PIN1, OUTPUT);
     pinMode(HEATER_PIN2, OUTPUT);
@@ -316,6 +346,11 @@ bool OutputManager::isEmergency() const { return emergencyState; }
 
 void OutputManager::update() {
     unsigned long currentTime = millis();
+    // === Этап 2.1: отложенная пересинхронизация физики после сухого хода ===
+    if (resyncRequested && !simDryRunFlag) {
+        resyncRequested = false;
+        resyncPhysical();
+    }
     if (safeShutdownActive) {
         if (currentTime - safeShutdownStart >= safeShutdownDuration) {
             safeShutdownActive = false;

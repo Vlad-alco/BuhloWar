@@ -62,23 +62,46 @@ void setHeaterPowerOff();
     bool isMixerCycling() const { return mixerCycling; }
     void update();
 
+    // === Этап 2.1: СУХОЙ ХОД СИМУЛЯТОРА ===
+    // В сухом ходе OutputChannel::write() обновляет ТОЛЬКО логическое
+    // состояние (currentState) — digitalWrite пропускается: реле/клапаны/
+    // ТЭН физически молчат, а весь UI (веб, LCD, /api/status) видит
+    // «виртуальный» процесс как обычно. Баззер НЕ гейтится — звуковая
+    // индикация работает всегда.
+    // РАБОЧИЙ ход (по умолчанию) — как прежде, всё переключается физически.
+    // При выходе из сухого хода физика отстаёт от логики — ближайший update()
+    // пересинхронизирует пины (resyncPhysical).
+    static void setSimDryRun(bool on) {
+        if (simDryRunFlag == on) return;
+        simDryRunFlag = on;
+        if (!on) resyncRequested = true;   // физику догоним в ближайшем update()
+    }
+    static bool isSimDryRun() { return simDryRunFlag; }
+    void resyncPhysical();   // записать физически текущие логические состояния
+
 private:
+    static bool simDryRunFlag;      // СУХОЙ ход активен (общий для всех каналов)
+    static bool resyncRequested;    // запрошена пересинхронизация физики
+
     struct OutputChannel {
         uint8_t pin;
         bool isNC;           
         bool isActiveHigh;   
         bool currentState;   
+        bool physGated;      // Этап 2.1: канал гейтится сухим ходом (баззер — нет)
 
-        OutputChannel() : pin(0), isNC(true), isActiveHigh(true), currentState(false) {}
+        OutputChannel() : pin(0), isNC(true), isActiveHigh(true), currentState(false), physGated(false) {}
 
         void write(bool state) {
+            currentState = state;   // Этап 2.1: логическое состояние живёт всегда (UI видит виртуальный процесс)
             if (pin == 0) return;
+            // === Этап 2.1: СУХОЙ ход — физический выход не трогаем ===
+            if (physGated && simDryRunFlag) return;
             bool physicalState;
             if (isNC) physicalState = state; 
             else physicalState = !state;
             if (!isActiveHigh) physicalState = !physicalState;
             digitalWrite(pin, physicalState ? HIGH : LOW);
-            currentState = state;
         }
         bool read() const { return currentState; }
     };

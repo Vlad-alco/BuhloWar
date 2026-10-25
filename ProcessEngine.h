@@ -81,6 +81,14 @@ void clearBodyTestAwait()   { bodyTestStatus.awaitingInput = false; }
     // Геттеры референтных значений TELO
     float getRtsarM()  const { return rtsarM; }
     float getAdPressM() const { return adPressM; }
+
+    // === Этап 2.1: УСКОРЕННЫЕ ЧАСЫ ПРОЦЕССА ===
+    // В активном SIM возвращают сим-время (растёт speed× быстрее реального),
+    // вне SIM — обычный millis(). ВСЕ таймеры этапов и объёмные интеграторы
+    // движка таймятся от procNow() — поэтому полный разгон охватывает и
+    // таймерные/объёмные этапы, а не только кривые датчиков. Таймеры тестов
+    // клапанов и авто-стоп (реальная безопасность) остаются на millis().
+    static unsigned long procNow();
 private:
     SensorAdapter* sensorAdapter;
     OutputManager* outputManager;
@@ -123,6 +131,10 @@ private:
     int shporaReductionCount = 0; // Количество снижений скорости в Шпоре
     unsigned long processStartTime = 0;
     unsigned long stageStartTime = 0;
+    // === Этап 2.1: дедлайн авто-стопа РАБОЧЕГО хода SIM (РЕАЛЬНОЕ время,
+    // защита забытого на стенде процесса). 0 = не вооружён (SIM выключен
+    // или выбран сухой ход). Ставится в startProcess() ===
+    unsigned long simAutoStopAt = 0;
     
     enum class Stage {
         IDLE,

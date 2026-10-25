@@ -698,11 +698,15 @@ void AppNetwork::handleApiStatus() {
         uint8_t simScen = 0, simMask = 0;
         float simSpd = 1.0f;
         unsigned long simT = 0;
-        if (SimSensors::getInstance()->snapshot(simState, simScen, simSpd, simT, simMask)) {
+        bool simDry = false, simAs = false;
+        if (SimSensors::getInstance()->snapshot(simState, simScen, simSpd, simT, simMask, simDry, simAs)) {
             json += "\"sim\":{\"on\":1,\"scen\":" + String(simScen);
             json += ",\"speed\":" + String(simSpd, 0);
             json += ",\"t\":" + String(simT);
             json += ",\"anom\":" + String(simMask);
+            // Этап 2.1: режим хода (dry: 1=СУХОЙ/0=РАБОЧИЙ) и тумблер авто-стопа (as)
+            json += ",\"dry\":" + String(simDry ? 1 : 0);
+            json += ",\"as\":" + String(simAs ? 1 : 0);
             json += ",\"ch\":[" + String(simState[0], 2) + "," + String(simState[1], 2) + "," + String(simState[2], 2) + "," + String(simState[3], 2) + "]},";
         }
     }
@@ -1009,6 +1013,27 @@ void AppNetwork::handleApiCommand() {
         } else if (body.indexOf("\"cmd\":\"SIM_OFF\"") > 0) {
             if (procRunning) { server->send(409, "text/plain", "Stop process first"); return; }
             sim->stop();
+            // Этап 2.1: ход сброшен к РАБОЧЕМУ (SimSensors::stop) — физика могла
+            // отстать от логики в сухом ходе; ближайший update() OutputManager
+            // пересинхронизирует пины с логическими состояниями.
+            OutputManager::setSimDryRun(false);
+        } else if (body.indexOf("\"cmd\":\"SIM_DRY\"") > 0) {
+            // Этап 2.1: выбор хода — СУХОЙ (v:1) / РАБОЧИЙ (v:0).
+            // Гварды: SIM активен и вне процесса (смена хода посреди процесса
+            // делает непредсказуемым поведение нагрева/воды).
+            if (procRunning) { server->send(409, "text/plain", "Stop process first"); return; }
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            bool d = getIntP("v", 0) != 0;
+            sim->setDryRun(d);
+            OutputManager::setSimDryRun(d);   // при выключении сухого хода — пересинк физики
+            Serial.println(String("[SIM] Ход: ") + (d ? "СУХОЙ (выходы физически не переключаются)"
+                                                            : "РАБОЧИЙ (реле/клапаны физические — ТОЛЬКО НА СТЕНДЕ)"));
+        } else if (body.indexOf("\"cmd\":\"SIM_AUTOSTOP\"") > 0) {
+            // Этап 2.1: тумблер авто-стопа рабочего хода (60 мин реального времени).
+            // Разрешён в любой момент активного SIM (влияет только на проверку дедлайна).
+            if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
+            sim->setAutoStop(getIntP("v", 1) != 0);
+            Serial.println(String("[SIM] Авто-стоп рабочего хода: ") + (sim->isAutoStop() ? "ВКЛ (60 мин)" : "ВЫКЛ"));
         } else if (body.indexOf("\"cmd\":\"SIM_SCEN\"") > 0) {
             if (!sim->isActive()) { server->send(409, "text/plain", "SIM not active"); return; }
             sim->setScenario((uint8_t)getIntP("scen", 0));

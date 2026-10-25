@@ -489,6 +489,11 @@
                                         <button onclick="simScenNext()" class="text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-all">СЦЕНАРИЙ: <span id="sim-scen" class="text-cyan font-bold">--</span></button>
                                         <button onclick="simSpeedNext()" class="text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-all">СКОРОСТЬ: <span id="sim-speed" class="text-cyan font-bold">--</span></button>
                                     </div>
+                                    <div class="grid grid-cols-2 gap-1">
+                                        <!-- Этап 2.1: ход СУХОЙ/РАБОЧИЙ и тумблер авто-стопа -->
+                                        <button onclick="simDryToggle()" class="text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-all">ХОД: <span id="sim-dry" class="font-bold">--</span></button>
+                                        <button onclick="simAsToggle()" class="text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-all">АВТО-СТОП: <span id="sim-as" class="font-bold">--</span></button>
+                                    </div>
                                     <div class="flex flex-wrap items-center gap-1">
                                         <select id="sim-ch" class="bg-gray-700 text-gray-200 text-[10px] rounded px-1 py-1 outline-none">
                                             <option value="0">TSA</option>
@@ -502,7 +507,7 @@
                                         <button onclick="simAnom('drop')" class="text-[10px] px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-100 transition-all">ОБРЫВ</button>
                                     </div>
                                     <button onclick="simStop()" class="w-full text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-red-700 text-gray-200 transition-all">ОСТАНОВИТЬ СИМУЛЯТОР</button>
-                                    <p class="text-gray-600 text-[9px] leading-tight">ВЫБРОС ×1 гасит медиана-5 · СЕРИЯ ×8 доходит до гейта (событие в SD-лог) · ПОДВ — stale через 60 с · ОБРЫВ — resetFilter. Таймерные и объёмные этапы идут в реальном времени — пропускайте ДАЛЕЕ.</p>
+                                    <p class="text-gray-600 text-[9px] leading-tight">ВЫБРОС ×1 гасит медиана-5 · СЕРИЯ ×8 — до гейта (SD-лог) · ПОДВ — stale через 60 с · ОБРЫВ — resetFilter. Скорость ускоряет кривые, ТАЙМЕРЫ и ОБЪЁМЫ — полный цикл идёт сам, диалоги — ДАЛЕЕ. ХОД РАБОЧИЙ: физическая коммутация — ТОЛЬКО НА СТЕНДЕ! Авто-стоп 60 мин.</p>
                                 </div>
                             </div>
                         </div>
@@ -1680,6 +1685,15 @@
             const i = (sp.indexOf(window._simSpeed || 1) + 1) % sp.length;
             simApi('SIM_SPEED', {speed: sp[i]});
         }
+        // === Этап 2.1: ход СУХОЙ/РАБОЧИЙ. Рабочий ход — физическая коммутация
+        // по синтетическим датчикам: только на стенде БЕЗ подключения к аппарату.
+        function simDryToggle(){
+            const toDry = !window._simDry;
+            if(!toDry && !confirm('РАБОЧИЙ ХОД\n\nРеле, клапаны и ТЭН будут переключаться ФИЗИЧЕСКИ по синтетическим датчикам — движок не знает реального состояния куба.\n\nТОЛЬКО НА СТЕНДЕ, БЕЗ ПОДКЛЮЧЕНИЯ К АППАРАТУ.\n\nВключить рабочий ход?')) return;
+            simApi('SIM_DRY', {v: toDry ? 1 : 0});
+        }
+        // Тумблер авто-стопа рабочего хода (60 мин реального времени)
+        function simAsToggle(){ simApi('SIM_AUTOSTOP', {v: window._simAs ? 0 : 1}); }
         function simAnom(type){
             const sel = document.getElementById('sim-ch');
             if(!sel) return;
@@ -1704,15 +1718,28 @@
             if(!on) { const b0 = document.getElementById('sim-badge'); if(b0) b0.textContent = '--'; return; }
             window._simScen = sim.scen;
             window._simSpeed = sim.speed;
+            window._simDry = sim.dry === 1;   // Этап 2.1
+            window._simAs = sim.as === 1;     // Этап 2.1
             const scenName = sim.scen === 1 ? 'РЕКТ' : 'ДИСТ';
             const scenLbl = document.getElementById('sim-scen');
             if(scenLbl) scenLbl.textContent = scenName;
             const spdLbl = document.getElementById('sim-speed');
             if(spdLbl) spdLbl.textContent = '×' + sim.speed;
+            // Этап 2.1: ход и авто-стоп
+            const dryLbl = document.getElementById('sim-dry');
+            if(dryLbl){
+                dryLbl.textContent = sim.dry === 1 ? 'СУХОЙ' : 'РАБОЧИЙ';
+                dryLbl.className = 'font-bold ' + (sim.dry === 1 ? 'text-green' : 'text-amber');
+            }
+            const asLbl = document.getElementById('sim-as');
+            if(asLbl){
+                asLbl.textContent = sim.as === 1 ? 'ВКЛ' : 'ВЫКЛ';
+                asLbl.className = 'font-bold ' + (sim.as === 1 ? 'text-green' : 'text-amber');
+            }
             const t = sim.t || 0;
             const pad = n => (n < 10 ? '0' : '') + n;
             const clock = Math.floor(t/3600) + ':' + pad(Math.floor((t%3600)/60)) + ':' + pad(t%60);
-            let info = scenName + ' ×' + sim.speed + ' · ' + clock;
+            let info = scenName + ' ×' + sim.speed + ' · ' + clock + ' · ' + (sim.dry === 1 ? 'СУХОЙ' : 'РАБОЧИЙ');
             if(sim.anom > 0) info += ' · ⚠ АНОМАЛИЯ';
             const badge = document.getElementById('sim-badge');
             if(badge) badge.textContent = info;

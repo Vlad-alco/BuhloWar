@@ -120,6 +120,7 @@ void SimSensors::start(uint8_t scen, const float curTemps[CH_COUNT]) {
     active = true;
     changeMs = millis();
     simSecAtChange = 0.0f;
+    simMsAtChange = 0;   // сим-часы процесса стартуют с нуля вместе с кривыми
     tsarDrift = 0.0f;
     // Стартуем с ТЕКУЩИХ отфильтрованных температур (если датчики что-то видели):
     // иначе после реального куба 78C первая же синтетика 18C навечно застряла
@@ -140,6 +141,8 @@ void SimSensors::stop() {
     portENTER_CRITICAL(&mux);
     active = false;
     stateInit = false;
+    dryRun = false;   // Этап 2.1: ход сбрасывается к РАБОЧЕМУ (дефолт) —
+                      // физику пересинхронизирует OutputManager (вызов в AppNetwork)
     for (int i = 0; i < CH_COUNT; i++) { anom[i].type = ANOM_NONE; anom[i].untilMs = 0; }
     portEXIT_CRITICAL(&mux);
     Serial.println("[SIM] STOP: возврат к реальным датчикам");
@@ -155,6 +158,7 @@ bool SimSensors::setScenario(uint8_t scen) {
         // температур — инерция state плавно уведёт каналы к новой кривой,
         // гейт правдоподобия не застрянет (скачков цели нет).
         simSecAtChange = simTimeSecUnsafe(millis());
+        simMsAtChange = (unsigned long)(simSecAtChange * 1000.0f);  // тот же базис для сим-часов
         changeMs = millis();
         scenario = s;
         tsarDrift = 0.0f;
@@ -169,6 +173,7 @@ bool SimSensors::setSpeed(float spd) {
     portENTER_CRITICAL(&mux);
     if (!active) { portEXIT_CRITICAL(&mux); return false; }
     simSecAtChange = simTimeSecUnsafe(millis());
+    simMsAtChange = (unsigned long)(simSecAtChange * 1000.0f);  // тот же базис для сим-часов
     changeMs = millis();
     speed = spd;
     portEXIT_CRITICAL(&mux);
@@ -199,6 +204,46 @@ float SimSensors::getSpeed() const {
 unsigned long SimSensors::getSimTimeSec() const {
     portENTER_CRITICAL(&mux);
     unsigned long t = (unsigned long)simTimeSec(millis());
+    portEXIT_CRITICAL(&mux);
+    return t;
+}
+
+// --- Этап 2.1: режим хода и авто-стоп -------------------------------
+bool SimSensors::isDryRun() const {
+    portENTER_CRITICAL(&mux);
+    bool d = dryRun;
+    portEXIT_CRITICAL(&mux);
+    return d;
+}
+
+void SimSensors::setDryRun(bool d) {
+    portENTER_CRITICAL(&mux);
+    dryRun = d;
+    portEXIT_CRITICAL(&mux);
+}
+
+bool SimSensors::isAutoStop() const {
+    portENTER_CRITICAL(&mux);
+    bool a = autoStop;
+    portEXIT_CRITICAL(&mux);
+    return a;
+}
+
+void SimSensors::setAutoStop(bool a) {
+    portENTER_CRITICAL(&mux);
+    autoStop = a;
+    portEXIT_CRITICAL(&mux);
+}
+
+// Ускоренные часы процесса: тот же базис, что у кривых (changeMs /
+// simSecAtChange / speed), но в миллисекундах — чтобы ProcessEngine мог
+// таймить этапы и интегрировать объёмы в сим-времени. Вне SIM — millis().
+unsigned long SimSensors::simNowMs() const {
+    portENTER_CRITICAL(&mux);
+    if (!active || changeMs == 0) { portEXIT_CRITICAL(&mux); return millis(); }
+    float dt = (float)(millis() - changeMs) / 1000.0f;
+    if (dt < 0.0f) dt = 0.0f;
+    unsigned long t = simMsAtChange + (unsigned long)(dt * speed * 1000.0f);
     portEXIT_CRITICAL(&mux);
     return t;
 }
@@ -338,7 +383,8 @@ void SimSensors::clearAnomalies() {
 }
 
 bool SimSensors::snapshot(float outState[CH_COUNT], uint8_t& scen, float& spd,
-                          unsigned long& tSec, uint8_t& anomMask) const {
+                          unsigned long& tSec, uint8_t& anomMask,
+                          bool& dry, bool& as) const {
     portENTER_CRITICAL(&mux);
     if (!active) { portEXIT_CRITICAL(&mux); return false; }
     for (int i = 0; i < CH_COUNT; i++) {
@@ -348,6 +394,8 @@ bool SimSensors::snapshot(float outState[CH_COUNT], uint8_t& scen, float& spd,
     scen = scenario;
     spd = speed;
     tSec = (unsigned long)simTimeSec(millis());
+    dry = dryRun;
+    as = autoStop;
     portEXIT_CRITICAL(&mux);
     return true;
 }
